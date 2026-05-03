@@ -1,0 +1,63 @@
+{
+  "opencode": {
+    "skillRoot": "~/.config/opencode/skills",
+    "promptDir": "prompts",
+    "commandDir": "commands"
+  },
+  "copilot": {
+    "skillRoot": "~/.copilot/skills",
+    "promptDir": "prompts-copilot",
+    "agentDir": "agents-copilot",
+    "agentExtension": ".agent.md",
+    "agentTemplate": "agent-copilot.md.tmpl",
+    "agentTools": [
+      "read_file",
+      "write_file",
+      "create_file",
+      "list_dir",
+      "create_directory"
+    ],
+    "orchestratorTools": [
+      "read_file",
+      "write_file",
+      "create_file",
+      "list_dir",
+      "create_directory",
+      "run_agent"
+    ]
+  },
+  "claude": {
+    "skillRoot": "~/.claude/skills",
+    "promptDir": "prompts-claude",
+    "agentDir": "agents-claude",
+    "agentExtension": ".md",
+    "agentTemplate": "agent-claude.md.tmpl",
+    "agentTools": ["Read", "Write", "Edit", "Glob", "Grep"],
+    "orchestratorTools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Task"]
+  },
+  "qwen": {
+    "skillRoot": "~/.qwen/skills",
+    "promptDir": "prompts-qwen",
+    "agentDir": "agents-qwen",
+    "agentExtension": ".md",
+    "agentTemplate": "agent-qwen.md.tmpl",
+    "approvalMode": "auto-edit",
+    "orchestratorApprovalMode": "suggest",
+    "agentTools": [
+      "read_file",
+      "write_file",
+      "edit_file",
+      "create_directory",
+      "list_dir"
+    ],
+    "orchestratorTools": [
+      "read_file",
+      "write_file",
+      "edit_file",
+      "run_terminal_cmd",
+      "create_directory",
+      "list_dir",
+      "run_agent"
+    ]
+  }
+}

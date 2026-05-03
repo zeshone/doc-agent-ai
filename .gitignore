@@ -1,0 +1,5 @@
+dist/
+.windsurf/
+node_modules/
+*.log
+.DS_Store

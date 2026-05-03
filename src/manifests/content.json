@@ -1,0 +1,128 @@
+{
+  "placeholderBasePath": "__DOC_AGENT_BASE_PATH__/",
+  "skills": [
+    "doc-arch",
+    "doc-rec",
+    "doc-prd",
+    "doc-tech",
+    "doc-pti"
+  ],
+  "roles": [
+    {
+      "id": "doc-arch",
+      "content": "roles/doc-arch.md",
+      "skill": "doc-arch",
+      "rulesSkill": "doc-arch",
+      "description": "Documentation orchestrator — guides the full project documentation workflow",
+      "userInvocable": true,
+      "hidden": false,
+      "mode": "primary",
+      "opencodeTools": {
+        "bash": true,
+        "edit": true,
+        "read": true,
+        "task": true,
+        "write": true
+      },
+      "copilotChildren": ["doc-rec", "doc-prd", "doc-tech", "doc-pti"]
+    },
+    {
+      "id": "doc-rec",
+      "content": "roles/doc-rec.md",
+      "skill": "doc-rec",
+      "rulesSkill": "doc-arch",
+      "description": "Requirements elicitation executor",
+      "userInvocable": false,
+      "hidden": true,
+      "mode": "subagent",
+      "opencodeTools": {
+        "edit": true,
+        "read": true,
+        "write": true
+      }
+    },
+    {
+      "id": "doc-prd",
+      "content": "roles/doc-prd.md",
+      "skill": "doc-prd",
+      "rulesSkill": "doc-arch",
+      "description": "PRD generation executor",
+      "userInvocable": false,
+      "hidden": true,
+      "mode": "subagent",
+      "opencodeTools": {
+        "edit": true,
+        "read": true,
+        "write": true
+      }
+    },
+    {
+      "id": "doc-tech",
+      "content": "roles/doc-tech.md",
+      "skill": "doc-tech",
+      "rulesSkill": "doc-arch",
+      "description": "Technical specification executor",
+      "userInvocable": false,
+      "hidden": true,
+      "mode": "subagent",
+      "opencodeTools": {
+        "edit": true,
+        "read": true,
+        "write": true
+      }
+    },
+    {
+      "id": "doc-pti",
+      "content": "roles/doc-pti.md",
+      "skill": "doc-pti",
+      "rulesSkill": "doc-arch",
+      "description": "Issues breakdown executor",
+      "userInvocable": false,
+      "hidden": true,
+      "mode": "subagent",
+      "opencodeTools": {
+        "edit": true,
+        "read": true,
+        "write": true
+      }
+    }
+  ],
+  "commands": [
+    {
+      "id": "arch",
+      "description": "Documenta un sistema completo en 4 pasos: rec → prd → tech → pti",
+      "agent": "doc-arch",
+      "content": "commands/arch.md"
+    },
+    {
+      "id": "rec",
+      "description": "Paso 1 — Elicitación de requerimientos para un sistema o módulo",
+      "agent": "doc-arch",
+      "content": "commands/rec.md"
+    },
+    {
+      "id": "prd",
+      "description": "Paso 2 — Product Requirements Document para un sistema o módulo",
+      "agent": "doc-arch",
+      "content": "commands/prd.md"
+    },
+    {
+      "id": "tech",
+      "description": "Paso 3 — Especificación técnica para un sistema o módulo",
+      "agent": "doc-arch",
+      "content": "commands/tech.md"
+    },
+    {
+      "id": "pti",
+      "description": "Paso 4 — Desglose en issues para un sistema o módulo",
+      "agent": "doc-arch",
+      "content": "commands/pti.md"
+    },
+    {
+      "id": "mod",
+      "description": "Inicializa un módulo o sub-módulo dentro de un producto evolutivo",
+      "agent": "doc-arch",
+      "content": "commands/mod.md"
+    }
+  ]
+}
