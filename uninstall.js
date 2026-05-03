@@ -118,7 +118,7 @@ function detectPlatforms() {
       execSync("claude --version", { stdio: "ignore" });
       claude = true;
     } catch {
-      claude = true;
+      claude = false;
     }
   }
 
@@ -201,8 +201,8 @@ function getInstalledCommandIds(manifest) {
 }
 
 function getRegistryState(platformId) {
-  if (platformId !== "opencode") return false;
-  return fs.existsSync(path.join(TARGETS.opencode.home, ".atl", "skill-registry.md"));
+  if (platformId !== "opencode" && platformId !== "claude") return false;
+  return fs.existsSync(path.join(TARGETS[platformId].home, ".atl", "skill-registry.md"));
 }
 
 function checkWhatIsInstalled(manifest, platforms) {
@@ -239,6 +239,7 @@ function removeSkillsForPlatform(platformId, skillIds) {
   for (const skillId of skillIds) {
     removeDirIfExists(path.join(skillsDir, skillId), `skill: ${skillId}`);
   }
+  cleanupEmptyDirs(skillsDir, TARGETS[platformId].home);
 }
 
 function removePromptFilesForPlatform(platformId, promptIds, manifest) {
@@ -317,10 +318,10 @@ function removeAgentFilesForPlatform(platformId, agentIds, manifest) {
   cleanupEmptyDirs(target.agentsDir, target.home);
 }
 
-function removeSkillRegistryForOpencode() {
-  const registryPath = path.join(TARGETS.opencode.home, ".atl", "skill-registry.md");
+function removeSkillRegistry(platformId) {
+  const registryPath = path.join(TARGETS[platformId].home, ".atl", "skill-registry.md");
   removeFileIfExists(registryPath, ".atl/skill-registry.md");
-  cleanupEmptyDirs(path.dirname(registryPath), TARGETS.opencode.home);
+  cleanupEmptyDirs(path.dirname(registryPath), TARGETS[platformId].home);
 }
 
 function uninstallPlatform(platformId, details, manifest) {
@@ -332,11 +333,12 @@ function uninstallPlatform(platformId, details, manifest) {
   if (platformId === "opencode") {
     if (details.commands.length > 0) removeCommandFiles(details.commands, manifest);
     if (details.agents.length > 0) removeAgentsFromOpencode(details.agents);
-    if (details.registry) removeSkillRegistryForOpencode();
+    if (details.registry) removeSkillRegistry(platformId);
     return;
   }
 
   if (details.agents.length > 0) removeAgentFilesForPlatform(platformId, details.agents, manifest);
+  if (details.registry) removeSkillRegistry(platformId);
 }
 
 async function main() {
@@ -380,6 +382,7 @@ async function main() {
       console.log();
       warn("doc-agent-ai does not appear to be installed on detected platforms.");
       info("Nothing to uninstall.");
+      rl.close();
       process.exit(0);
     }
 
@@ -403,6 +406,7 @@ async function main() {
     const confirm = await ask(rl, `  ${c.bold}${c.red}Uninstall from all detected platforms?${c.reset} (y/N) `);
     if (confirm.trim().toLowerCase() !== "y") {
       info("Uninstall cancelled.");
+      rl.close();
       process.exit(0);
     }
 
