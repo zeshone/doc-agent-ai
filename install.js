@@ -93,6 +93,7 @@ function copyDirSync(src, dest) {
 
 function replaceInFile(filePath, search, replace) {
   const content = fs.readFileSync(filePath, "utf8");
+  if (!content.includes(search)) return;
   fs.writeFileSync(filePath, content.replaceAll(search, replace));
 }
 
@@ -128,7 +129,7 @@ function detectPlatforms() {
       execSync("claude --version", { stdio: "ignore" });
       claude = true;
     } catch {
-      claude = true;
+      claude = false;
     }
   }
 
@@ -201,7 +202,8 @@ function patchOpencodeJson(manifest) {
   const config = readJson(OPENCODE_JSON, "opencode.json");
   if (!config.agent) config.agent = {};
 
-  const promptsBase = path.join(OPENCODE_DIR, "prompts", "doc").replace(/\//g, "\\");
+  let promptsBase = path.join(OPENCODE_DIR, "prompts", "doc");
+  if (process.platform === "win32") promptsBase = promptsBase.replace(/\//g, "\\");
 
   for (const role of manifest.roles) {
     config.agent[role.id] = {
@@ -279,6 +281,7 @@ function checkOpencodeAlreadyInstalled(roleIds) {
     const config = JSON.parse(fs.readFileSync(OPENCODE_JSON, "utf8"));
     return roleIds.filter((id) => config.agent?.[id]);
   } catch {
+    warn("opencode.json is not valid JSON — cannot detect existing agents.");
     return [];
   }
 }
@@ -414,6 +417,7 @@ async function main() {
 
     if (!installOpencode && !installQwen && !installCopilot && !installClaude) {
       info("Nothing to install. Exiting.");
+      rl.close();
       process.exit(0);
     }
 
@@ -444,6 +448,7 @@ async function main() {
     const confirm = await ask(rl, `  ${c.bold}Proceed?${c.reset} (Y/n) `);
     if (confirm.trim().toLowerCase() === "n") {
       info("Installation cancelled.");
+      rl.close();
       process.exit(0);
     }
 
@@ -455,28 +460,28 @@ async function main() {
 
     if (installOpencode) {
       head("Installing for opencode...");
-      installFiles(manifest.roles.map((role) => role.promptFiles.opencode), TARGETS.opencode.promptsDir, basePath, manifest.placeholderBasePath, "prompt");
-      installFiles(manifest.commands.map((command) => command.file), TARGETS.opencode.commandsDir, basePath, manifest.placeholderBasePath, "command");
+      installFiles(manifest.roles.map((role) => role.promptFiles.opencode).filter(Boolean), TARGETS.opencode.promptsDir, basePath, manifest.placeholderBasePath, "prompt");
+      installFiles(manifest.commands.map((command) => command.file).filter(Boolean), TARGETS.opencode.commandsDir, basePath, manifest.placeholderBasePath, "command");
       patchOpencodeJson(manifest);
       writeSkillRegistry(TARGETS.opencode.home, basePath, "opencode");
     }
 
     if (installQwen) {
       head("Installing for Qwen Code...");
-      installFiles(manifest.roles.map((role) => role.promptFiles.qwen), TARGETS.qwen.promptsDir, basePath, manifest.placeholderBasePath, "prompt");
-      installFiles(manifest.roles.map((role) => role.agentFiles.qwen), TARGETS.qwen.agentsDir, basePath, manifest.placeholderBasePath, "agent");
+      installFiles(manifest.roles.map((role) => role.promptFiles.qwen).filter(Boolean), TARGETS.qwen.promptsDir, basePath, manifest.placeholderBasePath, "prompt");
+      installFiles(manifest.roles.map((role) => role.agentFiles.qwen).filter(Boolean), TARGETS.qwen.agentsDir, basePath, manifest.placeholderBasePath, "agent");
     }
 
     if (installCopilot) {
       head("Installing for GitHub Copilot...");
-      installFiles(manifest.roles.map((role) => role.promptFiles.copilot), TARGETS.copilot.promptsDir, basePath, manifest.placeholderBasePath, "prompt");
-      installFiles(manifest.roles.map((role) => role.agentFiles.copilot), TARGETS.copilot.agentsDir, basePath, manifest.placeholderBasePath, "agent");
+      installFiles(manifest.roles.map((role) => role.promptFiles.copilot).filter(Boolean), TARGETS.copilot.promptsDir, basePath, manifest.placeholderBasePath, "prompt");
+      installFiles(manifest.roles.map((role) => role.agentFiles.copilot).filter(Boolean), TARGETS.copilot.agentsDir, basePath, manifest.placeholderBasePath, "agent");
     }
 
     if (installClaude) {
       head("Installing for Claude Code...");
-      installFiles(manifest.roles.map((role) => role.promptFiles.claude), TARGETS.claude.promptsDir, basePath, manifest.placeholderBasePath, "prompt");
-      installFiles(manifest.roles.map((role) => role.agentFiles.claude), TARGETS.claude.agentsDir, basePath, manifest.placeholderBasePath, "agent");
+      installFiles(manifest.roles.map((role) => role.promptFiles.claude).filter(Boolean), TARGETS.claude.promptsDir, basePath, manifest.placeholderBasePath, "prompt");
+      installFiles(manifest.roles.map((role) => role.agentFiles.claude).filter(Boolean), TARGETS.claude.agentsDir, basePath, manifest.placeholderBasePath, "agent");
       writeSkillRegistry(TARGETS.claude.home, basePath, "claude");
     }
 
