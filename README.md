@@ -1,18 +1,25 @@
 # doc-agent-ai
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Go Version](https://img.shields.io/badge/Go-1.23+-00ADD8?logo=go)](https://go.dev)
 
-**Multi-platform documentation workflow agent.** Install once, document everywhere — from initial idea to implementation-ready issues, across opencode, Claude Code, GitHub Copilot, and Qwen Code.
+**Multi-platform documentation workflow agent.** Single binary — download and run. No Node.js, no npm, no dependencies. Install once, document everywhere across opencode, Claude Code, GitHub Copilot, and Qwen Code.
 
 ---
 
 ## Quick start
 
+Download the latest binary for your platform from [Releases](https://github.com/zeshone/doc-agent-ai/releases/latest).
+
+**Linux / macOS:**
 ```bash
-git clone https://github.com/zeshone/doc-agent-ai.git
-cd doc-agent-ai
-npm run generate
-node install.js
+chmod +x doc-agent-ai
+./doc-agent-ai install
+```
+
+**Windows:**
+```powershell
+.\doc-agent-ai.exe install
 ```
 
 Restart your AI tool. Then type `/arch my-system` to start documenting.
@@ -27,6 +34,16 @@ Restart your AI tool. Then type `/arch my-system` to start documenting.
 | [Claude Code](https://claude.ai) | Prompts, agents, skill-registry |
 | [GitHub Copilot](https://github.com/features/copilot) | Prompts, agents |
 | [Qwen Code](https://tongyi.aliyun.com) | Prompts, agents |
+
+---
+
+## Commands
+
+| Subcommand | What it does |
+|------------|--------------|
+| `generate` | Build `dist/` from embedded canonical content |
+| `install` | Interactive installer — copies agents, skills, and commands to detected platforms |
+| `uninstall` | Interactive uninstaller — removes only doc-agent-ai artifacts, leaves your docs untouched |
 
 ---
 
@@ -54,19 +71,13 @@ Restart your AI tool. Then type `/arch my-system` to start documenting.
 
 ## Update
 
-```bash
-git pull
-npm run generate
-node install.js
-```
-
-No data loss. Your documentation files live in your chosen projects path — never touched by install or uninstall.
+Download the latest binary from [Releases](https://github.com/zeshone/doc-agent-ai/releases/latest) and run `install` again. Your documentation files live in your chosen projects path — never touched by install or uninstall.
 
 ---
 
 ## Maintenance
 
-This project uses a **single-source → generate → install** architecture.
+This project uses a **single-source → embed → generate → install** architecture. All canonical content lives in `src/` and `skills/`, embedded into the binary at compile time via `//go:embed`.
 
 ### Source of truth
 
@@ -76,16 +87,23 @@ src/
   manifests/        ← declarative metadata (platforms, roles, commands)
   templates/        ← platform-specific wrappers (.tmpl)
 skills/             ← skill definitions shared across platforms
-scripts/
-  generate.js       ← builds dist/ from src/ + skills/
 ```
 
 ### Modify the agent
 
 1. Edit files under `src/` or `skills/`.
-2. Run `npm run generate` to rebuild `dist/`.
-3. Run `node install.js` to apply changes locally.
+2. Run `go run . generate` to rebuild `dist/`.
+3. Run `go run . install` to apply changes locally.
 4. Commit. `dist/` is git-ignored — only `src/` is versioned.
+
+### Build from source
+
+```bash
+git clone https://github.com/zeshone/doc-agent-ai.git
+cd doc-agent-ai
+go build -o doc-agent-ai .
+./doc-agent-ai install
+```
 
 ### Authoring conventions
 
@@ -100,7 +118,7 @@ scripts/
 ## Uninstall
 
 ```bash
-node uninstall.js
+./doc-agent-ai uninstall
 ```
 
 Removes skills, prompts, commands, and agent registrations from all detected platforms. Your documentation files are never touched.
