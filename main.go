@@ -22,6 +22,12 @@ func main() {
 		}
 		fmt.Println("dist generated from src canonical content")
 
+	case "install":
+		if err := installInteractive(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+
 	case "--version":
 		fmt.Printf("doc-agent-ai %s\n", version)
 
