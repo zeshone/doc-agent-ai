@@ -1,0 +1,35 @@
+version: 2
+
+builds:
+  - id: doc-agent-ai
+    main: .
+    binary: doc-agent-ai
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    env: [CGO_ENABLED=0]
+    ldflags: '-s -w -X main.version={{.Version}}'
+
+archives:
+  - formats: [tar.gz, zip]
+    name_template: "doc-agent-ai_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: "checksums.txt"
+
+brews:
+  - name: doc-agent-ai
+    homepage: "https://github.com/zeshone/doc-agent-ai"
+    repository:
+      owner: zeshone
+      name: homebrew-tap
+
+nfpms:
+  - formats: [deb, rpm]
+    maintainer: "Zesh-One"
+    description: "Multi-platform documentation workflow agent installer"
+    license: "MIT"
+
+release:
+  github:
+    owner: zeshone
+    name: doc-agent-ai

@@ -28,6 +28,12 @@ func main() {
 			os.Exit(1)
 		}
 
+	case "uninstall":
+		if err := uninstallInteractive(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+
 	case "--version":
 		fmt.Printf("doc-agent-ai %s\n", version)
 
