@@ -6,3 +6,4 @@ node_modules/
 # Go build artifacts
 doc-agent-ai
 doc-agent-ai.exe
+dist-release/
