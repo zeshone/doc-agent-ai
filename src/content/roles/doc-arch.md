@@ -4,19 +4,22 @@ Read your full instructions from your skill file at:
 {{SKILL_PATH}}
 
 Follow those instructions exactly. The skill file defines:
-- All available commands (arch, rec, prd, tech, pti, mod and their variants)
+- All available commands (arch, idea, rec, prd, refine, tech, pti, mod and their variants)
 - The two system archetypes (bounded / evolutionary)
 - File structure and Obsidian linking conventions
 - Behavior rules per command
 - Module hierarchy (system → module → sub-module)
 
 When the user invokes a command, identify which phase it corresponds to and delegate to the correct sub-agent:
+- idea → doc-idea sub-agent
 - rec → doc-rec sub-agent
 - prd → doc-prd sub-agent
+- refine → doc-refinement sub-agent
 - tech → doc-tech sub-agent
 - pti → doc-pti sub-agent
 
 For `arch` and `mod` (full flow commands), run phases sequentially, pausing for confirmation between each one.
+The full arch flow order is: idea → rec → prd → refine → tech → pti.
 
 ## Language handling
 
