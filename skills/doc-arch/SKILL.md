@@ -90,16 +90,22 @@ When the user invokes `/arch <sistema>` or `/rec <sistema>` for a NEW project (n
 arch <sistema>
 ```
 
-Runs the 4 steps in sequence with a confirmation pause between each one.
+Runs the 6 steps in sequence with a confirmation pause between each one.
 
 ### System — individual commands
 
 | Command | Phase | Skill |
 |---------|------|-------|
-| `rec <sistema>` | Step 1 — Requirements elicitation | `doc-rec` |
-| `prd <sistema>` | Step 2 — Product Requirements Document | `prd` |
-| `tech <sistema>` | Step 3 — Technical specification | `doc-tech` |
-| `pti <sistema>` | Step 4 — Issue breakdown | `doc-pti` |
+| `idea <sistema>` | Step 1 — Idea refinement | `doc-idea` |
+| `rec <sistema>` | Step 2 — Requirements elicitation | `doc-rec` |
+| `prd <sistema>` | Step 3 — Product Requirements Document | `doc-prd` |
+| `refine` | Step 4 — User story refinement | `doc-refinement` |
+| `tech <sistema>` | Step 5 — Technical specification | `doc-tech` |
+| `pti <sistema>` | Step 6 — Issue breakdown | `doc-pti` |
+
+Note: `refine` after a system argument runs in audit mode on that system's PRD.
+Example: `refine <sistema>` audits user stories in `<sistema>_prd.md`.
+Without a system argument (`refine`), it runs in standalone mode — the user provides a story to refine.
 
 ### Module — full workflow
 
@@ -118,15 +124,19 @@ mod admin-rh/reporteria reporteria-fiscal
 
 | Command | Phase |
 |---------|------|
-| `rec <sistema>/<modulo>` | Step 1 — Module requirements |
-| `prd <sistema>/<modulo>` | Step 2 — Module PRD |
-| `tech <sistema>/<modulo>` | Step 3 — Module tech spec (delta or full) |
-| `pti <sistema>/<modulo>` | Step 4 — Module issues |
+| `idea <sistema>/<modulo>` | Step 1 — Module idea refinement |
+| `rec <sistema>/<modulo>` | Step 2 — Module requirements |
+| `prd <sistema>/<modulo>` | Step 3 — Module PRD |
+| `refine <sistema>/<modulo>` | Step 4 — Module user story audit |
+| `tech <sistema>/<modulo>` | Step 5 — Module tech spec (delta or full) |
+| `pti <sistema>/<modulo>` | Step 6 — Module issues |
 
 For sub-modules, the path extends by one more level:
 ```
+idea admin-rh/reporteria/reporteria-fiscal
 rec admin-rh/reporteria/reporteria-fiscal
 prd admin-rh/reporteria/reporteria-fiscal
+refine admin-rh/reporteria/reporteria-fiscal
 tech admin-rh/reporteria/reporteria-fiscal
 pti admin-rh/reporteria/reporteria-fiscal
 ```
@@ -172,8 +182,9 @@ It is created when starting system Step 1. It is updated automatically when each
 
 ## System core
 
-- [x] [[<sistema>_requirements|Requirements]]
+- [ ] [[<sistema>_requirements|Requirements]]
 - [ ] [[<sistema>_prd|PRD]]
+- [ ] Refinement audit
 - [ ] [[<sistema>_tech-spec|Tech Spec]]
 - [ ] [[<sistema>_issues|Issues]]
 
@@ -186,6 +197,7 @@ It is created when starting system Step 1. It is updated automatically when each
 
 - [x] [[modules/<modulo>/<modulo>_requirements|Requirements]]
 - [x] [[modules/<modulo>/<modulo>_prd|PRD]]
+- [x] Refinement audit
 - [ ] [[modules/<modulo>/<modulo>_tech-spec|Tech Spec]]
 - [ ] [[modules/<modulo>/<modulo>_issues|Issues]]
 
@@ -193,6 +205,7 @@ It is created when starting system Step 1. It is updated automatically when each
 
   - [ ] [[modules/<modulo>/modules/<submodulo>/<submodulo>_requirements|Requirements]]
   - [ ] [[modules/<modulo>/modules/<submodulo>/<submodulo>_prd|PRD]]
+  - [ ] Refinement audit
   - [ ] [[modules/<modulo>/modules/<submodulo>/<submodulo>_tech-spec|Tech Spec]]
   - [ ] [[modules/<modulo>/modules/<submodulo>/<submodulo>_issues|Issues]]
 ```
@@ -213,6 +226,7 @@ It is created when starting system Step 1. It is updated automatically when each
 
 - [ ] [[<modulo>_requirements|Requirements]]
 - [ ] [[<modulo>_prd|PRD]]
+- [ ] Refinement audit
 - [ ] [[<modulo>_tech-spec|Tech Spec]]
 - [ ] [[<modulo>_issues|Issues]]
 
@@ -225,6 +239,7 @@ It is created when starting system Step 1. It is updated automatically when each
 
 - [ ] [[modules/<submodulo>/<submodulo>_requirements|Requirements]]
 - [ ] [[modules/<submodulo>/<submodulo>_prd|PRD]]
+- [ ] Refinement audit
 - [ ] [[modules/<submodulo>/<submodulo>_tech-spec|Tech Spec]]
 - [ ] [[modules/<submodulo>/<submodulo>_issues|Issues]]
 ```
@@ -238,8 +253,8 @@ Applies equally to systems, modules, and sub-modules:
 | Status | Condition |
 |--------|-----------|
 | `started` | Only the index exists, with no completed phases |
-| `in progress` | Between 1 and 3 completed phases |
-| `documented` | All 4 phases completed |
+| `in progress` | Between 1 and 5 completed phases |
+| `documented` | All 6 phases completed |
 | `in review` | Issues generated, pending upload to GitHub |
 
 ---
@@ -263,23 +278,55 @@ Applies equally to systems, modules, and sub-modules:
 
 1. Verifies/creates `<projects-root>/<sistema>/`.
 2. If this is a new project (directory didn't exist): detect the user's language, ask for documentation language, and record the choice before continuing.
-3. Creates the master index with status `started` and description `TBD`.
-4. Runs in order: **rec → prd → tech → pti**.
-5. Between each step: shows a summary of the generated artifact and asks `Do we continue with the next step? (y/n)`.
-6. When each step is completed: updates the corresponding checkbox in the master index.
-7. At the end of step 4: shows a summary of the 4 generated files and updates the status to `documented`.
+3. Runs in order: **idea → rec → prd → refine → tech → pti**.
+4. Between each step: shows a summary of the generated artifact and asks `Do we continue with the next step? (y/n)`.
+5. When each step is completed: updates the corresponding checkbox in the master index.
+6. At the end of step 6: shows a summary of all generated files and updates the status to `documented`.
 
 ---
 
-### `rec <sistema>` — Step 1: Requirements elicitation
+---
+
+### `idea <sistema>` — Step 1: Idea refinement
+
+**Skill:** `doc-idea`
+
+**Protocol:**
+
+1. Verifies/creates the directory and the master index with status `started` and description `TBD`.
+
+2. If this is a new project: detect the user's language, ask for documentation language, and record the choice before continuing.
+
+3. Conducts the idea refinement conversation following the 5 questions of the PO in the `doc-idea` skill file:
+   - ¿Para quién es esto?
+   - ¿Qué problema resuelve o qué necesidad cubre?
+   - ¿Cómo se ve el éxito?
+   - ¿Qué queda fuera?
+   - ¿Por qué ahora?
+   - **Never dives into technical topics.** No stack, no APIs, no databases. Pure product discovery.
+
+4. If the idea is already clear, validates quickly and moves on. Does not force process.
+
+5. Reformulates the idea in 4 short paragraphs: purpose, value proposition, scope, context.
+
+6. Updates the master index:
+   - Replaces `TBD` with a polished 2-3 sentence project description.
+   - Marks `[x]` on Idea.
+   - Status → `started`.
+
+7. Optionally generates `<sistema>_idea-brief.md` if the user wants a more detailed capture.
+
+---
+
+### `rec <sistema>` — Step 2: Requirements elicitation
 
 **Skill:** `doc-rec`
 
 **Protocol:**
 
-0. If this is a new project (directory didn't exist): detect the user's language, ask for documentation language, and record the choice before continuing.
+0. If this is a new call to `rec` without `idea` having run first (directory exists but master index has `TBD` and no completed phases): detect the user's language, ask for documentation language, record the choice, and update the master index before continuing.
 
-1. Verifies/creates the directory and the master index.
+1. Verifies/creates the directory and the master index if they don't exist yet.
 
 2. **First question — archetype detection:**
    > "Is this system a single delivery (with no future evolution), or is it a product that will grow over time with modules and new functionality?"
@@ -350,14 +397,14 @@ Applies equally to systems, modules, and sub-modules:
 ```
 
 5. Updates the master index:
-   - Replaces `TBD` with a 2-3 sentence project description.
+   - If not already done by `idea`, replaces `TBD` with a 2-3 sentence project description.
    - Records the detected archetype.
    - Marks `[x]` on Requirements.
    - Status → `in progress`.
 
 ---
 
-### `prd <sistema>` — Step 2: Product Requirements Document
+### `prd <sistema>` — Step 3: Product Requirements Document
 
 **Skill:** `prd`
 
@@ -452,7 +499,37 @@ Applies equally to systems, modules, and sub-modules:
 
 ---
 
-### `tech <sistema>` — Step 3: Technical specification
+### `refine` — Step 4: User story refinement
+
+**Skill:** `doc-refinement`
+
+**Prerequisite:** `<sistema>_prd.md` must exist. If not, notify:
+> `"First run: prd <sistema>"`
+
+**Two execution modes:**
+
+#### Mode A — With system argument (`refine <sistema>`) — Audit mode
+
+1. Reads `<sistema>_prd.md` as input.
+2. Extracts all user stories from the PRD.
+3. Audits each against INVEST criteria (format, independence, value, size, testability, language, ambiguity).
+4. Generates an audit report classifying each story: ✅ OK / ⚠️ WARNING / 🔴 ISSUE.
+5. For stories with warnings or issues, provides a refined version preserving original intent plus suggested acceptance criteria.
+6. Presents the report and asks: "¿Aplico las correcciones al PRD?"
+7. If user confirms → updates the PRD file with refined stories.
+8. Updates the master index: marks `[x]` on Refinement.
+
+#### Mode B — Without system argument (`refine`) — Standalone mode
+
+1. Asks the user to provide a user story.
+2. Analyzes it against INVEST criteria.
+3. Asks up to 3 clarification questions if needed.
+4. Delivers a refined, professional user story with acceptance criteria.
+5. Does NOT touch any file — returns the result inline.
+
+---
+
+### `tech <sistema>` — Step 5: Technical specification
 
 **Skill:** `doc-tech`
 
@@ -552,7 +629,7 @@ Applies equally to systems, modules, and sub-modules:
 
 ---
 
-### `pti <sistema>` — Step 4: Issue breakdown
+### `pti <sistema>` — Step 6: Issue breakdown
 
 **Skill:** `doc-pti`
 
@@ -639,7 +716,7 @@ Applies equally to systems, modules, and sub-modules:
 1. Verifies/creates `<projects-root>/<sistema>/modules/<modulo>/`.
 2. Creates the module index (`<modulo>.md`) with a link to the parent system.
 3. Adds the module to the **Modules** section of the master index with status `started`.
-4. Runs in order: **rec → prd → tech → pti** scoped to the module.
+4. Runs in order: **idea → rec → prd → refine → tech → pti** scoped to the module.
 5. Between each step: pause and confirmation.
 
 For a level-2 sub-module:
@@ -651,7 +728,23 @@ mod <sistema>/<modulo> <submodulo>
 
 ---
 
-### `rec <sistema>/<modulo>` — Module step 1
+---
+
+### `idea <sistema>/<modulo>` — Module step 1
+
+**Skill:** `doc-idea`
+
+**Prerequisite:** The module directory must exist. If not, notify:
+> `"First initialize the module: mod <sistema> <modulo>"`
+
+**Protocol:** Same as `idea <sistema>` with these differences:
+- The working directory is `modules/<modulo>/`.
+- The idea is scoped to the module's purpose within the parent system.
+- Updates the module index with a polished module description.
+
+---
+
+### `rec <sistema>/<modulo>` — Module step 2
 
 **Skill:** `doc-rec`
 
@@ -667,7 +760,7 @@ mod <sistema>/<modulo> <submodulo>
 
 ---
 
-### `prd <sistema>/<modulo>` — Module step 2
+### `prd <sistema>/<modulo>` — Module step 3
 
 **Skill:** `prd`
 
@@ -683,7 +776,21 @@ mod <sistema>/<modulo> <submodulo>
 
 ---
 
-### `tech <sistema>/<modulo>` — Module step 3
+### `refine <sistema>/<modulo>` — Module step 4
+
+**Skill:** `doc-refinement`
+
+**Prerequisite:** `<modulo>_prd.md` must exist. If not, notify:
+> `"First run: prd <sistema>/<modulo>"`
+
+**Protocol:** Same as `refine <sistema>` (audit mode) with these differences:
+- Reads `<modulo>_prd.md` as input.
+- Audits only the user stories in the module's PRD.
+- Updates the module index with refinement status if corrections are applied.
+
+---
+
+### `tech <sistema>/<modulo>` — Module step 5
 
 **Skill:** `doc-tech`
 
@@ -766,7 +873,7 @@ This module diverges in architecture. See the design decisions table for justifi
 
 ---
 
-### `pti <sistema>/<modulo>` — Module step 4
+### `pti <sistema>/<modulo>` — Module step 6
 
 **Skill:** `doc-pti`
 
@@ -787,12 +894,14 @@ This module diverges in architecture. See the design decisions table for justifi
 
 1. **Never invent context.** If a prerequisite is missing, stop and notify with the correct command.
 2. **Ask before assuming.** In `prd` and `tech`, always ask clarification questions before generating. Never skip this step.
+2.0. **Idea = pure product discovery.** `idea` must stay at the business/product level. No technical topics, no requirements, no user stories. Act as a Product Owner — guide the conversation through the 5 core questions without drifting into implementation.
 2.1. **PRD = more technical than `rec`, but clear.** The PRD must go deeper into flows, criteria, dependencies, constraints, integrations, risks, and measurable metrics without falling into unnecessary technicalism.
-2.2. **Tech = maximum technical precision with readable language.** `tech` is the phase where architecture, technical approach, contracts, constraints, risks, rollout, and validation are defined with the highest level of precision in the workflow, but without cryptic jargon.
-2.3. **If there is uncertainty, do not invent.** When data is missing, subjective, or open, the agent must ask or mark `TBD` / `Open decision` with an explicit note.
-2.4. **No empty phrases.** Never use claims such as "robust", "scalable", or "secure" without explaining the concrete mechanism, constraint, limit, or tradeoff.
-2.5. **PTI must leave grab-able work.** Each issue must explain end-to-end behavior, verifiable criteria, covered stories, dependencies, and AFK/HITL type.
-2.6. **PTI does not cover up gaps.** If the PRD does not allow an executable issue to be written, the agent asks or leaves a visible `TBD` / dependency. It never invents missing definitions.
+2.2. **Refinement = quality gate for user stories.** `refine` audits user stories against INVEST criteria immediately after PRD generation. It does NOT add new stories, delete stories, or change scope. In audit mode, never modify the PRD without user confirmation.
+2.3. **Tech = maximum technical precision with readable language.** `tech` is the phase where architecture, technical approach, contracts, constraints, risks, rollout, and validation are defined with the highest level of precision in the workflow, but without cryptic jargon.
+2.4. **If there is uncertainty, do not invent.** When data is missing, subjective, or open, the agent must ask or mark `TBD` / `Open decision` with an explicit note.
+2.5. **No empty phrases.** Never use claims such as "robust", "scalable", or "secure" without explaining the concrete mechanism, constraint, limit, or tradeoff.
+2.6. **PTI must leave grab-able work.** Each issue must explain end-to-end behavior, verifiable criteria, covered stories, dependencies, and AFK/HITL type.
+2.7. **PTI does not cover up gaps.** If the PRD does not allow an executable issue to be written, the agent asks or leaves a visible `TBD` / dependency. It never invents missing definitions.
 3. **Always link in Obsidian.** Every generated file has its `[[...]]` link in the corresponding index. Modules link bidirectionally with their parent.
 4. **Issues are local first.** Issue `.md` files are generated locally. GitHub comes when the user explicitly requests it.
 5. **Always update indexes.** When a phase is completed, the checkbox is marked `[x]` and the node status is recalculated automatically.

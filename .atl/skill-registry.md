@@ -8,9 +8,11 @@
 
 | Trigger | Skill | Path |
 |---------|-------|------|
-| `/arch`, `/rec`, `/prd`, `/tech`, `/pti`, `/mod` — project documentation workflow | doc-arch | `skills/doc-arch/SKILL.md` |
+| `/arch`, `/idea`, `/rec`, `/prd`, `/refine`, `/tech`, `/pti`, `/mod` — project documentation workflow | doc-arch | `skills/doc-arch/SKILL.md` |
+| Refining vague high-level ideas into concrete product concepts (pre-requirements) | doc-idea | `skills/doc-idea/SKILL.md` |
 | Generating PRDs for software systems and AI-powered features | doc-prd | `skills/doc-prd/SKILL.md` |
 | Requirements elicitation, stakeholder interviews, workshops | doc-rec | `skills/doc-rec/SKILL.md` |
+| Auditing and refining user stories against INVEST criteria (post-PRD) | doc-refinement | `skills/doc-refinement/SKILL.md` |
 | Technical specification creation with architecture and design decisions | doc-tech | `skills/doc-tech/SKILL.md` |
 | Breaking PRDs into local issues using vertical slices | doc-pti | `skills/doc-pti/SKILL.md` |
 | Parallel adversarial code review (judgment day) | judgment-day | `<opencode-home>/skills/judgment-day/SKILL.md` |
@@ -26,7 +28,8 @@
 
 ### doc-arch
 - Base path for all projects: `<projects-root>/`
-- Commands: `arch <s>` (full flow), `rec`, `prd`, `tech`, `pti` (individual), `mod <s> <m>` (module)
+- Commands: `arch <s>` (full 6-phase flow), `idea`, `rec`, `prd`, `refine`, `tech`, `pti` (individual), `mod <s> <m>` (module)
+- Full flow order: idea → rec → prd → refine → tech → pti
 - Module paths: `<sistema>/<modulo>` and `<sistema>/<modulo>/<submodulo>` — max 2 levels deep
 - Archetype detected in `rec`: acotado (single delivery) or evolutivo (long lifecycle with modules)
 - Index file `<sistema>.md` uses Obsidian `[[...]]` links and checkboxes — update after every phase
@@ -35,7 +38,37 @@
 - Issues generated as local .md only — never push to GitHub unless user explicitly asks
 - Never invent context — if prerequisite missing, stop and show exact command to run
 
+### doc-idea
+- Phase 0: pure product discovery — NO technical topics, NO requirements, NO user stories
+- Guide through 5 PO questions: who, problem, success, scope, why now
+- Produce polished project description for master index (2-3 sentences)
+- Optional: generate `<sistema>_idea-brief.md` if user wants detailed capture
+- If idea is already clear, validate quickly and move on — don't force process
+
 ### doc-prd
+- Follow Strict PRD Schema: Executive Summary → UX & Functionality → AI Requirements → Tech Specs → Risks & Roadmap
+- Never skip discovery — ask at least 2 clarifying questions before generating
+- Use concrete measurable criteria — never "fast", "easy", or "intuitive"
+- If module: also read parent sistema's _prd.md to avoid contradicting Non-Goals
+- Label unknowns as `TBD` — never hallucinate constraints
+
+### doc-rec
+- Identify stakeholders by BABOK category: customer, end user, sponsor, domain expert, regulator, implementation team
+- List business events as elicitation drivers — not document templates
+- Use minimum 3 techniques per project (interviews + workshop + document analysis as baseline)
+- Capture every requirement with source traceability (who said it and why)
+- Document conflicts between stakeholders — never resolve silently
+- Classify by BABOK hierarchy: business → stakeholder → solution (functional + non-functional) → transition
+- Elicitation is iterative — one pass is never "complete"
+
+### doc-refinement
+- Dual mode: audit (auto, via arch flow) and standalone (manual, user provides a story)
+- Audit mode: ONLY touches User Stories section of PRD — never other sections
+- Audit mode: NEVER modify PRD without explicit user confirmation
+- Standalone mode: max 3 clarification questions, always deliver acceptance criteria
+- Audit against INVEST: Independent, Negotiable, Valuable, Estimable, Small, Testable
+- Do NOT add new stories, delete stories, or change scope
+- Every refined story must have at least 2 verifiable acceptance criteria
 - Follow Strict PRD Schema: Executive Summary → UX & Functionality → AI Requirements → Tech Specs → Risks & Roadmap
 - Never skip discovery — ask at least 2 clarifying questions before generating
 - Use concrete measurable criteria — never "fast", "easy", or "intuitive"
