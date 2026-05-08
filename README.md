@@ -49,22 +49,33 @@ Restart your AI tool. Then type `/arch my-system` to start documenting.
 
 ## Phases
 
+The documentation workflow now has **6 phases**:
+
+```text
+idea -> rec -> prd -> refine -> tech -> pti
+```
+
 | Command | Phase | Output |
 |---------|-------|--------|
+| `/idea <system>` | Idea refinement — turn a vague concept into a clear product direction | Master index description (+ optional `_idea-brief.md`) |
 | `/rec <system>` | Requirements elicitation | `_requirements.md` |
 | `/prd <system>` | Product Requirements Document | `_prd.md` |
+| `/refine <system>` | User story audit against INVEST criteria | Updated `_prd.md` user stories |
+| `/refine` | Standalone refinement of a single user story | Inline refined story |
 | `/tech <system>` | Technical specification | `_tech-spec.md` |
 | `/pti <system>` | Issues breakdown | `_issues.md` |
-| `/arch <system>` | Full flow (all 4) | All of the above |
+| `/arch <system>` | Full flow (all 6) | All of the above |
 
 ### Modules
 
 ```text
+/idea <system>/<module>          ← individual phase for a module
 /rec <system>/<module>           ← individual phase for a module
 /prd <system>/<module>
+/refine <system>/<module>
 /tech <system>/<module>
 /pti <system>/<module>
-/mod <system> <module>           ← full module flow
+/mod <system> <module>           ← full module flow (all 6 phases)
 ```
 
 ---
@@ -107,8 +118,8 @@ go build -o doc-agent-ai .
 
 ### Authoring conventions
 
-- Canonical names: `doc-arch`, `doc-rec`, `doc-prd`, `doc-tech`, `doc-pti`
-- Progressive technical depth: `rec` (executive) → `prd` (technical, clear) → `tech` (maximum precision, legible)
+- Canonical names: `doc-arch`, `doc-idea`, `doc-rec`, `doc-prd`, `doc-refinement`, `doc-tech`, `doc-pti`
+- Progressive workflow depth: `idea` (product framing) → `rec` (executive/business elicitation) → `prd` (technical but clear) → `refine` (story quality gate) → `tech` (maximum precision, still legible) → `pti` (executable issues)
 - Local-first issues. GitHub only on explicit request.
 - Language detection on first contact. Documentation language asked once per system.
 - Never assume missing context — ask or mark `TBD`.
