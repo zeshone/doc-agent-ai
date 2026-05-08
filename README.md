@@ -5,6 +5,8 @@
 
 **Multi-platform documentation workflow agent.** Single binary — download and run. No Node.js, no npm, no dependencies. Install once, document everywhere across opencode, Claude Code, GitHub Copilot, and Qwen Code.
 
+> **v3.2.0** — Surgical skill sanitization. Skills slimmed from 2,086 to 870 lines (58% reduction). ~70% fewer input tokens for agent instructions, ~20% fewer output tokens between sub-agents. Transformed from human manuals into precise, kitchen-specific instructions for AI agents. [Full changelog →](https://github.com/zeshone/doc-agent-ai/releases/tag/v3.2.0)
+
 ---
 
 ## Quick start
@@ -122,6 +124,7 @@ go build -o doc-agent-ai .
 - Progressive workflow depth: `idea` (product framing) → `rec` (executive/business elicitation) → `prd` (technical but clear) → `refine` (story quality gate) → `tech` (maximum precision, still legible) → `pti` (executable issues)
 - Local-first issues. GitHub only on explicit request.
 - Language detection on first contact. Documentation language asked once per system.
+- **All skills in English.** The author works primarily in Spanish — occasional Spanish fragments in skill instructions are unintentional artifacts of the authoring workflow. All skill content must be delivered in English for global accessibility. PRs with non-English skill content will be flagged.
 - Never assume missing context — ask or mark `TBD`.
 
 ---

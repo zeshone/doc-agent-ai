@@ -16,14 +16,17 @@ license: MIT
 
 ## Overview
 
-Based on the **BABOK Guide v3 (IIBA)** - Elicitation & Collaboration knowledge area, which defines 50 standardized techniques across 6 knowledge areas. Also draws on **Mastering the Requirements Process** by Suzanne & James Robertson for the Volere "trawling" approach - their term for iterative elicitation driven by business events, not document templates. The key insight: elicitation is not a phase you complete; it is a continuous activity that starts with business events and stakeholders, not with a blank requirements template.
+Method: BABOK Elicitation & Collaboration. Start from business events and stakeholders, not a blank template. Elicitation is iterative — each round reveals gaps for the next. Keep methodological rigor internal; keep the stakeholder-facing conversation in business language, progressing to technical depth only when context is established.
 
 **Conversational rule:** keep the methodological rigor internally, but make the interface progressively technical. Start in executive/business language, then deepen only when context is strong enough. Do **not** open with BABOK jargon, formal classification labels, solution design, implementation details, integrations, or technical architecture questions unless the stakeholder already speaks naturally at that level.
 
 ## Workflow
 
 ### Step 1: Identify stakeholders and business events
-List every person, role, and adjacent system that touches the problem space. Use the BABOK's stakeholder categories: customer, end user, sponsor, domain expert, regulator, implementation team. Then list the business events that trigger the process or system under analysis - Robertson's Business Event List is the elicitation backbone.
+
+If this is a module: first read the parent system's `_requirements.md`. Module requirements must complement, not duplicate, the parent baseline.
+
+List every person, role, and adjacent system that touches the problem space. Use BABOK stakeholder categories: customer, end user, sponsor, domain expert, regulator, implementation team. Then list the business events that trigger the process or system under analysis.
 
 ### Step 2: Select elicitation techniques
 Match techniques to stakeholder type and information need (see `references/elicitation-techniques.md`). Use a mix:

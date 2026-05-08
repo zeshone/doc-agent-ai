@@ -45,7 +45,7 @@ If a slice cannot become executable without missing context, do NOT fill the gap
 
 Break the PRD into **tracer bullet** issues. Each issue is a thin vertical slice that cuts through ALL integration layers end-to-end, NOT a horizontal slice of one layer.
 
-Slices may be 'HITL' or 'AFK'. HITL slices require human interaction, such as an architectural decision or a design review. AFK slices can be implemented and merged without human interaction. Prefer AFK over HITL where possible.
+Slices may be HITL (Human In The Loop — requires human interaction, such as an architectural decision or design review) or AFK (Away From Keyboard — fully automatable, can be implemented and merged without human interaction). Prefer AFK over HITL where possible.
 
 <vertical-slice-rules>
 - Each slice delivers a narrow but COMPLETE path through every layer (schema, API, UI, tests)

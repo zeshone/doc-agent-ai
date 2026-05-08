@@ -33,6 +33,10 @@ Rules:
 - If the answer is still unknown, mark it clearly as `TBD` or `Open Decision`.
 - Avoid empty claims like "robust", "scalable", or "secure" unless you explain the concrete mechanism, limit, or tradeoff.
 
+### Modules
+
+If working on a module (`tech <sistema>/<modulo>`): first ask *"Does this module inherit the parent system architecture (delta spec, ~95% of cases) or diverge (full spec, ~5%)?"* If delta → reference the parent tech spec and document only deviations. If full → treat as standalone but align with parent Non-Goals.
+
 ### Explore Codebases
 
 Always ask first which repositories need exploration before starting.
@@ -93,7 +97,7 @@ When information is missing:
 
 ### Expert Review
 
-Invoke `tech-spec:review` on the draft spec.
+Self-review the draft against the iteration validation rules below (stale references, contradictions, orphaned details, milestone alignment).
 
 ### Iterate
 
