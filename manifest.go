@@ -36,6 +36,7 @@ type PlatformManifest struct {
 	Copilot  PlatformConfig `json:"copilot"`
 	Claude   PlatformConfig `json:"claude"`
 	Qwen     PlatformConfig `json:"qwen"`
+	Pi       PlatformConfig `json:"pi"`
 }
 
 // PlatformConfig holds configuration for a single AI platform.
@@ -80,6 +81,7 @@ type PromptFileMap struct {
 	Copilot  string `json:"copilot"`
 	Claude   string `json:"claude"`
 	Qwen     string `json:"qwen"`
+	Pi       string `json:"pi"`
 }
 
 // AgentFileMap maps platform IDs to agent file paths. Only platforms with

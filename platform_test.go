@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -85,6 +86,15 @@ func createMockClaude(t *testing.T, home string) {
 	}
 }
 
+// createMockPi creates a fake .pi/agent directory.
+func createMockPi(t *testing.T, home string) {
+	t.Helper()
+	piDir := filepath.Join(home, ".pi", "agent")
+	if err := os.MkdirAll(piDir, 0755); err != nil {
+		t.Fatalf("create pi dir: %v", err)
+	}
+}
+
 // newPlatformForTest creates a platform with a custom home directory for testing.
 func newPlatformForTest(t *testing.T, id string, homeDir string) Platform {
 	t.Helper()
@@ -106,6 +116,8 @@ func newPlatformForTest(t *testing.T, id string, homeDir string) Platform {
 	case "claude":
 		cfg.AgentDir = "agents"
 		return &claudePlatform{basePlatform{id: id, homeDir: homeDir, cfg: cfg}}
+	case "pi":
+		return &piPlatform{basePlatform{id: id, homeDir: homeDir, cfg: cfg}}
 	default:
 		t.Fatalf("unknown platform: %s", id)
 		return nil
@@ -1074,6 +1086,164 @@ func TestCopilotDetect_Standard(t *testing.T) {
 //	go test -run TestCopilotDetect_Portable -v
 //
 // and verify Detect() returns true without ~/.copilot present.
+
+// ---------------------------------------------------------------------------
+// Pi platform tests
+// ---------------------------------------------------------------------------
+
+// TestPiDetect_DirExists — ~/.pi/agent present, binary irrelevant.
+func TestPiDetect_DirExists(t *testing.T) {
+	tmpDir := t.TempDir()
+	mockHomeEnv(t, tmpDir)
+	createMockPi(t, tmpDir)
+
+	home := filepath.Join(tmpDir, ".pi", "agent")
+	p := newPlatformForTest(t, "pi", home)
+
+	if !p.Detect() {
+		t.Error("Detect() should return true when ~/.pi/agent exists")
+	}
+}
+
+// TestPiDetect_DirMissing_BinaryOnPATH — fallback to LookPath("pi") when the
+// home directory does not exist.  Skipped on Windows because exec.LookPath
+// requires a .exe/.cmd extension that complicates mocking.
+func TestPiDetect_DirMissing_BinaryOnPATH(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("LookPath binary mocking requires .exe/.cmd handling — manual test on Windows")
+	}
+
+	tmpDir := t.TempDir()
+	mockHomeEnv(t, tmpDir)
+	// Intentionally do NOT create ~/.pi/agent.
+
+	// Create a fake `pi` executable in a separate dir and prepend it to PATH.
+	binDir := t.TempDir()
+	piBin := filepath.Join(binDir, "pi")
+	if err := os.WriteFile(piBin, []byte("#!/bin/sh\necho mock pi\n"), 0755); err != nil {
+		t.Fatalf("write mock pi: %v", err)
+	}
+	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	home := filepath.Join(tmpDir, ".pi", "agent")
+	p := newPlatformForTest(t, "pi", home)
+
+	if !p.Detect() {
+		t.Error("Detect() should return true when 'pi' is on PATH even without ~/.pi/agent")
+	}
+}
+
+// TestPiDetect_NeitherExists — no dir, no binary → not detected.
+func TestPiDetect_NeitherExists(t *testing.T) {
+	tmpDir := t.TempDir()
+	mockHomeEnv(t, tmpDir)
+	// Scrub PATH so any host-level `pi` does not leak in.
+	t.Setenv("PATH", t.TempDir())
+
+	home := filepath.Join(tmpDir, ".pi", "agent")
+	p := newPlatformForTest(t, "pi", home)
+
+	if p.Detect() {
+		t.Error("Detect() should return false when ~/.pi/agent missing and 'pi' not on PATH")
+	}
+}
+
+// TestPiDetect_Flag — --pi-path override points to an existing dir.
+func TestPiDetect_Flag(t *testing.T) {
+	tmpDir := t.TempDir()
+	orig := piPathOverride
+	piPathOverride = tmpDir
+	t.Cleanup(func() { piPathOverride = orig })
+
+	cfg := PlatformConfig{SkillRoot: "~/.pi/agent/skills"}
+	p, err := newPiPlatform(cfg)
+	if err != nil {
+		t.Fatalf("newPiPlatform: %v", err)
+	}
+
+	if p.HomeDir() != tmpDir {
+		t.Errorf("HomeDir() = %q, want %q", p.HomeDir(), tmpDir)
+	}
+	if !p.Detect() {
+		t.Error("Detect() should return true when override path exists")
+	}
+}
+
+// TestPiDetect_FlagMissing — override points to a nonexistent path; HomeDir
+// reflects the override anyway and Detect falls back to the PATH check.
+func TestPiDetect_FlagMissing(t *testing.T) {
+	orig := piPathOverride
+	piPathOverride = filepath.Join(t.TempDir(), "does-not-exist")
+	// Scrub PATH so the test does not accidentally find a real `pi`.
+	t.Setenv("PATH", t.TempDir())
+	t.Cleanup(func() { piPathOverride = orig })
+
+	cfg := PlatformConfig{SkillRoot: "~/.pi/agent/skills"}
+	p, err := newPiPlatform(cfg)
+	if err != nil {
+		t.Fatalf("newPiPlatform: %v", err)
+	}
+
+	if p.HomeDir() != piPathOverride {
+		t.Errorf("HomeDir() = %q, want %q", p.HomeDir(), piPathOverride)
+	}
+	if p.Detect() {
+		t.Error("Detect() should return false when override path missing and 'pi' not on PATH")
+	}
+}
+
+// TestPiDetect_EnvOverride — PI_CODING_AGENT_DIR is honoured when --pi-path
+// is unset.
+func TestPiDetect_EnvOverride(t *testing.T) {
+	orig := piPathOverride
+	piPathOverride = ""
+	t.Cleanup(func() { piPathOverride = orig })
+
+	tmpDir := t.TempDir()
+	t.Setenv("PI_CODING_AGENT_DIR", tmpDir)
+
+	cfg := PlatformConfig{SkillRoot: "~/.pi/agent/skills"}
+	p, err := newPiPlatform(cfg)
+	if err != nil {
+		t.Fatalf("newPiPlatform: %v", err)
+	}
+
+	if p.HomeDir() != tmpDir {
+		t.Errorf("HomeDir() = %q, want %q", p.HomeDir(), tmpDir)
+	}
+	if !p.Detect() {
+		t.Error("Detect() should return true when env-overridden path exists")
+	}
+}
+
+// TestPiGetAgentIDs_AlwaysNil — Pi has no native agent directory.
+func TestPiGetAgentIDs_AlwaysNil(t *testing.T) {
+	tmpDir := t.TempDir()
+	home := filepath.Join(tmpDir, ".pi", "agent")
+	p := newPlatformForTest(t, "pi", home)
+
+	ids, err := p.GetAgentIDs(DistManifest{}, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ids != nil {
+		t.Errorf("GetAgentIDs should return nil for Pi, got %v", ids)
+	}
+	if p.AgentsDir() != "" {
+		t.Errorf("AgentsDir() should be empty for Pi, got %q", p.AgentsDir())
+	}
+}
+
+// TestPiSkillRegistryTrigger — Pi reuses the claude registry format.
+func TestPiSkillRegistryTrigger(t *testing.T) {
+	tmpDir := t.TempDir()
+	home := filepath.Join(tmpDir, ".pi", "agent")
+	p := newPlatformForTest(t, "pi", home)
+
+	if got := p.SkillRegistryTrigger(); got != "claude" {
+		t.Errorf("SkillRegistryTrigger() = %q, want %q", got, "claude")
+	}
+}
 
 // ---------------------------------------------------------------------------
 // helpers

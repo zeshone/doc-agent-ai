@@ -66,6 +66,7 @@ func generate(outputDir string) error {
 		{"copilot", platformManifest.Copilot},
 		{"claude", platformManifest.Claude},
 		{"qwen", platformManifest.Qwen},
+		{"pi", platformManifest.Pi},
 	}
 
 	// Per-role variables that change across platforms
@@ -253,6 +254,7 @@ func writeManifest(outputDir string, content ContentManifest, platforms Platform
 		{"copilot", platforms.Copilot},
 		{"claude", platforms.Claude},
 		{"qwen", platforms.Qwen},
+		{"pi", platforms.Pi},
 	}
 
 	distRoles := make([]DistRole, 0, len(content.Roles))
@@ -265,7 +267,7 @@ func writeManifest(outputDir string, content ContentManifest, platforms Platform
 			OpenCodeTools: role.OpenCodeTools,
 		}
 
-		// Prompt files: all 4 platforms
+		// Prompt files: all 5 platforms
 		for _, p := range platSlice {
 			path := filepath.Join(p.cfg.PromptDir, role.ID+".md")
 			switch p.id {
@@ -277,6 +279,8 @@ func writeManifest(outputDir string, content ContentManifest, platforms Platform
 				dr.PromptFiles.Claude = path
 			case "qwen":
 				dr.PromptFiles.Qwen = path
+			case "pi":
+				dr.PromptFiles.Pi = path
 			}
 		}
 

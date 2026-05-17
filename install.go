@@ -176,6 +176,9 @@ func detectAllPlatforms(manifest DistManifest) []Platform {
 	if p, err := newClaudePlatform(manifest.Platforms.Claude); err == nil && p.Detect() {
 		platforms = append(platforms, p)
 	}
+	if p, err := newPiPlatform(manifest.Platforms.Pi); err == nil && p.Detect() {
+		platforms = append(platforms, p)
+	}
 
 	return platforms
 }
@@ -200,6 +203,8 @@ func platformDisplayName(id string) string {
 		return "GitHub Copilot"
 	case "claude":
 		return "Claude Code"
+	case "pi":
+		return "Pi"
 	default:
 		return id
 	}
@@ -217,6 +222,8 @@ func platformHome(id string, manifest DistManifest) string {
 		cfg = manifest.Platforms.Copilot
 	case "claude":
 		cfg = manifest.Platforms.Claude
+	case "pi":
+		cfg = manifest.Platforms.Pi
 	default:
 		return ""
 	}
@@ -238,6 +245,8 @@ func platformMissingReason(id string) string {
 		return "~/.copilot missing or 'code' not in PATH"
 	case "claude":
 		return "~/.claude missing"
+	case "pi":
+		return "~/.pi/agent missing and 'pi' not in PATH"
 	default:
 		return ""
 	}
@@ -294,6 +303,7 @@ func validateDist(manifest DistManifest, distDir string) []string {
 			role.PromptFiles.Qwen,
 			role.PromptFiles.Copilot,
 			role.PromptFiles.Claude,
+			role.PromptFiles.Pi,
 			role.AgentFiles.Qwen,
 			role.AgentFiles.Copilot,
 			role.AgentFiles.Claude,
@@ -451,6 +461,8 @@ func promptFileFor(platformID string, role DistRole) string {
 		return role.PromptFiles.Copilot
 	case "claude":
 		return role.PromptFiles.Claude
+	case "pi":
+		return role.PromptFiles.Pi
 	default:
 		return ""
 	}
@@ -514,7 +526,7 @@ func installInteractive() error {
 	allPlatforms := detectAllPlatforms(manifest)
 	detected := detectedSet(allPlatforms)
 
-	for _, id := range []string{"opencode", "qwen", "copilot", "claude"} {
+	for _, id := range []string{"opencode", "qwen", "copilot", "claude", "pi"} {
 		if detected[id] {
 			home := platformHome(id, manifest)
 			ok(platformDisplayName(id) + " detected  " + ansiGray + "(" + home + ")" + ansiReset)

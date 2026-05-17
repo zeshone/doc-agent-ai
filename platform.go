@@ -13,6 +13,10 @@ import (
 // command line.  Set in main() before any platform construction occurs.
 var copilotPathOverride string
 
+// piPathOverride holds the value of --pi-path when provided on the command
+// line.  Set in main() before any platform construction occurs.
+var piPathOverride string
+
 // ---------------------------------------------------------------------------
 // Platform interface
 // ---------------------------------------------------------------------------
@@ -398,6 +402,67 @@ func (p *claudePlatform) WriteSkillRegistry(basePath string) error {
 }
 
 // ---------------------------------------------------------------------------
+// piPlatform
+// ---------------------------------------------------------------------------
+// Pi (earendil-works/pi) is a CLI coding agent that consumes role definitions
+// as prompt templates under <home>/prompts/ — there is no native agent
+// registry or agent-file directory.  We therefore reuse the prompt flow and
+// leave AgentsDir() empty.  Skill registry follows the claude convention.
+
+type piPlatform struct {
+	basePlatform
+}
+
+// AgentsDir returns "" because Pi has no native agent-file mechanism;
+// role definitions live in the prompts directory.
+func (p *piPlatform) AgentsDir() string { return "" }
+
+// Detect returns true when ~/.pi/agent exists OR when the `pi` binary is on
+// PATH.  The binary fallback lets a fresh install (no home dir yet) still be
+// detected; the installer then creates the directory.
+//
+// TBD: `pi` is a common binary name (e.g. the Python package index uploader);
+// a more robust check would invoke `pi --version` and parse the output.  Not
+// done here — current behaviour matches qwen/claude conventions.
+func (p *piPlatform) Detect() bool {
+	if _, err := os.Stat(p.homeDir); err == nil {
+		return true
+	}
+	_, err := exec.LookPath("pi")
+	return err == nil
+}
+
+func (p *piPlatform) GetAgentIDs(manifest DistManifest, installed map[string]bool) ([]string, error) {
+	return nil, nil
+}
+
+func (p *piPlatform) GetPromptIDs(manifest DistManifest, installed map[string]bool) ([]string, error) {
+	return getPromptIDsFromDir(p.PromptsDir(), manifest, installed), nil
+}
+
+func (p *piPlatform) GetSkillIDs(manifest DistManifest) []string {
+	return getSkillIDsFromDir(p.SkillsDir(), manifest)
+}
+
+func (p *piPlatform) GetCommandIDs(manifest DistManifest) ([]string, error) {
+	return nil, nil
+}
+
+func (p *piPlatform) PatchConfig(manifest DistManifest, basePath string, roleIDs []string) error {
+	return nil
+}
+
+func (p *piPlatform) RemoveConfig(manifest DistManifest, roleIDs []string) error {
+	return nil
+}
+
+func (p *piPlatform) SkillRegistryTrigger() string { return "claude" }
+
+func (p *piPlatform) WriteSkillRegistry(basePath string) error {
+	return writeSkillRegistryTo(p.skillRegistryPath(), basePath, p.SkillsDir(), "claude")
+}
+
+// ---------------------------------------------------------------------------
 // Shared helper functions
 // ---------------------------------------------------------------------------
 
@@ -518,6 +583,26 @@ func newClaudePlatform(cfg PlatformConfig) (*claudePlatform, error) {
 	return &claudePlatform{basePlatform{id: "claude", homeDir: home, cfg: cfg}}, nil
 }
 
+// newPiPlatform creates a pi platform from its config.
+// Resolution order: --pi-path override → PI_CODING_AGENT_DIR env → standard ~/.pi/agent.
+// The env var is honoured because Pi itself uses it to relocate its home dir.
+func newPiPlatform(cfg PlatformConfig) (*piPlatform, error) {
+	if piPathOverride != "" {
+		if _, err := os.Stat(piPathOverride); os.IsNotExist(err) {
+			warn("Path does not exist: " + piPathOverride)
+		}
+		return &piPlatform{basePlatform{id: "pi", homeDir: piPathOverride, cfg: cfg}}, nil
+	}
+	if env := os.Getenv("PI_CODING_AGENT_DIR"); env != "" {
+		return &piPlatform{basePlatform{id: "pi", homeDir: env, cfg: cfg}}, nil
+	}
+	home, err := resolveHome(cfg.SkillRoot)
+	if err != nil {
+		return nil, err
+	}
+	return &piPlatform{basePlatform{id: "pi", homeDir: home, cfg: cfg}}, nil
+}
+
 // newPlatform creates a Platform for the given platform ID from its config.
 func newPlatform(id string, cfg PlatformConfig) (Platform, error) {
 	switch id {
@@ -529,6 +614,8 @@ func newPlatform(id string, cfg PlatformConfig) (Platform, error) {
 		return newCopilotPlatform(cfg)
 	case "claude":
 		return newClaudePlatform(cfg)
+	case "pi":
+		return newPiPlatform(cfg)
 	default:
 		return nil, fmt.Errorf("unknown platform: %s", id)
 	}
