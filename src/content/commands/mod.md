@@ -1,4 +1,4 @@
-Initialize a new module and run its complete documentation workflow (rec → prd → tech → pti).
+Initialize a new module and run its complete documentation workflow (idea → rec → prd → refine → tech → pti).
 
 The user invoked: `/mod $ARGUMENTS`
 
@@ -11,4 +11,4 @@ Follow the `mod` protocol defined in your skill:
 2. Create the module directory at the correct path
 3. Create the module index with a bidirectional link to the parent
 4. Add the module to the system master index
-5. Run rec → prd → tech → pti in sequence, pausing between each step
+5. Run idea → rec → prd → refine → tech → pti in sequence, pausing between each step

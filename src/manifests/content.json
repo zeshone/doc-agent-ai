@@ -2,8 +2,10 @@
   "placeholderBasePath": "__DOC_AGENT_BASE_PATH__/",
   "skills": [
     "doc-arch",
+    "doc-idea",
     "doc-rec",
     "doc-prd",
+    "doc-refinement",
     "doc-tech",
     "doc-pti"
   ],
@@ -24,7 +26,22 @@
         "task": true,
         "write": true
       },
-      "copilotChildren": ["doc-rec", "doc-prd", "doc-tech", "doc-pti"]
+      "copilotChildren": ["doc-idea", "doc-rec", "doc-prd", "doc-refinement", "doc-tech", "doc-pti"]
+    },
+    {
+      "id": "doc-idea",
+      "content": "roles/doc-idea.md",
+      "skill": "doc-idea",
+      "rulesSkill": "doc-arch",
+      "description": "Idea refinement executor — transforms vague concepts into structured product ideas",
+      "userInvocable": false,
+      "hidden": true,
+      "mode": "subagent",
+      "opencodeTools": {
+        "edit": true,
+        "read": true,
+        "write": true
+      }
     },
     {
       "id": "doc-rec",
@@ -47,6 +64,21 @@
       "skill": "doc-prd",
       "rulesSkill": "doc-arch",
       "description": "PRD generation executor",
+      "userInvocable": false,
+      "hidden": true,
+      "mode": "subagent",
+      "opencodeTools": {
+        "edit": true,
+        "read": true,
+        "write": true
+      }
+    },
+    {
+      "id": "doc-refinement",
+      "content": "roles/doc-refinement.md",
+      "skill": "doc-refinement",
+      "rulesSkill": "doc-arch",
+      "description": "User story refinement executor — audits and improves PRD stories against INVEST criteria",
       "userInvocable": false,
       "hidden": true,
       "mode": "subagent",
@@ -90,37 +122,49 @@
   "commands": [
     {
       "id": "arch",
-      "description": "Documenta un sistema completo en 4 pasos: rec → prd → tech → pti",
+      "description": "Full system documentation in 6 steps: idea → rec → prd → refine → tech → pti",
       "agent": "doc-arch",
       "content": "commands/arch.md"
     },
     {
+      "id": "idea",
+      "description": "Step 1 — Idea refinement for a system or module",
+      "agent": "doc-arch",
+      "content": "commands/idea.md"
+    },
+    {
       "id": "rec",
-      "description": "Paso 1 — Elicitación de requerimientos para un sistema o módulo",
+      "description": "Step 2 — Requirements elicitation for a system or module",
       "agent": "doc-arch",
       "content": "commands/rec.md"
     },
     {
       "id": "prd",
-      "description": "Paso 2 — Product Requirements Document para un sistema o módulo",
+      "description": "Step 3 — Product Requirements Document for a system or module",
       "agent": "doc-arch",
       "content": "commands/prd.md"
     },
     {
+      "id": "refine",
+      "description": "Step 4 — User story refinement against INVEST criteria",
+      "agent": "doc-arch",
+      "content": "commands/refine.md"
+    },
+    {
       "id": "tech",
-      "description": "Paso 3 — Especificación técnica para un sistema o módulo",
+      "description": "Step 5 — Technical specification for a system or module",
       "agent": "doc-arch",
       "content": "commands/tech.md"
     },
     {
       "id": "pti",
-      "description": "Paso 4 — Desglose en issues para un sistema o módulo",
+      "description": "Step 6 — Issue breakdown for a system or module",
       "agent": "doc-arch",
       "content": "commands/pti.md"
     },
     {
       "id": "mod",
-      "description": "Inicializa un módulo o sub-módulo dentro de un producto evolutivo",
+      "description": "Initialize a module or sub-module within an evolving product",
       "agent": "doc-arch",
       "content": "commands/mod.md"
     }

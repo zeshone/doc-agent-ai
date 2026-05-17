@@ -66,23 +66,23 @@ If ALL checks pass → proceed with the tech protocol below.
 2. If modulo/submodulo AND parent tech-spec exists: read `<sistema>_tech-spec.md`.
 
 3. If node type is `modulo` or `submodulo`: ASK explicitly before generating anything:
-   > "¿Este módulo usa la misma arquitectura base del sistema padre (stack, infraestructura, base de datos) o introduce una arquitectura significativamente diferente?"
-   - Hereda → generate **delta** tech spec
-   - Diverge → generate **full** tech spec with parent reference section
+   > "Does this module use the same base architecture as the parent system (stack, infrastructure, database) or introduce a significantly different architecture?"
+   - Inherits → generate **delta** tech spec
+   - Diverges → generate **full** tech spec with parent reference section
 
 4. This is the highest-precision technical phase. Be more specific than `prd`, but keep the language clear and readable.
 
 5. Ask first which repos/codebases must be explored. Never assume missing repos or hidden context.
 
 6. Conduct the planning interview:
-   - ¿Qué repositorios o codebases están involucrados?
-   - ¿Cuál es el bounded context y qué límites tiene?
-   - ¿Qué interfaces/contratos participan? (API, eventos, jobs, archivos, esquemas)
-   - ¿Qué datos persiste/lee/migra?
-   - ¿Qué restricciones técnicas, integraciones y dependencias existen?
-   - ¿Cómo se despliega y observa?
-   - ¿Qué requisitos de seguridad, performance y operación aplican?
-   - ¿Cuál es la estrategia de rollout, fallback, migración y validación técnica?
+   - Which repositories or codebases are involved?
+   - What is the bounded context and where are its boundaries?
+   - Which interfaces/contracts participate? (API, events, jobs, files, schemas)
+   - What data is persisted/read/migrated?
+   - What technical constraints, integrations, and dependencies exist?
+   - How is it deployed and observed?
+   - What security, performance, and operational requirements apply?
+   - What is the rollout, fallback, migration, and technical validation strategy?
 
 7. If data is missing or subjective, do NOT invent it.
    - Ask when it blocks the spec.

@@ -1,4 +1,4 @@
-Execute Step 1 (requirements elicitation) for the specified system or module.
+Execute Step 2 (requirements elicitation) for the specified system or module.
 
 The user invoked: `/rec $ARGUMENTS`
 

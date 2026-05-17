@@ -1,4 +1,4 @@
-Execute Step 4 (issue breakdown) for the specified system or module.
+Execute Step 6 (issue breakdown) for the specified system or module.
 
 The user invoked: `/pti $ARGUMENTS`
 

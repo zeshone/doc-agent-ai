@@ -1,4 +1,4 @@
-Execute Step 3 (Tech Spec) for the specified system or module.
+Execute Step 5 (Tech Spec) for the specified system or module.
 
 The user invoked: `/tech $ARGUMENTS`
 
