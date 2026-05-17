@@ -9,12 +9,24 @@ import (
 var version = "dev"
 
 func main() {
-	if len(os.Args) < 2 {
+	// Pre-scan os.Args for --copilot-path <path> before the subcommand switch.
+	// We do this manually to stay consistent with the rest of the arg parsing.
+	args := os.Args[1:]
+	for i := 0; i < len(args)-1; i++ {
+		if args[i] == "--copilot-path" {
+			copilotPathOverride = args[i+1]
+			// Remove the flag and its value so the switch below sees clean args.
+			args = append(args[:i], args[i+2:]...)
+			break
+		}
+	}
+
+	if len(args) == 0 {
 		printHelp()
 		os.Exit(0)
 	}
 
-	switch os.Args[1] {
+	switch args[0] {
 	case "generate":
 		if err := generate("dist"); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -41,7 +53,7 @@ func main() {
 		printHelp()
 
 	default:
-		fmt.Fprintf(os.Stderr, "Unknown subcommand: %s\n", os.Args[1])
+		fmt.Fprintf(os.Stderr, "Unknown subcommand: %s\n", args[0])
 		printHelp()
 		os.Exit(1)
 	}
@@ -51,7 +63,7 @@ func printHelp() {
 	fmt.Println(`doc-agent-ai — Multi-platform documentation workflow agent installer
 
 Usage:
-  doc-agent-ai <subcommand>
+  doc-agent-ai [flags] <subcommand>
 
 Subcommands:
   generate    Generate dist/ from embedded src/ + skills/
@@ -59,6 +71,8 @@ Subcommands:
   uninstall   Remove doc-agent-ai from detected platforms
 
 Flags:
-  --version   Print version and exit
-  --help      Print this help and exit`)
+  --copilot-path <path>  Override the GitHub Copilot home directory used during
+                         install/uninstall (bypasses all auto-detection).
+  --version              Print version and exit
+  --help                 Print this help and exit`)
 }

@@ -938,6 +938,144 @@ func TestPlatform_GetAgentIDs_WithFilter(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// Issue 02 — XDG_CONFIG_HOME support (OpenCode)
+// ---------------------------------------------------------------------------
+
+// TestOpenCodeDetect_XDG verifies that when XDG_CONFIG_HOME is set, Detect()
+// resolves opencode.json relative to $XDG_CONFIG_HOME/opencode and that
+// HomeDir() points to that directory.
+func TestOpenCodeDetect_XDG(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", tmpDir)
+
+	xdgOpencode := filepath.Join(tmpDir, "opencode")
+	if err := os.MkdirAll(xdgOpencode, 0755); err != nil {
+		t.Fatalf("create xdg opencode dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(xdgOpencode, "opencode.json"), []byte("{}"), 0644); err != nil {
+		t.Fatalf("write opencode.json: %v", err)
+	}
+
+	cfg := PlatformConfig{SkillRoot: "~/.config/opencode/skills"}
+	p, err := newOpenCodePlatform(cfg)
+	if err != nil {
+		t.Fatalf("newOpenCodePlatform: %v", err)
+	}
+
+	if !p.Detect() {
+		t.Error("Detect() should return true when opencode.json exists under XDG_CONFIG_HOME")
+	}
+	if p.HomeDir() != xdgOpencode {
+		t.Errorf("HomeDir() = %q, want %q", p.HomeDir(), xdgOpencode)
+	}
+}
+
+// TestOpenCodeDetect_XDG_Unset verifies that when XDG_CONFIG_HOME is unset,
+// Detect() falls back to the default ~/.config/opencode path.
+func TestOpenCodeDetect_XDG_Unset(t *testing.T) {
+	tmpDir := t.TempDir()
+	// Ensure XDG_CONFIG_HOME is absent.
+	t.Setenv("XDG_CONFIG_HOME", "")
+	mockHomeEnv(t, tmpDir)
+
+	defaultOpencode := filepath.Join(tmpDir, ".config", "opencode")
+	createMockOpenCode(t, tmpDir)
+
+	cfg := PlatformConfig{SkillRoot: "~/.config/opencode/skills"}
+	p, err := newOpenCodePlatform(cfg)
+	if err != nil {
+		t.Fatalf("newOpenCodePlatform: %v", err)
+	}
+
+	if !p.Detect() {
+		t.Error("Detect() should return true with default path when XDG_CONFIG_HOME is unset")
+	}
+	if p.HomeDir() != defaultOpencode {
+		t.Errorf("HomeDir() = %q, want %q", p.HomeDir(), defaultOpencode)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Issue 02 — --copilot-path flag override
+// ---------------------------------------------------------------------------
+
+// TestCopilotDetect_Flag verifies that when copilotPathOverride is set to an
+// existing directory, Detect() returns true and HomeDir() returns that path.
+func TestCopilotDetect_Flag(t *testing.T) {
+	tmpDir := t.TempDir()
+	orig := copilotPathOverride
+	copilotPathOverride = tmpDir
+	t.Cleanup(func() { copilotPathOverride = orig })
+
+	cfg := PlatformConfig{SkillRoot: "~/.copilot/skills"}
+	p, err := newCopilotPlatform(cfg)
+	if err != nil {
+		t.Fatalf("newCopilotPlatform: %v", err)
+	}
+
+	if p.HomeDir() != tmpDir {
+		t.Errorf("HomeDir() = %q, want %q", p.HomeDir(), tmpDir)
+	}
+	if !p.Detect() {
+		t.Error("Detect() should return true when override path exists")
+	}
+}
+
+// TestCopilotDetect_FlagMissing verifies that when --copilot-path points to a
+// non-existent directory the platform is still created (warn is emitted) and
+// Detect() returns false because the dir does not exist.
+func TestCopilotDetect_FlagMissing(t *testing.T) {
+	orig := copilotPathOverride
+	copilotPathOverride = filepath.Join(t.TempDir(), "does-not-exist")
+	t.Cleanup(func() { copilotPathOverride = orig })
+
+	cfg := PlatformConfig{SkillRoot: "~/.copilot/skills"}
+	p, err := newCopilotPlatform(cfg)
+	if err != nil {
+		t.Fatalf("newCopilotPlatform: %v", err)
+	}
+
+	// HomeDir must be the override path even when it is missing.
+	if p.HomeDir() != copilotPathOverride {
+		t.Errorf("HomeDir() = %q, want %q", p.HomeDir(), copilotPathOverride)
+	}
+	// Detect() returns false because the directory does not exist.
+	if p.Detect() {
+		t.Error("Detect() should return false when override path does not exist")
+	}
+}
+
+// TestCopilotDetect_Standard verifies the standard detection path (no override,
+// no XDG) using an explicit homeDir, matching pre-existing test style.
+func TestCopilotDetect_Standard(t *testing.T) {
+	// Ensure no override is active.
+	orig := copilotPathOverride
+	copilotPathOverride = ""
+	t.Cleanup(func() { copilotPathOverride = orig })
+
+	tmpDir := t.TempDir()
+	mockHomeEnv(t, tmpDir)
+	createMockCopilot(t, tmpDir)
+
+	home := filepath.Join(tmpDir, ".copilot")
+	p := newPlatformForTest(t, "copilot", home)
+
+	// The directory exists; Detect() no longer requires 'code' in PATH.
+	if !p.Detect() {
+		t.Error("Detect() should return true when ~/.copilot exists (standard path)")
+	}
+}
+
+// TODO: TestCopilotDetect_Portable — tests the portable VS Code fallback
+// (findPortableCopilotHome).  Requires either a real VS Code install or a mock
+// 'code' binary on PATH that outputs a controlled path.  Skipping in automated
+// suite; to test manually: install VS Code with Copilot Chat extension, then run
+//
+//	go test -run TestCopilotDetect_Portable -v
+//
+// and verify Detect() returns true without ~/.copilot present.
+
+// ---------------------------------------------------------------------------
 // helpers
 // ---------------------------------------------------------------------------
 

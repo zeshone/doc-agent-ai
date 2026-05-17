@@ -9,6 +9,10 @@ import (
 	"strings"
 )
 
+// copilotPathOverride holds the value of --copilot-path when provided on the
+// command line.  Set in main() before any platform construction occurs.
+var copilotPathOverride string
+
 // ---------------------------------------------------------------------------
 // Platform interface
 // ---------------------------------------------------------------------------
@@ -312,10 +316,10 @@ type copilotPlatform struct {
 func (p *copilotPlatform) AgentsDir() string { return filepath.Join(p.homeDir, "agents") }
 
 func (p *copilotPlatform) Detect() bool {
-	if _, err := os.Stat(p.homeDir); err != nil {
-		return false
-	}
-	return exec.Command("code", "--version").Run() == nil
+	// homeDir was already set to the override or the standard ~/.copilot in the
+	// constructor, so a non-empty homeDir that exists is sufficient.
+	_, err := os.Stat(p.homeDir)
+	return err == nil
 }
 
 func (p *copilotPlatform) GetAgentIDs(manifest DistManifest, installed map[string]bool) ([]string, error) {
@@ -408,9 +412,26 @@ func resolveHome(skillRoot string) (string, error) {
 	return filepath.Dir(resolved), nil
 }
 
+// opencodeConfigDir returns the opencode config directory, honouring
+// XDG_CONFIG_HOME when set and non-empty.  Falls back to ~/.config/opencode.
+func opencodeConfigDir() (string, error) {
+	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
+		return filepath.Join(xdg, "opencode"), nil
+	}
+	userHome, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("get home dir: %w", err)
+	}
+	return filepath.Join(userHome, ".config", "opencode"), nil
+}
+
 // newOpenCodePlatform creates an opencode platform from its config.
+// Resolution rule: XDG_CONFIG_HOME takes priority when set; otherwise falls back
+// to ~/.config/opencode. The cfg.SkillRoot field is intentionally ignored here —
+// opencode follows the XDG Base Directory spec rather than the home-suffix
+// convention used by qwen/copilot/claude.
 func newOpenCodePlatform(cfg PlatformConfig) (*opencodePlatform, error) {
-	home, err := resolveHome(cfg.SkillRoot)
+	home, err := opencodeConfigDir()
 	if err != nil {
 		return nil, err
 	}
@@ -426,13 +447,66 @@ func newQwenPlatform(cfg PlatformConfig) (*qwenPlatform, error) {
 	return &qwenPlatform{basePlatform{id: "qwen", homeDir: home, cfg: cfg}}, nil
 }
 
+// findPortableCopilotHome attempts to locate the VS Code portable Copilot Chat
+// globalStorage directory by asking 'code' where it installed its shell
+// integration.  Returns ("", false) if code is not in PATH, the subprocess
+// fails, or the expected directory does not exist.
+func findPortableCopilotHome() (string, bool) {
+	out, err := exec.Command("code", "--locate-shell-integration-path", "bash").Output()
+	if err != nil {
+		return "", false
+	}
+	// The output is a path like /.../vscode/bin/code; the install root is four
+	// directories up from that path (bin/code → <install>/bin/code).
+	shellPath := strings.TrimSpace(string(out))
+	if shellPath == "" {
+		return "", false
+	}
+	// Walk upward to find the install root: locate "data/user-data" relative to
+	// the directory reported by --locate-shell-integration-path.  The integration
+	// path lives at <install>/out/vs/workbench/…, so we probe parent dirs.
+	candidate := shellPath
+	for i := 0; i < 10; i++ {
+		candidate = filepath.Dir(candidate)
+		copilotDir := filepath.Join(candidate, "data", "user-data", "User",
+			"globalStorage", "github.copilot-chat")
+		if _, err := os.Stat(copilotDir); err == nil {
+			return copilotDir, true
+		}
+	}
+	return "", false
+}
+
 // newCopilotPlatform creates a copilot platform from its config.
+// Resolution order: --copilot-path override → ~/.copilot standard → portable VS Code.
 func newCopilotPlatform(cfg PlatformConfig) (*copilotPlatform, error) {
-	home, err := resolveHome(cfg.SkillRoot)
+	// 1. Explicit override from --copilot-path flag.
+	if copilotPathOverride != "" {
+		if _, err := os.Stat(copilotPathOverride); os.IsNotExist(err) {
+			warn("Path does not exist: " + copilotPathOverride)
+		}
+		return &copilotPlatform{basePlatform{id: "copilot", homeDir: copilotPathOverride, cfg: cfg}}, nil
+	}
+
+	// 2. Standard ~/.copilot directory — requires that `code` is also on PATH,
+	//    otherwise the directory may be a stale leftover from an uninstalled VS Code.
+	stdHome, err := resolveHome(cfg.SkillRoot) // resolves ~/.copilot/skills → ~/.copilot
 	if err != nil {
 		return nil, err
 	}
-	return &copilotPlatform{basePlatform{id: "copilot", homeDir: home, cfg: cfg}}, nil
+	if _, err := os.Stat(stdHome); err == nil {
+		if _, lookErr := exec.LookPath("code"); lookErr == nil {
+			return &copilotPlatform{basePlatform{id: "copilot", homeDir: stdHome, cfg: cfg}}, nil
+		}
+	}
+
+	// 3. Portable VS Code: look for globalStorage/github.copilot-chat via `code`.
+	if portableHome, ok := findPortableCopilotHome(); ok {
+		return &copilotPlatform{basePlatform{id: "copilot", homeDir: portableHome, cfg: cfg}}, nil
+	}
+
+	// No copilot home found; return with stdHome so Detect() returns false.
+	return &copilotPlatform{basePlatform{id: "copilot", homeDir: stdHome, cfg: cfg}}, nil
 }
 
 // newClaudePlatform creates a claude platform from its config.
@@ -580,9 +654,9 @@ func toSet(items []string) map[string]bool {
 // registryTemplate returns the full content of .atl/skill-registry.md.
 // triggerStyle is "opencode" or "claude".
 func registryTemplate(basePath, skillsDir, triggerStyle string) string {
-	docArchTrigger := "`/arch`, `/rec`, `/prd`, `/tech`, `/pti`, `/mod` — project documentation workflow"
+	docArchTrigger := "`/arch`, `/idea`, `/rec`, `/prd`, `/refine`, `/tech`, `/pti`, `/mod` — project documentation workflow"
 	if triggerStyle == "claude" {
-		docArchTrigger = "Documenting a project, /arch, /rec, /prd, /tech, /pti, /mod"
+		docArchTrigger = "Documenting a project, /arch, /idea, /rec, /prd, /refine, /tech, /pti, /mod"
 	}
 
 	return fmt.Sprintf(`# Skill Registry — doc-agent-ai
@@ -595,8 +669,10 @@ func registryTemplate(basePath, skillsDir, triggerStyle string) string {
 | Trigger | Skill | Path |
 |---------|-------|------|
 | %s | doc-arch | %s |
-| Generating PRD for a project | doc-prd | %s |
+| Refining a vague product idea into a clear concept | doc-idea | %s |
 | Gathering requirements, elicitation session, stakeholder interview | doc-rec | %s |
+| Generating PRD for a project | doc-prd | %s |
+| Auditing user stories against INVEST criteria | doc-refinement | %s |
 | Creating technical specification, new feature needing documented architecture | doc-tech | %s |
 | Converting PRD into local issues, breaking down PRD into work items | doc-pti | %s |
 
@@ -604,14 +680,19 @@ func registryTemplate(basePath, skillsDir, triggerStyle string) string {
 
 ### doc-arch
 - Base path for all projects: `+"`%s`"+`
-- Commands: `+"`arch <s>`"+` (full flow), `+"`rec`"+`, `+"`prd`"+`, `+"`tech`"+`, `+"`pti`"+` (individual), `+"`mod <s> <m>`"+` (module)
+- Commands: `+"`arch <s>`"+` (full flow), `+"`idea`"+`, `+"`rec`"+`, `+"`prd`"+`, `+"`refine`"+`, `+"`tech`"+`, `+"`pti`"+` (individual), `+"`mod <s> <m>`"+` (module)
+- Workflow order: idea → rec → prd → refine → tech → pti (6 phases)
 - Module paths: `+"`<sistema>/<modulo>`"+` and `+"`<sistema>/<modulo>/<submodulo>`"+` — max 2 levels deep
-- Archetype detected in `+"`rec`"+`: acotado (single delivery) or evolutivo (long lifecycle with modules)
+- Archetype detected in `+"`rec`"+`: bounded (single delivery) or evolving (long lifecycle with modules)
 - Index file `+"`<sistema>.md`"+` uses Obsidian `+"`[[...]]`"+` links and checkboxes — update after every phase
 - Tech spec for modules: ALWAYS ask if inherits parent architecture (delta) or diverges (full spec)
 - Modules read parent context: rec reads parent requirements, prd reads parent prd
 - Issues generated as local .md only — never push to GitHub unless user explicitly asks
 - Never invent context — if prerequisite missing, stop and show exact command to run
+
+### doc-idea
+- Pure product discovery — no stack, no APIs, no databases
+- Output: master index description plus optional `+"`_idea-brief.md`"+`
 
 ### doc-rec
 - Start in executive/business language and increase technical depth progressively
@@ -620,6 +701,10 @@ func registryTemplate(basePath, skillsDir, triggerStyle string) string {
 ### doc-prd
 - PRD is more technical than rec, but clear and pedagogical
 - Ask before assuming; unknowns become `+"`TBD`"+`
+
+### doc-refinement
+- Quality gate for user stories — audit against INVEST criteria
+- Never add, delete, or change story scope without explicit user confirmation
 
 ### doc-tech
 - Highest technical precision, still legible
@@ -632,8 +717,10 @@ func registryTemplate(basePath, skillsDir, triggerStyle string) string {
 		basePath,
 		docArchTrigger,
 		filepath.Join(skillsDir, "doc-arch", "SKILL.md"),
-		filepath.Join(skillsDir, "doc-prd", "SKILL.md"),
+		filepath.Join(skillsDir, "doc-idea", "SKILL.md"),
 		filepath.Join(skillsDir, "doc-rec", "SKILL.md"),
+		filepath.Join(skillsDir, "doc-prd", "SKILL.md"),
+		filepath.Join(skillsDir, "doc-refinement", "SKILL.md"),
 		filepath.Join(skillsDir, "doc-tech", "SKILL.md"),
 		filepath.Join(skillsDir, "doc-pti", "SKILL.md"),
 		basePath,
