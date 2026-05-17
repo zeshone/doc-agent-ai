@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: true
+      - name: Run tests
+        run: go test ./... -v
+
+  binary-size:
+    name: Binary size gate (< 6 MB)
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: true
+      - name: Build release binary
+        run: CGO_ENABLED=0 go build -ldflags="-s -w" -o doc-agent-ai .
+      - name: Check binary size
+        run: |
+          LIMIT=6291456
+          SIZE=$(stat -c%s doc-agent-ai 2>/dev/null || stat -f%z doc-agent-ai 2>/dev/null || wc -c < doc-agent-ai)
+          echo "Binary size: $SIZE bytes (limit: $LIMIT bytes)"
+          if [ "$SIZE" -gt "$LIMIT" ]; then
+            echo "::error::Binary size $SIZE bytes exceeds $LIMIT byte limit"
+            exit 1
+          fi
+
+  lang-gate:
+    name: English-only content gate
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan embedded content for non-English fragments
+        run: |
+          set +e
+          # doc-arch.md intentionally bilingual: contains a Spanish example string
+          # that teaches the agent how to ask the user about documentation language.
+          ALLOWLIST='skills/doc-tech/references/template.md|skills/doc-rec/references/elicitation-techniques.md|src/content/roles/doc-arch.md'
+          PATTERNS='[¿¡ñÑ]|\b(como|donde|porque|cuando|para|sobre|entonces|aunque|tambien|ademas|sino)\b|[\x{4E00}-\x{9FFF}\x{0600}-\x{06FF}\x{0400}-\x{04FF}]'
+          VIOLATIONS=$(grep -rPIn --include='*.md' --include='*.tmpl' --include='*.json' -E "$PATTERNS" src/ skills/ 2>/dev/null \
+            | grep -vP "$ALLOWLIST" || true)
+          if [ -n "$VIOLATIONS" ]; then
+            echo "::error::Non-English content detected in embedded files:"
+            echo "$VIOLATIONS"
+            exit 1
+          fi
+          echo "Language gate passed — embedded content is English-only."
