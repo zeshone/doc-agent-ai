@@ -1,4 +1,4 @@
-Execute Step 2 (PRD) for the specified system or module.
+Execute Step 3 (PRD) for the specified system or module.
 
 The user invoked: `/prd $ARGUMENTS`
 
