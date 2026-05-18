@@ -42,14 +42,17 @@ nfpms:
     description: "Multi-platform documentation workflow agent installer"
     license: "MIT"
 
-publishers:
-  - name: scoop-bucket
-    cmd: .github/scripts/publish-scoop.sh
-    env:
-      - GITHUB_TOKEN={{ .Env.GITHUB_TOKEN }}
-      - RELEASE_TOKEN={{ .Env.RELEASE_TOKEN }}
-      - GORELEASER_CURRENT_TAG={{ .Tag }}
-      - GORELEASER_VERSION={{ .Version }}
+scoops:
+  - name: doc-agent-ai
+    homepage: "https://github.com/zeshone/doc-agent-ai"
+    description: "Multi-platform documentation workflow agent installer"
+    license: MIT
+    directory: bucket
+    repository:
+      owner: zeshone
+      name: scoop-bucket
+      branch: main
+      token: "{{ .Env.RELEASE_TOKEN }}"
 
 release:
   github:
