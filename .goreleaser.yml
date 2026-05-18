@@ -10,7 +10,11 @@ builds:
     ldflags: '-s -w -X main.version={{.Version}}'
 
 archives:
-  - formats: [tar.gz, zip]
+  - id: default
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
     name_template: "doc-agent-ai_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
 checksum:

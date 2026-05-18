@@ -16,7 +16,7 @@ TAG="${GORELEASER_CURRENT_TAG:?GORELEASER_CURRENT_TAG must be set}"
 VERSION="${GORELEASER_VERSION:?GORELEASER_VERSION must be set}"
 TOKEN="${RELEASE_TOKEN:?RELEASE_TOKEN must be set}"
 
-ARCHIVE="doc-agent-ai_${VERSION}_Windows_amd64.zip"
+ARCHIVE="doc-agent-ai_${VERSION}_windows_amd64.zip"
 URL="https://github.com/zeshone/doc-agent-ai/releases/download/${TAG}/${ARCHIVE}"
 
 if [ ! -f dist/checksums.txt ]; then
@@ -50,7 +50,7 @@ cat > bucket/doc-agent-ai.json <<EOF
     "github": "https://github.com/zeshone/doc-agent-ai"
   },
   "autoupdate": {
-    "url": "https://github.com/zeshone/doc-agent-ai/releases/download/v\$version/doc-agent-ai_\$version_Windows_amd64.zip",
+    "url": "https://github.com/zeshone/doc-agent-ai/releases/download/v\$version/doc-agent-ai_\$version_windows_amd64.zip",
     "hash": {
       "url": "https://github.com/zeshone/doc-agent-ai/releases/download/v\$version/checksums.txt"
     }
