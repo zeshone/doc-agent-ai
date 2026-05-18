@@ -3,25 +3,35 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Go Version](https://img.shields.io/badge/Go-1.23+-00ADD8?logo=go)](https://go.dev)
 
-**Multi-platform documentation workflow agent.** Single binary — download and run. No Node.js, no npm, no dependencies. Install once, document everywhere across opencode, Claude Code, GitHub Copilot, and Qwen Code.
+**Multi-platform documentation workflow agent.** Single binary — download and run. No Node.js, no npm, no dependencies. Install once, document everywhere across opencode, Claude Code, GitHub Copilot, Qwen Code, and Pi.
 
-> **v3.2.0** — Surgical skill sanitization. Skills slimmed from 2,086 to 870 lines (58% reduction). ~70% fewer input tokens for agent instructions, ~20% fewer output tokens between sub-agents. Transformed from human manuals into precise, kitchen-specific instructions for AI agents. [Full changelog →](https://github.com/zeshone/doc-agent-ai/releases/tag/v3.2.0)
+> **v3.3.0** — Pi joins as the fifth supported platform. Install via `brew` (macOS) or `scoop` (Windows), no more manual download. Documentation flow grew from 4 to 6 phases (`idea` and `refine` are new). [Full changelog →](./CHANGELOG.md)
 
 ---
 
 ## Quick start
 
-Download the latest binary for your platform from [Releases](https://github.com/zeshone/doc-agent-ai/releases/latest).
+**macOS (Homebrew):**
 
-**Linux / macOS:**
-```bash
-chmod +x doc-agent-ai
-./doc-agent-ai install
+```sh
+brew tap zeshone/tap
+brew install doc-agent-ai
+doc-agent-ai install
 ```
 
-**Windows:**
+**Windows (Scoop):**
+
 ```powershell
-.\doc-agent-ai.exe install
+scoop bucket add zeshone https://github.com/zeshone/scoop-bucket
+scoop install doc-agent-ai
+doc-agent-ai install
+```
+
+**Linux or direct download:** grab the binary for your platform from [Releases](https://github.com/zeshone/doc-agent-ai/releases/latest), then:
+
+```sh
+chmod +x doc-agent-ai   # not needed on Windows
+./doc-agent-ai install
 ```
 
 Restart your AI tool. Then type `/arch my-system` to start documenting.
@@ -36,6 +46,9 @@ Restart your AI tool. Then type `/arch my-system` to start documenting.
 | [Claude Code](https://claude.ai) | Prompts, agents, skill-registry |
 | [GitHub Copilot](https://github.com/features/copilot) | Prompts, agents |
 | [Qwen Code](https://tongyi.aliyun.com) | Prompts, agents |
+| [Pi](https://github.com/earendil-works/pi) | Prompts, skills, skill-registry |
+
+Pi consumes role definitions as prompt templates (no separate agent registry). The installer detects `~/.pi/agent` or `pi` on `PATH`. Override with `--pi-path <path>` or set `PI_CODING_AGENT_DIR`.
 
 ---
 
@@ -84,7 +97,12 @@ idea -> rec -> prd -> refine -> tech -> pti
 
 ## Update
 
-Download the latest binary from [Releases](https://github.com/zeshone/doc-agent-ai/releases/latest) and run `install` again. Your documentation files live in your chosen projects path — never touched by install or uninstall.
+```sh
+brew upgrade doc-agent-ai     # macOS
+scoop update doc-agent-ai     # Windows
+```
+
+Or download the new binary from [Releases](https://github.com/zeshone/doc-agent-ai/releases/latest) and run `install` again. Your documentation files live in your chosen projects path — never touched by install or uninstall.
 
 ---
 

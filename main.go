@@ -9,14 +9,26 @@ import (
 var version = "dev"
 
 func main() {
-	// Pre-scan os.Args for --copilot-path <path> before the subcommand switch.
+	// Pre-scan os.Args for path-override flags before the subcommand switch.
 	// We do this manually to stay consistent with the rest of the arg parsing.
+	// The loop restarts after each match so flags can appear in any order.
 	args := os.Args[1:]
-	for i := 0; i < len(args)-1; i++ {
-		if args[i] == "--copilot-path" {
-			copilotPathOverride = args[i+1]
-			// Remove the flag and its value so the switch below sees clean args.
+	for {
+		matched := false
+		for i := 0; i < len(args)-1; i++ {
+			switch args[i] {
+			case "--copilot-path":
+				copilotPathOverride = args[i+1]
+			case "--pi-path":
+				piPathOverride = args[i+1]
+			default:
+				continue
+			}
 			args = append(args[:i], args[i+2:]...)
+			matched = true
+			break
+		}
+		if !matched {
 			break
 		}
 	}
@@ -73,6 +85,9 @@ Subcommands:
 Flags:
   --copilot-path <path>  Override the GitHub Copilot home directory used during
                          install/uninstall (bypasses all auto-detection).
+  --pi-path <path>       Override the Pi agent home directory used during
+                         install/uninstall (bypasses all auto-detection and
+                         the PI_CODING_AGENT_DIR environment variable).
   --version              Print version and exit
   --help                 Print this help and exit`)
 }

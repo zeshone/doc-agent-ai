@@ -59,5 +59,9 @@
       "list_dir",
       "run_agent"
     ]
+  },
+  "pi": {
+    "skillRoot": "~/.pi/agent/skills",
+    "promptDir": "prompts-pi"
   }
 }
