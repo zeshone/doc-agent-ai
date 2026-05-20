@@ -6,6 +6,18 @@ For older releases without a section here, the GitHub Release notes have the det
 
 ---
 
+## v3.3.1 — 2026-05-19
+
+### Fixed
+
+- `doc-arch` SKILL.md frontmatter failed to parse on strict YAML readers because the `description` value contained an unquoted `Trigger: ...` (colon + space), which the YAML 1.2 spec treats as a nested mapping inside a compact scalar. The value is now single-quoted.
+
+### Added
+
+- Build-time skill frontmatter lint. `generate()` now runs `lintEmbeddedSkills` as its first step and aborts with a precise `file:line` error before touching `dist/` if any embedded `SKILL.md` repeats the same class of bug. Covered by unit tests in `generate_test.go`.
+
+---
+
 ## v3.3.0 — 2026-05-18
 
 ### Pi is now a first-class platform
