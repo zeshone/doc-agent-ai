@@ -6,6 +6,29 @@ For older releases without a section here, the GitHub Release notes have the det
 
 ---
 
+## v3.4.0 — 2026-05-20
+
+### Added
+
+- **`/feat` command** — documents a legacy feature end-to-end in a single invocation.
+
+  Usage: `/feat <ruta-legacy> <description> [--scope local <path> | cross <pattern> | none]`
+
+  The command runs a four-phase mini-flow:
+
+  1. **Scope classification** (`doc-scope`) — reads the top-level structure of the legacy directory (bounded, no recursion) and proposes a scope mode (`local`, `cross`, or `none`). Skipped when `--scope` is provided explicitly.
+  2. **Requirements** (`doc-rec-lite`) — Volere-lite elicitation, single-feature scope only.
+  3. **PRD** (`doc-prd-lite`) — executive summary, flows, user stories with G/W/T acceptance criteria, non-goals, and a risks section.
+  4. **Issues** (`doc-pti`, always) — executable local issues; optional `doc-tech` fires first when the PRD risks are high/medium or scope is `cross`.
+
+  Output lands under `<BASE_PATH><sistema>-features/<slug>/` with a master index file using `[[links]]`.
+
+  Four new skills registered: `doc-feat`, `doc-scope`, `doc-rec-lite`, `doc-prd-lite`.
+
+- **Registry parity test** — `TestRegistryParity_AllManifestSkillsInRegistry` and `TestRegistryParity_NoOrphanEntriesInRegistry` enforce that `content.json` and `registryTemplate()` stay in sync. Adding a skill to the manifest without updating the registry now fails CI immediately.
+
+---
+
 ## v3.3.1 — 2026-05-19
 
 ### Fixed

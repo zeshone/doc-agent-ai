@@ -762,12 +762,16 @@ func registryTemplate(basePath, skillsDir, triggerStyle string) string {
 | Auditing user stories against INVEST criteria | doc-refinement | %s |
 | Creating technical specification, new feature needing documented architecture | doc-tech | %s |
 | Converting PRD into local issues, breaking down PRD into work items | doc-pti | %s |
+| Documenting a legacy feature: scope classification, requirements, PRD, issues | doc-feat | %s |
+| Classifying the scope of a legacy feature via bounded discovery | doc-scope | %s |
+| Gathering requirements for a single legacy feature (Volere-lite) | doc-rec-lite | %s |
+| Generating a PRD for a single legacy feature | doc-prd-lite | %s |
 
 ## Compact Rules
 
 ### doc-arch
 - Base path for all projects: `+"`%s`"+`
-- Commands: `+"`arch <s>`"+` (full flow), `+"`idea`"+`, `+"`rec`"+`, `+"`prd`"+`, `+"`refine`"+`, `+"`tech`"+`, `+"`pti`"+` (individual), `+"`mod <s> <m>`"+` (module)
+- Commands: `+"`arch <s>`"+` (full flow), `+"`idea`"+`, `+"`rec`"+`, `+"`prd`"+`, `+"`refine`"+`, `+"`tech`"+`, `+"`pti`"+` (individual), `+"`mod <s> <m>`"+` (module), `+"`feat <path> <desc>`"+` (legacy feature)
 - Workflow order: idea → rec → prd → refine → tech → pti (6 phases)
 - Module paths: `+"`<sistema>/<modulo>`"+` and `+"`<sistema>/<modulo>/<submodulo>`"+` — max 2 levels deep
 - Archetype detected in `+"`rec`"+`: bounded (single delivery) or evolving (long lifecycle with modules)
@@ -799,6 +803,25 @@ func registryTemplate(basePath, skillsDir, triggerStyle string) string {
 
 ### doc-pti
 - Local-first issues, end-to-end slices, visible blockers and TBDs
+
+### doc-feat
+- Entry point for the legacy feature mini-flow: scope → rec-lite → prd-lite → (optional tech) → pti
+- Usage: `+"`/feat <ruta-legacy> <descripcion> [--scope local <path> | cross <pattern> | none]`"+`
+- Output directory: `+"`<BASE_PATH><sistema>-features/<slug>/`"+`
+
+### doc-scope
+- Invoked only by doc-feat; never user-invokable directly
+- Bounded discovery: top-level dirs + ≤5 surface files, no AST, no recursion
+- Returns (mode, anchor_or_pattern) tuple; always confirms with user before returning
+
+### doc-rec-lite
+- Single-feature scope only; no multi-session BABOK elicitation
+- Output: `+"`<slug>_requirements.md`"+`
+
+### doc-prd-lite
+- Single-feature PRD; no multi-persona matrix
+- Required sections: executive summary, flows, stories with G/W/T AC, non-goals, risks
+- Output: `+"`<slug>_prd.md`"+`; risks section feeds the ADR-1 risk gate
 `,
 		version,
 		basePath,
@@ -810,6 +833,10 @@ func registryTemplate(basePath, skillsDir, triggerStyle string) string {
 		filepath.Join(skillsDir, "doc-refinement", "SKILL.md"),
 		filepath.Join(skillsDir, "doc-tech", "SKILL.md"),
 		filepath.Join(skillsDir, "doc-pti", "SKILL.md"),
+		filepath.Join(skillsDir, "doc-feat", "SKILL.md"),
+		filepath.Join(skillsDir, "doc-scope", "SKILL.md"),
+		filepath.Join(skillsDir, "doc-rec-lite", "SKILL.md"),
+		filepath.Join(skillsDir, "doc-prd-lite", "SKILL.md"),
 		basePath,
 	)
 }
