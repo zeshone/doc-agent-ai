@@ -746,6 +746,11 @@ func TestPlatform_WriteSkillRegistry_Opencode(t *testing.T) {
 	if !contains(content, "/home/user/projects") {
 		t.Error("registry should contain base path")
 	}
+	for _, skill := range []string{"doc-feat", "doc-scope", "doc-rec-lite", "doc-prd-lite"} {
+		if !contains(content, skill) {
+			t.Errorf("registry should mention %s", skill)
+		}
+	}
 }
 
 func TestPlatform_WriteSkillRegistry_Claude(t *testing.T) {
@@ -773,6 +778,11 @@ func TestPlatform_WriteSkillRegistry_Claude(t *testing.T) {
 	// Claude-style trigger text
 	if !contains(content, "Documenting a project") {
 		t.Error("claude registry should have claude-style trigger text")
+	}
+	for _, skill := range []string{"doc-feat", "doc-scope", "doc-rec-lite", "doc-prd-lite"} {
+		if !contains(content, skill) {
+			t.Errorf("claude registry should mention %s", skill)
+		}
 	}
 }
 
