@@ -6,3 +6,6 @@ doc-agent-ai
 doc-agent-ai.exe
 dist-release/
 docs/
+# Local IDE / tooling caches
+.atl/.skill-registry.cache.json
+.windsurf/
