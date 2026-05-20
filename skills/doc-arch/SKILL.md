@@ -39,6 +39,7 @@ Indexes use Obsidian `[[link]]` syntax for cross-references.
 | Command | Phase | Skill |
 |---------|------|-------|
 | `arch <sistema>` | Full workflow | All (pauses between phases) |
+| `feat <ruta-legacy> <descripcion> [--scope ...]` | Legacy feature mini-flow | `doc-feat` |
 | `idea <sistema>` | Step 1 — Idea refinement | `doc-idea` |
 | `rec <sistema>` | Step 2 — Requirements elicitation | `doc-rec` |
 | `prd <sistema>` | Step 3 — Product Requirements Document | `doc-prd` |
