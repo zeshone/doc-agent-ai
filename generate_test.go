@@ -128,8 +128,8 @@ func TestContentManifest_Unmarshal(t *testing.T) {
 		t.Errorf("PlaceholderBasePath = %q", cm.PlaceholderBasePath)
 	}
 
-	if len(cm.Skills) != 7 {
-		t.Errorf("expected 7 skills, got %d", len(cm.Skills))
+	if len(cm.Skills) != 11 {
+		t.Errorf("expected 11 skills, got %d", len(cm.Skills))
 	}
 
 	if len(cm.Roles) != 7 {
@@ -144,12 +144,12 @@ func TestContentManifest_Unmarshal(t *testing.T) {
 		t.Errorf("doc-arch mode = %q, want 'primary'", cm.Roles[0].Mode)
 	}
 
-	if len(cm.Roles[0].CopilotChildren) != 6 {
-		t.Errorf("doc-arch copilotChildren count = %d, want 6", len(cm.Roles[0].CopilotChildren))
+	if len(cm.Roles[0].CopilotChildren) != 10 {
+		t.Errorf("doc-arch copilotChildren count = %d, want 10", len(cm.Roles[0].CopilotChildren))
 	}
 
-	if len(cm.Commands) != 8 {
-		t.Errorf("expected 8 commands, got %d", len(cm.Commands))
+	if len(cm.Commands) != 9 {
+		t.Errorf("expected 9 commands, got %d", len(cm.Commands))
 	}
 
 	if cm.Commands[0].ID != "arch" {

@@ -7,7 +7,11 @@
     "doc-prd",
     "doc-refinement",
     "doc-tech",
-    "doc-pti"
+    "doc-pti",
+    "doc-feat",
+    "doc-scope",
+    "doc-rec-lite",
+    "doc-prd-lite"
   ],
   "roles": [
     {
@@ -26,7 +30,7 @@
         "task": true,
         "write": true
       },
-      "copilotChildren": ["doc-idea", "doc-rec", "doc-prd", "doc-refinement", "doc-tech", "doc-pti"]
+      "copilotChildren": ["doc-idea", "doc-rec", "doc-prd", "doc-refinement", "doc-tech", "doc-pti", "doc-feat", "doc-scope", "doc-rec-lite", "doc-prd-lite"]
     },
     {
       "id": "doc-idea",
@@ -167,6 +171,12 @@
       "description": "Initialize a module or sub-module within an evolving product",
       "agent": "doc-arch",
       "content": "commands/mod.md"
+    },
+    {
+      "id": "feat",
+      "description": "Document a legacy feature: scope classification, requirements, PRD, optional tech spec, and executable issues",
+      "agent": "doc-arch",
+      "content": "commands/feat.md"
     }
   ]
 }
