@@ -165,6 +165,51 @@ func TestContentManifest_Unmarshal(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// 7.3 Skill frontmatter lint
+// ---------------------------------------------------------------------------
+
+func TestLintSkillFrontmatter_QuotedValueWithColonIsValid(t *testing.T) {
+	data := []byte("---\nname: foo\ndescription: 'Hello. Trigger: bar, baz.'\n---\n\nbody\n")
+	if err := lintSkillFrontmatter("test.md", data); err != nil {
+		t.Errorf("expected no error for quoted value, got: %v", err)
+	}
+}
+
+func TestLintSkillFrontmatter_PlainValueIsValid(t *testing.T) {
+	data := []byte("---\nname: foo\ndescription: Plain description without colons\n---\n\nbody\n")
+	if err := lintSkillFrontmatter("test.md", data); err != nil {
+		t.Errorf("expected no error for plain value, got: %v", err)
+	}
+}
+
+func TestLintSkillFrontmatter_UnquotedColonSpaceIsRejected(t *testing.T) {
+	data := []byte("---\nname: foo\ndescription: Hello. Trigger: bar\n---\n\nbody\n")
+	err := lintSkillFrontmatter("test.md", data)
+	if err == nil {
+		t.Fatal("expected error for unquoted description containing ': ', got nil")
+	}
+	if !strings.Contains(err.Error(), "colon+space") {
+		t.Errorf("error should mention 'colon+space', got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "test.md:3") {
+		t.Errorf("error should reference test.md:3, got: %v", err)
+	}
+}
+
+func TestLintSkillFrontmatter_NoFrontmatterIsIgnored(t *testing.T) {
+	data := []byte("# Just markdown\n\nWith content: that has colons but no frontmatter.\n")
+	if err := lintSkillFrontmatter("test.md", data); err != nil {
+		t.Errorf("expected no error for file without frontmatter, got: %v", err)
+	}
+}
+
+func TestLintEmbeddedSkills_RepoStateIsClean(t *testing.T) {
+	if err := lintEmbeddedSkills(); err != nil {
+		t.Errorf("embedded skills/ should pass lint: %v", err)
+	}
+}
+
 func TestPlatformManifest_Unmarshal(t *testing.T) {
 	data, err := embedded.ReadFile("src/manifests/platforms.json")
 	if err != nil {

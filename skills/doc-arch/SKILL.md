@@ -1,6 +1,6 @@
 ---
 name: doc-arch
-description: Orchestrates the full documentation workflow for projects and modules, from requirements to executable issues. Trigger: arch, mod, documentation pipeline, full workflow.
+description: 'Orchestrates the full documentation workflow for projects and modules, from requirements to executable issues. Trigger: arch, mod, documentation pipeline, full workflow.'
 author: Zesh-One
 license: MIT
 ---

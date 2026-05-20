@@ -19,6 +19,11 @@ var embedded embed.FS
 // outputDir is typically "dist". The result is byte-identical to the v2.0.0
 // npm run generate output on the same platform.
 func generate(outputDir string) error {
+	// Fail fast on invalid skill frontmatter before touching the output dir.
+	if err := lintEmbeddedSkills(); err != nil {
+		return fmt.Errorf("skill frontmatter lint failed: %w", err)
+	}
+
 	// Clean and recreate dist/
 	if err := os.RemoveAll(outputDir); err != nil {
 		return fmt.Errorf("clean %s: %w", outputDir, err)
@@ -215,6 +220,67 @@ func writeFile(path, content string) error {
 		content += "\n"
 	}
 	return os.WriteFile(path, []byte(content), 0644)
+}
+
+// lintEmbeddedSkills walks the embedded skills/ tree and validates every
+// SKILL.md frontmatter, returning the first violation found.
+func lintEmbeddedSkills() error {
+	return fs.WalkDir(embedded, "skills", func(embPath string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() || !strings.HasSuffix(embPath, "SKILL.md") {
+			return nil
+		}
+		data, err := embedded.ReadFile(embPath)
+		if err != nil {
+			return fmt.Errorf("read %s: %w", embPath, err)
+		}
+		return lintSkillFrontmatter(embPath, data)
+	})
+}
+
+// lintSkillFrontmatter validates a single SKILL.md frontmatter block. It rejects
+// unquoted scalar values that contain ": " (colon followed by space), because
+// strict YAML parsers interpret those as nested mappings inside a compact value
+// and refuse to load the file. Returns nil if the frontmatter is absent.
+func lintSkillFrontmatter(filename string, data []byte) error {
+	lines := strings.Split(string(data), "\n")
+	if len(lines) == 0 || strings.TrimSpace(lines[0]) != "---" {
+		return nil
+	}
+
+	for i := 1; i < len(lines); i++ {
+		line := lines[i]
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "---" {
+			return nil
+		}
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+
+		colonIdx := strings.Index(line, ":")
+		if colonIdx == -1 {
+			continue
+		}
+		value := strings.TrimSpace(line[colonIdx+1:])
+		if value == "" {
+			continue
+		}
+		if strings.HasPrefix(value, "'") || strings.HasPrefix(value, "\"") {
+			continue
+		}
+
+		if strings.Contains(value, ": ") {
+			return fmt.Errorf(
+				"%s:%d: unquoted frontmatter value contains ': ' (colon+space) — strict YAML parsers will reject this as a nested mapping. Wrap the value in single quotes. Line: %q",
+				filename, i+1, line,
+			)
+		}
+	}
+
+	return nil
 }
 
 // copySkills recursively copies embedded skills/* into dist/skills/.
