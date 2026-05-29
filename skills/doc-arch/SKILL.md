@@ -28,7 +28,7 @@ Root: `<projects-root>/<system>/`
 
 ## File Naming
 
-Always use the **node short name** (not full path): `<node>_requirements.md`, `<node>_prd.md`, `<node>_tech-spec.md`, `<node>_issues.md`.
+Always use the **node short name** (not full path): `<node>_requirements.md`, `<node>_prd.md`, `<node>_tech-spec.md`, `<node>_db-design.md` (optional), `<node>_issues.md`.
 
 Master index: `<system>.md`. Module index: `<module>.md` (placed inside the module folder).
 
@@ -45,6 +45,7 @@ Indexes use Obsidian `[[link]]` syntax for cross-references.
 | `prd <sistema>` | Step 3 — Product Requirements Document | `doc-prd` |
 | `refine [<sistema>]` | Step 4 — User story audit | `doc-refinement` |
 | `tech <sistema>` | Step 5 — Technical specification | `doc-tech` |
+| `ddd [<sistema>[-<modulo>]]` | Optional — Database Design Document | `doc-ddd` |
 | `pti <sistema>` | Step 6 — Issue breakdown | `doc-pti` |
 
 `refine` without a system argument runs in standalone mode (user provides a story to refine).
@@ -59,6 +60,7 @@ Indexes use Obsidian `[[link]]` syntax for cross-references.
 | `prd <sistema>/<modulo>` | Module PRD |
 | `refine <sistema>/<modulo>` | Module story audit |
 | `tech <sistema>/<modulo>` | Module tech spec |
+| `ddd <sistema>/<modulo>` | Module DB design (optional) |
 | `pti <sistema>/<modulo>` | Module issue breakdown |
 
 Sub-modules extend the path by one more level: `rec <sistema>/<modulo>/<submodulo>`.
@@ -68,8 +70,8 @@ Sub-modules extend the path by one more level: `rec <sistema>/<modulo>/<submodul
 | Status | Condition |
 |--------|-----------|
 | `started` | Index exists, no completed phases |
-| `in progress` | 1–5 phases completed |
-| `documented` | All 6 phases completed |
+| `in progress` | 1–7 phases completed |
+| `documented` | All phases completed (`ddd` optional, counts as 1 if included) |
 | `in review` | Issues generated, pending GitHub upload |
 
 Recalculate automatically after each phase completion.
@@ -81,7 +83,24 @@ On first contact for a NEW project: detect the user's language, ask which langua
 ## Cross-Phase Rules
 
 ### Workflow Order
-Always: idea → rec → prd → refine → tech → pti. Between each phase in `arch`/`mod`: show summary and ask "Do we continue with the next step?"
+
+Always: idea → rec → prd → refine → tech → [ddd] → pti
+
+`ddd` is optional:
+- Between `tech` and `pti`, ask: "¿Querés documentar el diseño de la base de datos?"
+- Also auto-trigger on hard signals (see DDD Decision Triggers below)
+- Between each phase in `arch`/`mod`: show summary and ask "¿Continuamos con el siguiente paso?"
+
+### DDD Decision Triggers
+
+| Signal | Response |
+|--------|----------|
+| User explicitly invokes `/ddd` | Launch directly |
+| `tech` mentions entities, tables, relationships, migrations, or DBMS | Prompt: "Found data layer in tech spec — include DB design doc?" |
+| Project contains persistence artifacts: `*.sql`, `migrations/`, `schema.prisma`, `models/` | Auto-suggest with brief explanation |
+| User mentions explicit intent: "documentar la base de datos", "db design", "diseño de BD" | Launch directly |
+| User explicitly excludes: "no我们需要base de datos", "skip ddd" | Do not prompt again in this session |
+| In-memory / ephemeral system (no persistence intent) | Do not prompt |
 
 ### Archetype Detection
 During `rec`, first question always: "Is this a single delivery or an evolving product?" Bounded → no Modules section in index.
@@ -90,6 +109,10 @@ During `rec`, first question always: "Is this a single delivery or an evolving p
 - Module `rec` reads the parent system's `_requirements.md`
 - Module `prd` reads the parent system's `_prd.md`
 - Module `tech` always asks: "Inherits parent architecture or diverges?" → delta mode (~95%) or full mode (~5%)
+
+### DDD Context Inheritance
+- `ddd` reads `<nodo>_tech-spec.md` as primary source
+- If `tech` is a module: also reads parent system `_tech-spec.md`
 
 ### Index Updates
 Every phase completion updates the corresponding checkbox `[x]` in the master index. System index tracks all modules recursively.
@@ -100,14 +123,15 @@ Issues are generated as local `.md` files by default. GitHub publishing only on 
 ## Global Agent Rules
 
 1. **Never invent context.** Missing prerequisite → stop and notify with the correct command.
-2. **Ask before assuming.** `prd` and `tech` always ask clarification questions before generating.
+2. **Ask before assuming.** `prd`, `tech`, and `ddd` always ask clarification questions before generating.
 3. **Idea = pure product discovery.** No stack, no APIs, no databases. Product-level only.
 4. **PRD = more technical than rec, but clear.** Deeper flows, criteria, constraints — without jargon.
 5. **Refine = quality gate.** Audit user stories against INVEST. Never add/delete/change scope without confirmation.
 6. **Tech = maximum precision.** Explicit architecture, contracts, tradeoffs, rollout, validation. No empty claims ("robust", "scalable", "secure") without concrete mechanisms.
-7. **Uncertainty → TBD.** When data is missing, ask or mark `TBD`/`Open Decision`. Never invent.
-8. **PTI = grab-able vertical slices.** Each issue: end-to-end behavior, verifiable criteria, AFK/HITL type, explicit dependencies and TBDs. Avoid horizontal titles ("crear API", "hacer DB").
-9. **Always update indexes.** Phases completed → checkboxes marked → status recalculated.
-10. **Modules read parent context.** Never document a module in isolation.
+7. **DDD = structured data design.** ERD, schema details, relationships, constraints, design rationale. Document intent, not just structure.
+8. **Uncertainty → TBD.** When data is missing, ask or mark `TBD`/`Open Decision`. Never invent.
+9. **PTI = grab-able vertical slices.** Each issue: end-to-end behavior, verifiable criteria, AFK/HITL type, explicit dependencies and TBDs. Avoid horizontal titles ("crear API", "hacer DB").
+10. **Always update indexes.** Phases completed → checkboxes marked → status recalculated.
+11. **Modules read parent context.** Never document a module in isolation.
 
-11. **Surface gaps with options.** When a contradiction, unstated assumption, or ambiguity is found → point it out, present 2+ concrete options with pros/cons. Do not proceed until the user decides. Do not create unnecessary friction for minor issues.
+12. **Surface gaps with options.** When a contradiction, unstated assumption, or ambiguity is found → point it out, present 2+ concrete options with pros/cons. Do not proceed until the user decides. Do not create unnecessary friction for minor issues.

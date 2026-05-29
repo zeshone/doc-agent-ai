@@ -741,9 +741,9 @@ func toSet(items []string) map[string]bool {
 // registryTemplate returns the full content of .atl/skill-registry.md.
 // triggerStyle is "opencode" or "claude".
 func registryTemplate(basePath, skillsDir, triggerStyle string) string {
-	docArchTrigger := "`/arch`, `/idea`, `/rec`, `/prd`, `/refine`, `/tech`, `/pti`, `/mod` — project documentation workflow"
+	docArchTrigger := "`/arch`, `/idea`, `/rec`, `/prd`, `/refine`, `/tech`, `/ddd`, `/pti`, `/mod` — project documentation workflow"
 	if triggerStyle == "claude" {
-		docArchTrigger = "Documenting a project, /arch, /idea, /rec, /prd, /refine, /tech, /pti, /mod"
+		docArchTrigger = "Documenting a project, /arch, /idea, /rec, /prd, /refine, /tech, /ddd, /pti, /mod"
 	}
 
 	return fmt.Sprintf(`# Skill Registry — doc-agent-ai
@@ -761,6 +761,7 @@ func registryTemplate(basePath, skillsDir, triggerStyle string) string {
 | Generating PRD for a project | doc-prd | %s |
 | Auditing user stories against INVEST criteria | doc-refinement | %s |
 | Creating technical specification, new feature needing documented architecture | doc-tech | %s |
+| Designing database structure, ERD, schema documentation, /ddd | doc-ddd | %s |
 | Converting PRD into local issues, breaking down PRD into work items | doc-pti | %s |
 | Documenting a legacy feature: scope classification, requirements, PRD, issues | doc-feat | %s |
 | Classifying the scope of a legacy feature via bounded discovery | doc-scope | %s |
@@ -771,8 +772,8 @@ func registryTemplate(basePath, skillsDir, triggerStyle string) string {
 
 ### doc-arch
 - Base path for all projects: `+"`%s`"+`
-- Commands: `+"`arch <s>`"+` (full flow), `+"`idea`"+`, `+"`rec`"+`, `+"`prd`"+`, `+"`refine`"+`, `+"`tech`"+`, `+"`pti`"+` (individual), `+"`mod <s> <m>`"+` (module), `+"`feat <path> <desc>`"+` (legacy feature)
-- Workflow order: idea → rec → prd → refine → tech → pti (6 phases)
+- Commands: `+"`arch <s>`"+` (full flow), `+"`idea`"+`, `+"`rec`"+`, `+"`prd`"+`, `+"`refine`"+`, `+"`tech`"+`, `+"`ddd`"+` (optional), `+"`pti`"+` (individual), `+"`mod <s> <m>`"+` (module), `+"`feat <path> <desc>`"+` (legacy feature)
+- Workflow order: idea → rec → prd → refine → tech → [ddd] → pti (ddd optional)
 - Module paths: `+"`<sistema>/<modulo>`"+` and `+"`<sistema>/<modulo>/<submodulo>`"+` — max 2 levels deep
 - Archetype detected in `+"`rec`"+`: bounded (single delivery) or evolving (long lifecycle with modules)
 - Index file `+"`<sistema>.md`"+` uses Obsidian `+"`[[...]]`"+` links and checkboxes — update after every phase
@@ -832,6 +833,7 @@ func registryTemplate(basePath, skillsDir, triggerStyle string) string {
 		filepath.Join(skillsDir, "doc-prd", "SKILL.md"),
 		filepath.Join(skillsDir, "doc-refinement", "SKILL.md"),
 		filepath.Join(skillsDir, "doc-tech", "SKILL.md"),
+		filepath.Join(skillsDir, "doc-ddd", "SKILL.md"),
 		filepath.Join(skillsDir, "doc-pti", "SKILL.md"),
 		filepath.Join(skillsDir, "doc-feat", "SKILL.md"),
 		filepath.Join(skillsDir, "doc-scope", "SKILL.md"),

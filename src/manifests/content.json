@@ -7,6 +7,7 @@
     "doc-prd",
     "doc-refinement",
     "doc-tech",
+    "doc-ddd",
     "doc-pti",
     "doc-feat",
     "doc-scope",
@@ -30,7 +31,22 @@
         "task": true,
         "write": true
       },
-      "copilotChildren": ["doc-idea", "doc-rec", "doc-prd", "doc-refinement", "doc-tech", "doc-pti", "doc-feat", "doc-scope", "doc-rec-lite", "doc-prd-lite"]
+      "copilotChildren": ["doc-idea", "doc-rec", "doc-prd", "doc-refinement", "doc-tech", "doc-ddd", "doc-pti", "doc-feat", "doc-scope", "doc-rec-lite", "doc-prd-lite"]
+    },
+    {
+      "id": "doc-ddd",
+      "content": "roles/doc-ddd.md",
+      "skill": "doc-ddd",
+      "rulesSkill": "doc-arch",
+      "description": "Database Design Document executor — generates ERD, schema details, and design rationale",
+      "userInvocable": false,
+      "hidden": true,
+      "mode": "subagent",
+      "opencodeTools": {
+        "edit": true,
+        "read": true,
+        "write": true
+      }
     },
     {
       "id": "doc-idea",
@@ -126,7 +142,7 @@
   "commands": [
     {
       "id": "arch",
-      "description": "Full system documentation in 6 steps: idea → rec → prd → refine → tech → pti",
+      "description": "Full system documentation workflow: idea → rec → prd → refine → tech → [ddd] → pti (ddd is optional)",
       "agent": "doc-arch",
       "content": "commands/arch.md"
     },
@@ -177,6 +193,12 @@
       "description": "Document a legacy feature: scope classification, requirements, PRD, optional tech spec, and executable issues",
       "agent": "doc-arch",
       "content": "commands/feat.md"
+    },
+    {
+      "id": "ddd",
+      "description": "Optional step — Database Design Document (DBDD) with ERD and schema details",
+      "agent": "doc-ddd",
+      "content": "commands/ddd.md"
     }
   ]
 }
