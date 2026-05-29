@@ -6,6 +6,59 @@ For older releases without a section here, the GitHub Release notes have the det
 
 ---
 
+## v3.5.0 — 2026-05-29
+
+### Added
+
+- **`/ddd` command** — optional Database Design Documentation step.
+
+  Usage: `/ddd <system>` or `/ddd <system>/<module>`
+
+  Produces `<sistema>_db-design.md` with:
+
+  - Mermaid `erDiagram` ERD
+  - Schema details per entity (columns, types, constraints, PK/FK)
+  - Indexes, domain constraints, referential integrity rules
+  - Design rationale table (normalization choices, trade-offs)
+  - Migrations and lifecycle policy
+  - Security model (audit fields, access control, encryption)
+  - Visible `TBD` / `Open Decisions` section
+
+  DBMS-agnostic: relational, document, key-value, embedded — all supported.
+
+  Accepts a normalization sanity check (1NF → 2NF → 3NF) and surfaces violations as tagged **Design Issues**.
+
+
+  New skill registered: `doc-ddd`.
+
+
+- **Optional step in `arch` / `mod` flows** — between `tech` and `pti`.
+
+  After `/tech`, the orchestrator asks `"¿Querés documentar el diseño de la base de datos?"` unless the user already excluded it or hard triggers apply.
+
+  Hard triggers (launch without asking):
+
+  - User explicitly invokes `/ddd`
+  - Project contains persistence artifacts: `.sql`, `migrations/`, `schema.prisma`, `models/`
+  - Tech spec mentions DBMS technology (PostgreSQL, MySQL, MongoDB, SQLite, etc.)
+  - User states explicit intent: "documentar la base de datos", "db design"
+
+  Soft trigger: prompt between `tech` and `pti` when data layer is present in the tech spec.
+
+
+  Dismiss triggers: explicit exclusion ("no necesitamos base de datos", "in-memory only", "skip ddd") or ephemeral systems with no persistence intent.
+
+
+- **DDD Decision Triggers table** in `doc-arch` skill — documents the full activation matrix for the optional step.
+
+- **All 5 platforms** (opencode, copilot, claude, qwen, pi) generate `doc-ddd` prompts, agents, and skill registry entries on every `go run . generate`.
+
+
+- **Registry parity test extended** — `doc-ddd` is now part of the manifest ↔ registryTemplate guard.
+
+---
+
+
 ## v3.4.0 — 2026-05-20
 
 ### Added

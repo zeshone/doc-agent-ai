@@ -5,7 +5,7 @@
 
 **Multi-platform documentation workflow agent.** Single binary — download and run. No Node.js, no npm, no dependencies. Install once, document everywhere across opencode, Claude Code, GitHub Copilot, Qwen Code, and Pi.
 
-> **v3.3.0** — Pi joins as the fifth supported platform. Install via `brew` (macOS) or `scoop` (Windows), no more manual download. Documentation flow grew from 4 to 6 phases (`idea` and `refine` are new). [Full changelog →](./CHANGELOG.md)
+> **v3.5.0** — Database design documentation step added. `/ddd` generates ERDs, schema details, and design rationale as an optional phase between `tech` and `pti`. [Full changelog →](./CHANGELOG.md)
 
 ---
 
@@ -64,10 +64,12 @@ Pi consumes role definitions as prompt templates (no separate agent registry). T
 
 ## Phases
 
-The documentation workflow now has **6 phases**:
+The documentation workflow has **7 phases** (one optional):
 
 ```text
-idea -> rec -> prd -> refine -> tech -> pti
+idea -> rec -> prd -> refine -> tech -> [ddd] -> pti
+              └─────────────────────────────────┘
+                            ddd is optional
 ```
 
 | Command | Phase | Output |
@@ -78,8 +80,9 @@ idea -> rec -> prd -> refine -> tech -> pti
 | `/refine <system>` | User story audit against INVEST criteria | Updated `_prd.md` user stories |
 | `/refine` | Standalone refinement of a single user story | Inline refined story |
 | `/tech <system>` | Technical specification | `_tech-spec.md` |
+| `/ddd <system>` | Optional — Database Design Document | `_db-design.md` |
 | `/pti <system>` | Issues breakdown | `_issues.md` |
-| `/arch <system>` | Full flow (all 6) | All of the above |
+| `/arch <system>` | Full flow (all 6 + optional ddd) | All of the above |
 
 ### Modules
 
@@ -89,8 +92,9 @@ idea -> rec -> prd -> refine -> tech -> pti
 /prd <system>/<module>
 /refine <system>/<module>
 /tech <system>/<module>
+/ddd <system>/<module>           ← optional DB design for a module
 /pti <system>/<module>
-/mod <system> <module>           ← full module flow (all 6 phases)
+/mod <system> <module>           ← full module flow (all phases, ddd optional)
 ```
 
 ---
@@ -138,8 +142,9 @@ go build -o doc-agent-ai .
 
 ### Authoring conventions
 
-- Canonical names: `doc-arch`, `doc-idea`, `doc-rec`, `doc-prd`, `doc-refinement`, `doc-tech`, `doc-pti`
-- Progressive workflow depth: `idea` (product framing) → `rec` (executive/business elicitation) → `prd` (technical but clear) → `refine` (story quality gate) → `tech` (maximum precision, still legible) → `pti` (executable issues)
+- Canonical names: `doc-arch`, `doc-idea`, `doc-rec`, `doc-prd`, `doc-refinement`, `doc-tech`, `doc-ddd`, `doc-pti`
+- Progressive workflow depth: `idea` (product framing) → `rec` (executive/business elicitation) → `prd` (technical but clear) → `refine` (story quality gate) → `tech` (maximum precision, still legible) → [`ddd` (structured data design, ERD, constraints, rationale)] → `pti` (executable issues)
+- `ddd` is optional. Triggered explicitly, by hard signals (schema files, DBMS mentions), or by orchestrator prompt between `tech` and `pti`. Dismissed for in-memory or ephemeral systems.
 - Local-first issues. GitHub only on explicit request.
 - Language detection on first contact. Documentation language asked once per system.
 - **All skills in English.** The author works primarily in Spanish — occasional Spanish fragments in skill instructions are unintentional artifacts of the authoring workflow. All skill content must be delivered in English for global accessibility. PRs with non-English skill content will be flagged.
