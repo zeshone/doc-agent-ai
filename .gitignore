@@ -9,3 +9,5 @@ docs/
 # Local IDE / tooling caches
 .atl/.skill-registry.cache.json
 .windsurf/
+# Local Pi runtime state
+.atl/

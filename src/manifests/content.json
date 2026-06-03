@@ -12,7 +12,8 @@
     "doc-feat",
     "doc-scope",
     "doc-rec-lite",
-    "doc-prd-lite"
+    "doc-prd-lite",
+    "doc-to-sdd"
   ],
   "roles": [
     {
@@ -137,6 +138,21 @@
         "read": true,
         "write": true
       }
+    },
+    {
+      "id": "doc-to-sdd",
+      "content": "roles/doc-to-sdd.md",
+      "skill": "doc-to-sdd",
+      "rulesSkill": "doc-arch",
+      "description": "SDD Context Compactor — compacts documentation into LLM-optimized SDD context files",
+      "userInvocable": false,
+      "hidden": true,
+      "mode": "subagent",
+      "opencodeTools": {
+        "edit": true,
+        "read": true,
+        "write": true
+      }
     }
   ],
   "commands": [
@@ -199,6 +215,12 @@
       "description": "Optional step — Database Design Document (DBDD) with ERD and schema details",
       "agent": "doc-ddd",
       "content": "commands/ddd.md"
+    },
+    {
+      "id": "to-sdd",
+      "description": "Standalone — Compact documentation into LLM-optimized SDD context files",
+      "agent": "doc-to-sdd",
+      "content": "commands/to-sdd.md"
     }
   ]
 }

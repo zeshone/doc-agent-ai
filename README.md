@@ -83,6 +83,7 @@ idea -> rec -> prd -> refine -> tech -> [ddd] -> pti
 | `/ddd <system>` | Optional — Database Design Document | `_db-design.md` |
 | `/pti <system>` | Issues breakdown | `_issues.md` |
 | `/arch <system>` | Full flow (all 6 + optional ddd) | All of the above |
+| `/to-sdd <system>` | Standalone — compact docs into LLM-optimized SDD context files | `agent_sdd_context_project/_sdd-context.md` + `_sdd-tech-context.md` |
 
 ### Modules
 
