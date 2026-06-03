@@ -32,7 +32,7 @@
         "task": true,
         "write": true
       },
-      "copilotChildren": ["doc-idea", "doc-rec", "doc-prd", "doc-refinement", "doc-tech", "doc-ddd", "doc-pti", "doc-feat", "doc-scope", "doc-rec-lite", "doc-prd-lite"]
+      "copilotChildren": ["doc-idea", "doc-rec", "doc-prd", "doc-refinement", "doc-tech", "doc-ddd", "doc-pti", "doc-feat", "doc-scope", "doc-rec-lite", "doc-prd-lite", "doc-to-sdd"]
     },
     {
       "id": "doc-ddd",

@@ -144,8 +144,8 @@ func TestContentManifest_Unmarshal(t *testing.T) {
 		t.Errorf("doc-arch mode = %q, want 'primary'", cm.Roles[0].Mode)
 	}
 
-	if len(cm.Roles[0].CopilotChildren) != 11 {
-		t.Errorf("doc-arch copilotChildren count = %d, want 11", len(cm.Roles[0].CopilotChildren))
+	if len(cm.Roles[0].CopilotChildren) != 12 {
+		t.Errorf("doc-arch copilotChildren count = %d, want 12", len(cm.Roles[0].CopilotChildren))
 	}
 
 	if len(cm.Commands) != 11 {
@@ -256,4 +256,3 @@ func TestPlatformManifest_Unmarshal(t *testing.T) {
 		t.Errorf("qwen OrchestratorApprovalMode = %q", pm.Qwen.OrchestratorApprovalMode)
 	}
 }
-

@@ -317,6 +317,36 @@ func TestDocToSddRegistration_CommandEntry(t *testing.T) {
 	}
 }
 
+// TestDocArchCopilotChildren_CoversDocArchSubagents guards Copilot routing:
+// every doc-arch-managed subagent role must be declared in doc-arch.copilotChildren.
+func TestDocArchCopilotChildren_CoversDocArchSubagents(t *testing.T) {
+	cm := loadContentManifest(t)
+
+	var docArch *RoleConfig
+	for i := range cm.Roles {
+		if cm.Roles[i].ID == "doc-arch" {
+			docArch = &cm.Roles[i]
+			break
+		}
+	}
+	if docArch == nil {
+		t.Fatal("doc-arch role not found in content.json roles array")
+	}
+
+	children := make(map[string]bool, len(docArch.CopilotChildren))
+	for _, id := range docArch.CopilotChildren {
+		children[id] = true
+	}
+
+	for _, role := range cm.Roles {
+		if role.Mode == "subagent" && role.RulesSkill == "doc-arch" {
+			if !children[role.ID] {
+				t.Errorf("doc-arch copilotChildren missing subagent %q", role.ID)
+			}
+		}
+	}
+}
+
 // TestDocToSddRegistration_CompactRules verifies the compact rules block for
 // doc-to-sdd exists in registryTemplate output with required rules.
 func TestDocToSddRegistration_CompactRules(t *testing.T) {

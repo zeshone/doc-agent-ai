@@ -7,7 +7,14 @@ doc-agent-ai.exe
 dist-release/
 docs/
 # Local IDE / tooling caches
-.atl/.skill-registry.cache.json
 .windsurf/
-# Local Pi runtime state
 .atl/
+
+# Local Pi runtime state
+.pi/
+.pi-lens/
+agent-skill-persona-filosophy.md
+
+# Go test coverage artifacts
+coverage
+coverage.out

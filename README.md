@@ -5,7 +5,7 @@
 
 **Multi-platform documentation workflow agent.** Single binary — download and run. No Node.js, no npm, no dependencies. Install once, document everywhere across opencode, Claude Code, GitHub Copilot, Qwen Code, and Pi.
 
-> **v3.5.0** — Database design documentation step added. `/ddd` generates ERDs, schema details, and design rationale as an optional phase between `tech` and `pti`. [Full changelog →](./CHANGELOG.md)
+> **v3.6.0** — `/to-sdd` added as a standalone command that compacts human-readable docs into LLM-optimized SDD context. Produces one or both context files in `agent_sdd_context_project/` (`_sdd-context.md`, `_sdd-tech-context.md`) depending on available source artifacts. [Full changelog →](./CHANGELOG.md)
 
 ---
 
@@ -83,7 +83,7 @@ idea -> rec -> prd -> refine -> tech -> [ddd] -> pti
 | `/ddd <system>` | Optional — Database Design Document | `_db-design.md` |
 | `/pti <system>` | Issues breakdown | `_issues.md` |
 | `/arch <system>` | Full flow (all 6 + optional ddd) | All of the above |
-| `/to-sdd <system>` | Standalone — compact docs into LLM-optimized SDD context files | `agent_sdd_context_project/_sdd-context.md` + `_sdd-tech-context.md` |
+| `/to-sdd <system>` | Standalone — compact docs into LLM-optimized SDD context files | One or both: `agent_sdd_context_project/_sdd-context.md`, `agent_sdd_context_project/_sdd-tech-context.md` (depends on available source artifacts) |
 
 ### Modules
 
