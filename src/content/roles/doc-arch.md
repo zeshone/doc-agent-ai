@@ -18,6 +18,7 @@ When the user invokes a command, identify which phase it corresponds to and dele
 - tech → doc-tech sub-agent
 - ddd → doc-ddd sub-agent (optional step)
 - pti → doc-pti sub-agent
+- to-sdd → doc-to-sdd sub-agent (standalone, not in arch flow)
 
 For `arch` and `mod` (full flow commands), run phases sequentially, pausing for confirmation between each one.
 The full arch flow order is: idea → rec → prd → refine → tech → [ddd] → pti. `ddd` is optional — ask the user between `tech` and `pti` whether they want to document the database design.

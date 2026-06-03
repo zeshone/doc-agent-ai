@@ -47,8 +47,11 @@ Indexes use Obsidian `[[link]]` syntax for cross-references.
 | `tech <sistema>` | Step 5 — Technical specification | `doc-tech` |
 | `ddd [<sistema>[-<modulo>]]` | Optional — Database Design Document | `doc-ddd` |
 | `pti <sistema>` | Step 6 — Issue breakdown | `doc-pti` |
+| `to-sdd <sistema>` | Standalone — compact docs into LLM-optimized SDD context files | `doc-to-sdd` |
 
 `refine` without a system argument runs in standalone mode (user provides a story to refine).
+
+`to-sdd` is a standalone command — it is NOT part of the `arch` flow sequence.
 
 ### Module Commands
 

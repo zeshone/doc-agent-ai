@@ -767,6 +767,7 @@ func registryTemplate(basePath, skillsDir, triggerStyle string) string {
 | Classifying the scope of a legacy feature via bounded discovery | doc-scope | %s |
 | Gathering requirements for a single legacy feature (Volere-lite) | doc-rec-lite | %s |
 | Generating a PRD for a single legacy feature | doc-prd-lite | %s |
+| Compacting documentation into LLM-optimized SDD context, /to-sdd | doc-to-sdd | %s |
 
 ## Compact Rules
 
@@ -823,6 +824,14 @@ func registryTemplate(basePath, skillsDir, triggerStyle string) string {
 - Single-feature PRD; no multi-persona matrix
 - Required sections: executive summary, flows, stories with G/W/T AC, non-goals, risks
 - Output: `+"`<slug>_prd.md`"+`; risks section feeds the ADR-1 risk gate
+
+### doc-to-sdd
+- Standalone command — NOT part of the arch flow sequence
+- Reads idea + rec + prd → _sdd-context.md (business layer)
+- Reads tech + ddd → _sdd-tech-context.md (technical layer)
+- Output: `+"`<BASE_PATH><system>/agent_sdd_context_project/`"+`
+- All output in English regardless of source language
+- Maximum token efficiency: every sentence must carry essential information
 `,
 		version,
 		basePath,
@@ -839,6 +848,7 @@ func registryTemplate(basePath, skillsDir, triggerStyle string) string {
 		filepath.Join(skillsDir, "doc-scope", "SKILL.md"),
 		filepath.Join(skillsDir, "doc-rec-lite", "SKILL.md"),
 		filepath.Join(skillsDir, "doc-prd-lite", "SKILL.md"),
+		filepath.Join(skillsDir, "doc-to-sdd", "SKILL.md"),
 		basePath,
 	)
 }

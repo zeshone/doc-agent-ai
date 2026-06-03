@@ -6,6 +6,23 @@ For older releases without a section here, the GitHub Release notes have the det
 
 ---
 
+## v3.6.0 — 2026-06-03
+
+### Added
+
+- **`/to-sdd` command** — standalone compaction of human-readable docs into LLM-optimized SDD context.
+
+  Usage: `/to-sdd <system>`
+
+  Produces one or both files in `agent_sdd_context_project/` (depending on available source artifacts):
+
+  - `_sdd-context.md` — business layer context
+  - `_sdd-tech-context.md` — technical layer context
+
+  Positioning: English-only output, token-efficient, clarity-first, and directly routed to `doc-to-sdd` (not part of the `/arch` flow).
+
+  Tests / registry parity: embedded content validation covers direct `/to-sdd` → `doc-to-sdd` routing, and registry parity guards keep the skill manifest and registry template in sync.
+
 ## v3.5.0 — 2026-05-29
 
 ### Added
