@@ -5,7 +5,7 @@
 
 **Multi-platform documentation workflow agent.** Single binary — download and run. No Node.js, no npm, no dependencies. Install once, document everywhere across opencode, Claude Code, GitHub Copilot, Qwen Code, and Pi.
 
-> **v3.6.0** — `/to-sdd` added as a standalone command that compacts human-readable docs into LLM-optimized SDD context. Produces one or both context files in `agent_sdd_context_project/` (`_sdd-context.md`, `_sdd-tech-context.md`) depending on available source artifacts. [Full changelog →](./CHANGELOG.md)
+> **v4.0.0** — All opencode commands now carry the `doc-` prefix (e.g. `/doc-arch`, `/doc-prd`). This is a breaking change for opencode users — see the [migration table in CHANGELOG →](./CHANGELOG.md).
 
 ---
 
@@ -34,7 +34,7 @@ chmod +x doc-agent-ai   # not needed on Windows
 ./doc-agent-ai install
 ```
 
-Restart your AI tool. Then type `/arch my-system` to start documenting.
+Restart your AI tool. Then type `/doc-arch my-system` to start documenting.
 
 ---
 
@@ -74,28 +74,28 @@ idea -> rec -> prd -> refine -> tech -> [ddd] -> pti
 
 | Command | Phase | Output |
 |---------|-------|--------|
-| `/idea <system>` | Idea refinement — turn a vague concept into a clear product direction | Master index description (+ optional `_idea-brief.md`) |
-| `/rec <system>` | Requirements elicitation | `_requirements.md` |
-| `/prd <system>` | Product Requirements Document | `_prd.md` |
-| `/refine <system>` | User story audit against INVEST criteria | Updated `_prd.md` user stories |
-| `/refine` | Standalone refinement of a single user story | Inline refined story |
-| `/tech <system>` | Technical specification | `_tech-spec.md` |
-| `/ddd <system>` | Optional — Database Design Document | `_db-design.md` |
-| `/pti <system>` | Issues breakdown | `_issues.md` |
-| `/arch <system>` | Full flow (all 6 + optional ddd) | All of the above |
-| `/to-sdd <system>` | Standalone — compact docs into LLM-optimized SDD context files | One or both: `agent_sdd_context_project/_sdd-context.md`, `agent_sdd_context_project/_sdd-tech-context.md` (depends on available source artifacts) |
+| `/doc-idea <system>` | Idea refinement — turn a vague concept into a clear product direction | Master index description (+ optional `_idea-brief.md`) |
+| `/doc-rec <system>` | Requirements elicitation | `_requirements.md` |
+| `/doc-prd <system>` | Product Requirements Document | `_prd.md` |
+| `/doc-refine <system>` | User story audit against INVEST criteria | Updated `_prd.md` user stories |
+| `/doc-refine` | Standalone refinement of a single user story | Inline refined story |
+| `/doc-tech <system>` | Technical specification | `_tech-spec.md` |
+| `/doc-ddd <system>` | Optional — Database Design Document | `_db-design.md` |
+| `/doc-pti <system>` | Issues breakdown | `_issues.md` |
+| `/doc-arch <system>` | Full flow (all 6 + optional ddd) | All of the above |
+| `/doc-to-sdd <system>` | Standalone — compact docs into LLM-optimized SDD context files | One or both: `agent_sdd_context_project/_sdd-context.md`, `agent_sdd_context_project/_sdd-tech-context.md` (depends on available source artifacts) |
 
 ### Modules
 
 ```text
-/idea <system>/<module>          ← individual phase for a module
-/rec <system>/<module>           ← individual phase for a module
-/prd <system>/<module>
-/refine <system>/<module>
-/tech <system>/<module>
-/ddd <system>/<module>           ← optional DB design for a module
-/pti <system>/<module>
-/mod <system> <module>           ← full module flow (all phases, ddd optional)
+/doc-idea <system>/<module>      ← individual phase for a module
+/doc-rec <system>/<module>       ← individual phase for a module
+/doc-prd <system>/<module>
+/doc-refine <system>/<module>
+/doc-tech <system>/<module>
+/doc-ddd <system>/<module>       ← optional DB design for a module
+/doc-pti <system>/<module>
+/doc-mod <system> <module>       ← full module flow (all phases, ddd optional)
 ```
 
 ---
