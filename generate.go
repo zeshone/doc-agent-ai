@@ -63,8 +63,8 @@ func generate(outputDir string) error {
 
 	// Ordered platform map (matches platforms.json key order for portability)
 	type namedPlatform struct {
-		id   string
-		cfg  PlatformConfig
+		id  string
+		cfg PlatformConfig
 	}
 	platforms := []namedPlatform{
 		{"opencode", platformManifest.OpenCode},
@@ -77,9 +77,9 @@ func generate(outputDir string) error {
 	// Per-role variables that change across platforms
 	buildBodyVars := func(platformID string, platform PlatformConfig, role RoleConfig) map[string]string {
 		return map[string]string{
-			"BASE_PATH":        contentManifest.PlaceholderBasePath,
-			"SKILL_PATH":       platform.SkillRoot + "/" + role.Skill + "/SKILL.md",
-			"RULES_SKILL_PATH": platform.SkillRoot + "/" + role.RulesSkill + "/SKILL.md",
+			"BASE_PATH":          contentManifest.PlaceholderBasePath,
+			"SKILL_PATH":         platform.SkillRoot + "/" + role.Skill + "/SKILL.md",
+			"RULES_SKILL_PATH":   platform.SkillRoot + "/" + role.RulesSkill + "/SKILL.md",
 			"TECH_TEMPLATE_PATH": platform.SkillRoot + "/doc-tech/references/template.md",
 		}
 	}

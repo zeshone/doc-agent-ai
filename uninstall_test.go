@@ -189,6 +189,7 @@ func TestUninstallSweep_OnlyLegacyPresent(t *testing.T) {
 //   - opencode platform with doc-agent-ai artifacts (skills, prompts, commands,
 //     agents in opencode.json) + non-doc-agent-ai noise
 //   - claude platform with doc-agent-ai artifacts + noise
+//
 // Then runs uninstall logic and verifies:
 //   - Only doc-agent-ai artifacts are removed
 //   - Non-doc-agent-ai files survive

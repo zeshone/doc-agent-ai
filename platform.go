@@ -77,10 +77,10 @@ type basePlatform struct {
 	cfg     PlatformConfig
 }
 
-func (b *basePlatform) ID() string               { return b.id }
-func (b *basePlatform) HomeDir() string           { return b.homeDir }
-func (b *basePlatform) SkillsDir() string         { return filepath.Join(b.homeDir, "skills") }
-func (b *basePlatform) PromptsDir() string        { return filepath.Join(b.homeDir, "prompts", "doc") }
+func (b *basePlatform) ID() string         { return b.id }
+func (b *basePlatform) HomeDir() string    { return b.homeDir }
+func (b *basePlatform) SkillsDir() string  { return filepath.Join(b.homeDir, "skills") }
+func (b *basePlatform) PromptsDir() string { return filepath.Join(b.homeDir, "prompts", "doc") }
 
 // skillRegistryPath returns the path to .atl/skill-registry.md for this platform.
 func (b *basePlatform) skillRegistryPath() string {

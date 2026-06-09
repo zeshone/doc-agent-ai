@@ -29,12 +29,12 @@ const (
 // Output helpers (match install.js style exactly)
 // ---------------------------------------------------------------------------
 
-func ok(msg string)   { fmt.Printf("  %s✔%s %s\n", ansiGreen, ansiReset, msg) }
-func warn(msg string)  { fmt.Printf("  %s⚠%s  %s\n", ansiYellow, ansiReset, msg) }
+func ok(msg string)     { fmt.Printf("  %s✔%s %s\n", ansiGreen, ansiReset, msg) }
+func warn(msg string)   { fmt.Printf("  %s⚠%s  %s\n", ansiYellow, ansiReset, msg) }
 func errOut(msg string) { fmt.Printf("  %s✖%s %s\n", ansiRed, ansiReset, msg) }
-func info(msg string)  { fmt.Printf("  %s→%s %s\n", ansiBlue, ansiReset, msg) }
-func dim(msg string)   { fmt.Printf("%s  %s%s\n", ansiGray, msg, ansiReset) }
-func head(msg string)  { fmt.Printf("\n%s  %s%s\n", ansiBold, msg, ansiReset) }
+func info(msg string)   { fmt.Printf("  %s→%s %s\n", ansiBlue, ansiReset, msg) }
+func dim(msg string)    { fmt.Printf("%s  %s%s\n", ansiGray, msg, ansiReset) }
+func head(msg string)   { fmt.Printf("\n%s  %s%s\n", ansiBold, msg, ansiReset) }
 
 // ---------------------------------------------------------------------------
 // Interactive input
