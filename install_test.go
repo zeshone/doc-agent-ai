@@ -15,13 +15,6 @@ import (
 // legacyIDs is the canonical list of bare command names retired in v4.0.0.
 var legacyIDs = []string{"arch", "idea", "rec", "prd", "refine", "tech", "pti", "mod", "feat", "ddd", "to-sdd"}
 
-// buildSweepManifest returns a DistManifest with a known LegacyCommandIds slice.
-func buildSweepManifest() DistManifest {
-	m := makeTestManifest()
-	m.LegacyCommandIds = legacyIDs
-	return m
-}
-
 // setupOpencodeForSweep creates an opencode platform + home dir inside tmpHome.
 func setupOpencodeForSweep(t *testing.T, tmpHome string) (Platform, string) {
 	t.Helper()
