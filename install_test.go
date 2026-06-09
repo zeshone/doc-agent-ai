@@ -9,6 +9,166 @@ import (
 )
 
 // ---------------------------------------------------------------------------
+// Legacy command sweep tests (T-02)
+// ---------------------------------------------------------------------------
+
+// legacyIDs is the canonical list of bare command names retired in v4.0.0.
+var legacyIDs = []string{"arch", "idea", "rec", "prd", "refine", "tech", "pti", "mod", "feat", "ddd", "to-sdd"}
+
+// setupOpencodeForSweep creates an opencode platform + home dir inside tmpHome.
+func setupOpencodeForSweep(t *testing.T, tmpHome string) (Platform, string) {
+	t.Helper()
+	opencodeHome := filepath.Join(tmpHome, ".config", "opencode")
+	if err := os.MkdirAll(opencodeHome, 0755); err != nil {
+		t.Fatalf("create opencode dir: %v", err)
+	}
+	cfg := map[string]any{}
+	data, _ := json.Marshal(cfg)
+	if err := os.WriteFile(filepath.Join(opencodeHome, "opencode.json"), data, 0644); err != nil {
+		t.Fatalf("write opencode.json: %v", err)
+	}
+	plat := newPlatformForTest(t, "opencode", opencodeHome)
+	return plat, opencodeHome
+}
+
+// seedLegacyFiles creates legacy *.md files in the opencode commands dir.
+func seedLegacyFiles(t *testing.T, cmdsDir string, ids []string) {
+	t.Helper()
+	if err := os.MkdirAll(cmdsDir, 0755); err != nil {
+		t.Fatalf("create commands dir: %v", err)
+	}
+	for _, id := range ids {
+		if err := os.WriteFile(filepath.Join(cmdsDir, id+".md"), []byte("# legacy "+id), 0644); err != nil {
+			t.Fatalf("seed legacy file %s: %v", id, err)
+		}
+	}
+}
+
+// TestInstallSweep_FreshInstall verifies no legacy files appear and the new
+// doc-* commands are present after a clean install with no pre-existing files.
+func TestInstallSweep_FreshInstall(t *testing.T) {
+	tmpHome := t.TempDir()
+	restoreHome := mockHomeEnv(t, tmpHome)
+	defer restoreHome()
+
+	// Generate a real dist so there are actual command files to copy.
+	distDir := filepath.Join(t.TempDir(), "dist")
+	if err := generate(distDir); err != nil {
+		t.Fatalf("generate dist: %v", err)
+	}
+	manifest, err := readManifestFrom(distDir)
+	if err != nil {
+		t.Fatalf("read manifest: %v", err)
+	}
+
+	plat, opencodeHome := setupOpencodeForSweep(t, tmpHome)
+	cmdsDir := filepath.Join(opencodeHome, "commands")
+	basePath := filepath.ToSlash(filepath.Join(tmpHome, "projects")) + "/"
+
+	if err := installToPlatform(manifest, plat, basePath, distDir); err != nil {
+		t.Fatalf("installToPlatform: %v", err)
+	}
+
+	// All new doc-* commands present.
+	for _, cmd := range manifest.Commands {
+		p := filepath.Join(cmdsDir, cmd.ID+".md")
+		if _, err := os.Stat(p); os.IsNotExist(err) {
+			t.Errorf("expected command file %s to exist after fresh install", p)
+		}
+	}
+
+	// No legacy files present.
+	for _, id := range legacyIDs {
+		p := filepath.Join(cmdsDir, id+".md")
+		if _, err := os.Stat(p); err == nil {
+			t.Errorf("legacy file %s should not exist after fresh install, but found", p)
+		}
+	}
+}
+
+// TestInstallSweep_ReinstallOverV3 seeds the commands dir with all 11 legacy
+// files (simulating a v3.x install) and verifies they are all deleted after
+// a v4 install.
+func TestInstallSweep_ReinstallOverV3(t *testing.T) {
+	tmpHome := t.TempDir()
+	restoreHome := mockHomeEnv(t, tmpHome)
+	defer restoreHome()
+
+	distDir := filepath.Join(t.TempDir(), "dist")
+	if err := generate(distDir); err != nil {
+		t.Fatalf("generate dist: %v", err)
+	}
+	manifest, err := readManifestFrom(distDir)
+	if err != nil {
+		t.Fatalf("read manifest: %v", err)
+	}
+
+	plat, opencodeHome := setupOpencodeForSweep(t, tmpHome)
+	cmdsDir := filepath.Join(opencodeHome, "commands")
+
+	// Seed all 11 legacy files.
+	seedLegacyFiles(t, cmdsDir, legacyIDs)
+
+	basePath := filepath.ToSlash(filepath.Join(tmpHome, "projects")) + "/"
+	if err := installToPlatform(manifest, plat, basePath, distDir); err != nil {
+		t.Fatalf("installToPlatform: %v", err)
+	}
+
+	// All legacy files must be deleted.
+	for _, id := range legacyIDs {
+		p := filepath.Join(cmdsDir, id+".md")
+		if _, err := os.Stat(p); err == nil {
+			t.Errorf("legacy file %s.md still present after reinstall — sweep did not run", id)
+		}
+	}
+
+	// All new doc-* commands must be present.
+	for _, cmd := range manifest.Commands {
+		p := filepath.Join(cmdsDir, cmd.ID+".md")
+		if _, err := os.Stat(p); os.IsNotExist(err) {
+			t.Errorf("expected new command file %s after reinstall", p)
+		}
+	}
+}
+
+// TestInstallSweep_Idempotent seeds only a partial set of legacy files and
+// verifies install removes them with no error for absent ones.
+func TestInstallSweep_Idempotent(t *testing.T) {
+	tmpHome := t.TempDir()
+	restoreHome := mockHomeEnv(t, tmpHome)
+	defer restoreHome()
+
+	distDir := filepath.Join(t.TempDir(), "dist")
+	if err := generate(distDir); err != nil {
+		t.Fatalf("generate dist: %v", err)
+	}
+	manifest, err := readManifestFrom(distDir)
+	if err != nil {
+		t.Fatalf("read manifest: %v", err)
+	}
+
+	plat, opencodeHome := setupOpencodeForSweep(t, tmpHome)
+	cmdsDir := filepath.Join(opencodeHome, "commands")
+
+	// Seed only two legacy files.
+	seedLegacyFiles(t, cmdsDir, []string{"prd", "arch"})
+
+	basePath := filepath.ToSlash(filepath.Join(tmpHome, "projects")) + "/"
+	// Must not return an error even if most legacy files are absent.
+	if err := installToPlatform(manifest, plat, basePath, distDir); err != nil {
+		t.Fatalf("installToPlatform (idempotent test): %v", err)
+	}
+
+	// The two seeded files must be gone.
+	for _, id := range []string{"prd", "arch"} {
+		p := filepath.Join(cmdsDir, id+".md")
+		if _, err := os.Stat(p); err == nil {
+			t.Errorf("legacy file %s.md should have been swept, still exists", id)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
 // 7.5 Install file tree test
 // ---------------------------------------------------------------------------
 

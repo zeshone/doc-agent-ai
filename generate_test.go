@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 )
@@ -152,8 +153,8 @@ func TestContentManifest_Unmarshal(t *testing.T) {
 		t.Errorf("expected 11 commands, got %d", len(cm.Commands))
 	}
 
-	if cm.Commands[0].ID != "arch" {
-		t.Errorf("first command should be arch, got %s", cm.Commands[0].ID)
+	if cm.Commands[0].ID != "doc-arch" {
+		t.Errorf("first command should be doc-arch, got %s", cm.Commands[0].ID)
 	}
 
 	// Verify opencodeTools are deserialized as map[string]bool
@@ -207,6 +208,97 @@ func TestLintSkillFrontmatter_NoFrontmatterIsIgnored(t *testing.T) {
 func TestLintEmbeddedSkills_RepoStateIsClean(t *testing.T) {
 	if err := lintEmbeddedSkills(); err != nil {
 		t.Errorf("embedded skills/ should pass lint: %v", err)
+	}
+}
+
+// TestGenerateCommandFilenames verifies that generate produces doc-prefixed
+// command filenames and none of the 11 legacy bare names.
+func TestGenerateCommandFilenames(t *testing.T) {
+	distDir := t.TempDir()
+	if err := generate(distDir); err != nil {
+		t.Fatalf("generate: %v", err)
+	}
+
+	// doc-prefixed files that must exist.
+	wantFiles := []string{
+		"doc-arch.md", "doc-idea.md", "doc-rec.md", "doc-prd.md",
+		"doc-refine.md", "doc-tech.md", "doc-pti.md", "doc-mod.md",
+		"doc-feat.md", "doc-ddd.md", "doc-to-sdd.md",
+	}
+	for _, f := range wantFiles {
+		p := distDir + "/commands/" + f
+		if _, err := os.Stat(p); os.IsNotExist(err) {
+			t.Errorf("expected generated command file %s, not found", p)
+		}
+	}
+
+	// Legacy bare names that must NOT exist.
+	legacyFiles := []string{
+		"arch.md", "idea.md", "rec.md", "prd.md", "refine.md",
+		"tech.md", "pti.md", "mod.md", "feat.md", "ddd.md", "to-sdd.md",
+	}
+	for _, f := range legacyFiles {
+		p := distDir + "/commands/" + f
+		if _, err := os.Stat(p); err == nil {
+			t.Errorf("legacy command file %s should not exist in generated output", p)
+		}
+	}
+}
+
+// TestLegacyCommandIds_FlowsToDistManifest verifies that ContentManifest carries
+// legacyCommandIds and that generate copies the field into DistManifest.
+func TestLegacyCommandIds_FlowsToDistManifest(t *testing.T) {
+	// --- Part 1: ContentManifest carries the field after unmarshal ---
+	data, err := embedded.ReadFile("src/manifests/content.json")
+	if err != nil {
+		t.Fatalf("cannot read embedded content.json: %v", err)
+	}
+
+	var cm ContentManifest
+	if err := json.Unmarshal(data, &cm); err != nil {
+		t.Fatalf("failed to unmarshal content.json: %v", err)
+	}
+
+	wantLegacy := []string{"arch", "idea", "rec", "prd", "refine", "tech", "pti", "mod", "feat", "ddd", "to-sdd"}
+
+	if cm.LegacyCommandIds == nil {
+		t.Fatal("ContentManifest.LegacyCommandIds is nil — field not defined or content.json missing legacyCommandIds")
+	}
+	if len(cm.LegacyCommandIds) != len(wantLegacy) {
+		t.Fatalf("LegacyCommandIds length = %d, want %d; got %v", len(cm.LegacyCommandIds), len(wantLegacy), cm.LegacyCommandIds)
+	}
+	for i, id := range wantLegacy {
+		if cm.LegacyCommandIds[i] != id {
+			t.Errorf("LegacyCommandIds[%d] = %q, want %q", i, cm.LegacyCommandIds[i], id)
+		}
+	}
+
+	// --- Part 2: generate copies the field into DistManifest ---
+	distDir := t.TempDir()
+	if err := generate(distDir); err != nil {
+		t.Fatalf("generate: %v", err)
+	}
+
+	distData, err := os.ReadFile(distDir + "/manifest.json")
+	if err != nil {
+		t.Fatalf("cannot read generated manifest.json: %v", err)
+	}
+
+	var dm DistManifest
+	if err := json.Unmarshal(distData, &dm); err != nil {
+		t.Fatalf("cannot unmarshal generated manifest.json: %v", err)
+	}
+
+	if dm.LegacyCommandIds == nil {
+		t.Fatal("DistManifest.LegacyCommandIds is nil — generate does not copy field")
+	}
+	if len(dm.LegacyCommandIds) != len(wantLegacy) {
+		t.Fatalf("DistManifest.LegacyCommandIds length = %d, want %d", len(dm.LegacyCommandIds), len(wantLegacy))
+	}
+	for i, id := range wantLegacy {
+		if dm.LegacyCommandIds[i] != id {
+			t.Errorf("DistManifest.LegacyCommandIds[%d] = %q, want %q", i, dm.LegacyCommandIds[i], id)
+		}
 	}
 }
 

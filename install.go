@@ -29,12 +29,12 @@ const (
 // Output helpers (match install.js style exactly)
 // ---------------------------------------------------------------------------
 
-func ok(msg string)   { fmt.Printf("  %s✔%s %s\n", ansiGreen, ansiReset, msg) }
-func warn(msg string)  { fmt.Printf("  %s⚠%s  %s\n", ansiYellow, ansiReset, msg) }
+func ok(msg string)     { fmt.Printf("  %s✔%s %s\n", ansiGreen, ansiReset, msg) }
+func warn(msg string)   { fmt.Printf("  %s⚠%s  %s\n", ansiYellow, ansiReset, msg) }
 func errOut(msg string) { fmt.Printf("  %s✖%s %s\n", ansiRed, ansiReset, msg) }
-func info(msg string)  { fmt.Printf("  %s→%s %s\n", ansiBlue, ansiReset, msg) }
-func dim(msg string)   { fmt.Printf("%s  %s%s\n", ansiGray, msg, ansiReset) }
-func head(msg string)  { fmt.Printf("\n%s  %s%s\n", ansiBold, msg, ansiReset) }
+func info(msg string)   { fmt.Printf("  %s→%s %s\n", ansiBlue, ansiReset, msg) }
+func dim(msg string)    { fmt.Printf("%s  %s%s\n", ansiGray, msg, ansiReset) }
+func head(msg string)   { fmt.Printf("\n%s  %s%s\n", ansiBold, msg, ansiReset) }
 
 // ---------------------------------------------------------------------------
 // Interactive input
@@ -336,6 +336,20 @@ func validateDist(manifest DistManifest, distDir string) []string {
 }
 
 // ---------------------------------------------------------------------------
+// Legacy command sweep
+// ---------------------------------------------------------------------------
+
+// sweepLegacyCommands removes any legacy opencode command files (bare-name IDs
+// from prior installs) from the platform's commands directory. It is idempotent:
+// absent files are silently skipped via removeFileIfExists.
+func sweepLegacyCommands(homeDir string, legacyIDs []string) {
+	cmdsDir := filepath.Join(homeDir, "commands")
+	for _, id := range legacyIDs {
+		removeFileIfExists(filepath.Join(cmdsDir, id+".md"), "legacy command: /"+id)
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Non-interactive install (used by tests and interactive flow)
 // ---------------------------------------------------------------------------
 
@@ -414,6 +428,7 @@ func installToPlatform(manifest DistManifest, plat Platform, basePath, distDir s
 			}
 			ok("command: " + filepath.Base(dst))
 		}
+		sweepLegacyCommands(plat.HomeDir(), manifest.LegacyCommandIds)
 	}
 
 	// --- Patch platform config (opencode only) ---

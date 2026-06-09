@@ -7,6 +7,43 @@ import (
 	"testing"
 )
 
+// TestRegistryParity_CommandsUsePrefix verifies that registryTemplate output
+// contains all 11 doc-prefixed command names and none of the 11 bare names.
+func TestRegistryParity_CommandsUsePrefix(t *testing.T) {
+	const testBase = "/base"
+	const testSkillsDir = "/skills"
+
+	for _, triggerStyle := range []string{"opencode", "claude"} {
+		output := registryTemplate(testBase, testSkillsDir, triggerStyle)
+
+		// Bare names that must NOT appear as backtick-wrapped command tokens.
+		bareNames := []string{
+			"arch", "idea", "rec", "prd", "refine",
+			"tech", "ddd", "pti", "mod", "feat", "to-sdd",
+		}
+		for _, name := range bareNames {
+			// Catch both closed tokens (`/feat`) and tokens followed by
+			// arguments inside the backtick span (`/feat <args>...`).
+			for _, token := range []string{"`/" + name + "`", "`/" + name + " "} {
+				if strings.Contains(output, token) {
+					t.Errorf("[%s] registry contains bare command token %q — expected doc-prefixed only", triggerStyle, token)
+				}
+			}
+		}
+
+		// doc-prefixed names that MUST appear.
+		docNames := []string{
+			"doc-arch", "doc-idea", "doc-rec", "doc-prd", "doc-refine",
+			"doc-tech", "doc-pti", "doc-mod", "doc-feat", "doc-ddd", "doc-to-sdd",
+		}
+		for _, name := range docNames {
+			if !strings.Contains(output, name) {
+				t.Errorf("[%s] registry missing doc-prefixed command name %q", triggerStyle, name)
+			}
+		}
+	}
+}
+
 // registrySkillIDs extracts the skill IDs referenced in a registryTemplate
 // output by scanning table rows for cells that contain a path under skillsDir
 // and end with SKILL.md. Works on both Unix and Windows because it normalises
