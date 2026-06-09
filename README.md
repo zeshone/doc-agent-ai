@@ -143,7 +143,8 @@ go build -o doc-agent-ai .
 
 ### Authoring conventions
 
-- Canonical names: `doc-arch`, `doc-idea`, `doc-rec`, `doc-prd`, `doc-refinement`, `doc-tech`, `doc-ddd`, `doc-pti`
+- Canonical skill/role names: `doc-arch`, `doc-idea`, `doc-rec`, `doc-prd`, `doc-refinement`, `doc-tech`, `doc-ddd`, `doc-pti`, `doc-feat`, `doc-scope`, `doc-rec-lite`, `doc-prd-lite`, `doc-to-sdd`
+- Command names mirror their skill with the `doc-` prefix, with two deliberate divergences: `/doc-refine` triggers the `doc-refinement` skill, and `/doc-mod` (module flow) is handled by `doc-arch`
 - Progressive workflow depth: `idea` (product framing) → `rec` (executive/business elicitation) → `prd` (technical but clear) → `refine` (story quality gate) → `tech` (maximum precision, still legible) → [`ddd` (structured data design, ERD, constraints, rationale)] → `pti` (executable issues)
 - `ddd` is optional. Triggered explicitly, by hard signals (schema files, DBMS mentions), or by orchestrator prompt between `tech` and `pti`. Dismissed for in-memory or ephemeral systems.
 - Local-first issues. GitHub only on explicit request.
