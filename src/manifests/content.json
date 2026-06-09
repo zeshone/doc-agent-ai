@@ -157,70 +157,71 @@
   ],
   "commands": [
     {
-      "id": "arch",
+      "id": "doc-arch",
       "description": "Full system documentation workflow: idea → rec → prd → refine → tech → [ddd] → pti (ddd is optional)",
       "agent": "doc-arch",
-      "content": "commands/arch.md"
+      "content": "commands/doc-arch.md"
     },
     {
-      "id": "idea",
+      "id": "doc-idea",
       "description": "Step 1 — Idea refinement for a system or module",
       "agent": "doc-arch",
-      "content": "commands/idea.md"
+      "content": "commands/doc-idea.md"
     },
     {
-      "id": "rec",
+      "id": "doc-rec",
       "description": "Step 2 — Requirements elicitation for a system or module",
       "agent": "doc-arch",
-      "content": "commands/rec.md"
+      "content": "commands/doc-rec.md"
     },
     {
-      "id": "prd",
+      "id": "doc-prd",
       "description": "Step 3 — Product Requirements Document for a system or module",
       "agent": "doc-arch",
-      "content": "commands/prd.md"
+      "content": "commands/doc-prd.md"
     },
     {
-      "id": "refine",
+      "id": "doc-refine",
       "description": "Step 4 — User story refinement against INVEST criteria",
       "agent": "doc-arch",
-      "content": "commands/refine.md"
+      "content": "commands/doc-refine.md"
     },
     {
-      "id": "tech",
+      "id": "doc-tech",
       "description": "Step 5 — Technical specification for a system or module",
       "agent": "doc-arch",
-      "content": "commands/tech.md"
+      "content": "commands/doc-tech.md"
     },
     {
-      "id": "pti",
+      "id": "doc-pti",
       "description": "Step 6 — Issue breakdown for a system or module",
       "agent": "doc-arch",
-      "content": "commands/pti.md"
+      "content": "commands/doc-pti.md"
     },
     {
-      "id": "mod",
+      "id": "doc-mod",
       "description": "Initialize a module or sub-module within an evolving product",
       "agent": "doc-arch",
-      "content": "commands/mod.md"
+      "content": "commands/doc-mod.md"
     },
     {
-      "id": "feat",
+      "id": "doc-feat",
       "description": "Document a legacy feature: scope classification, requirements, PRD, optional tech spec, and executable issues",
       "agent": "doc-arch",
-      "content": "commands/feat.md"
+      "content": "commands/doc-feat.md"
     },
     {
-      "id": "ddd",
+      "id": "doc-ddd",
       "description": "Optional step — Database Design Document (DBDD) with ERD and schema details",
       "agent": "doc-ddd",
-      "content": "commands/ddd.md"
+      "content": "commands/doc-ddd.md"
     },
     {
-      "id": "to-sdd",
+      "id": "doc-to-sdd",
       "description": "Standalone — Compact documentation into LLM-optimized SDD context files",
       "agent": "doc-to-sdd",
-      "content": "commands/to-sdd.md"
+      "content": "commands/doc-to-sdd.md"
     }
-  ]
+  ],
+  "legacyCommandIds": ["arch", "idea", "rec", "prd", "refine", "tech", "pti", "mod", "feat", "ddd", "to-sdd"]
 }
