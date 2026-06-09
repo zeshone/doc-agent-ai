@@ -6,7 +6,7 @@ For older releases without a section here, the GitHub Release notes have the det
 
 ---
 
-## v4.0.0 — 2026-06-09
+## v4.0.0 — Unreleased
 
 ### BREAKING CHANGE — opencode command rename
 
