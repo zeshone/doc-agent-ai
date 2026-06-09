@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 )
@@ -152,8 +153,8 @@ func TestContentManifest_Unmarshal(t *testing.T) {
 		t.Errorf("expected 11 commands, got %d", len(cm.Commands))
 	}
 
-	if cm.Commands[0].ID != "arch" {
-		t.Errorf("first command should be arch, got %s", cm.Commands[0].ID)
+	if cm.Commands[0].ID != "doc-arch" {
+		t.Errorf("first command should be doc-arch, got %s", cm.Commands[0].ID)
 	}
 
 	// Verify opencodeTools are deserialized as map[string]bool
@@ -207,6 +208,40 @@ func TestLintSkillFrontmatter_NoFrontmatterIsIgnored(t *testing.T) {
 func TestLintEmbeddedSkills_RepoStateIsClean(t *testing.T) {
 	if err := lintEmbeddedSkills(); err != nil {
 		t.Errorf("embedded skills/ should pass lint: %v", err)
+	}
+}
+
+// TestGenerateCommandFilenames verifies that generate produces doc-prefixed
+// command filenames and none of the 11 legacy bare names.
+func TestGenerateCommandFilenames(t *testing.T) {
+	distDir := t.TempDir()
+	if err := generate(distDir); err != nil {
+		t.Fatalf("generate: %v", err)
+	}
+
+	// doc-prefixed files that must exist.
+	wantFiles := []string{
+		"doc-arch.md", "doc-idea.md", "doc-rec.md", "doc-prd.md",
+		"doc-refine.md", "doc-tech.md", "doc-pti.md", "doc-mod.md",
+		"doc-feat.md", "doc-ddd.md", "doc-to-sdd.md",
+	}
+	for _, f := range wantFiles {
+		p := distDir + "/commands/" + f
+		if _, err := os.Stat(p); os.IsNotExist(err) {
+			t.Errorf("expected generated command file %s, not found", p)
+		}
+	}
+
+	// Legacy bare names that must NOT exist.
+	legacyFiles := []string{
+		"arch.md", "idea.md", "rec.md", "prd.md", "refine.md",
+		"tech.md", "pti.md", "mod.md", "feat.md", "ddd.md", "to-sdd.md",
+	}
+	for _, f := range legacyFiles {
+		p := distDir + "/commands/" + f
+		if _, err := os.Stat(p); err == nil {
+			t.Errorf("legacy command file %s should not exist in generated output", p)
+		}
 	}
 }
 
