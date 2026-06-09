@@ -741,9 +741,9 @@ func toSet(items []string) map[string]bool {
 // registryTemplate returns the full content of .atl/skill-registry.md.
 // triggerStyle is "opencode" or "claude".
 func registryTemplate(basePath, skillsDir, triggerStyle string) string {
-	docArchTrigger := "`/arch`, `/idea`, `/rec`, `/prd`, `/refine`, `/tech`, `/ddd`, `/pti`, `/mod` — project documentation workflow"
+	docArchTrigger := "`/doc-arch`, `/doc-idea`, `/doc-rec`, `/doc-prd`, `/doc-refine`, `/doc-tech`, `/doc-ddd`, `/doc-pti`, `/doc-mod` — project documentation workflow"
 	if triggerStyle == "claude" {
-		docArchTrigger = "Documenting a project, /arch, /idea, /rec, /prd, /refine, /tech, /ddd, /pti, /mod"
+		docArchTrigger = "Documenting a project, /doc-arch, /doc-idea, /doc-rec, /doc-prd, /doc-refine, /doc-tech, /doc-ddd, /doc-pti, /doc-mod"
 	}
 
 	return fmt.Sprintf(`# Skill Registry — doc-agent-ai
@@ -767,13 +767,13 @@ func registryTemplate(basePath, skillsDir, triggerStyle string) string {
 | Classifying the scope of a legacy feature via bounded discovery | doc-scope | %s |
 | Gathering requirements for a single legacy feature (Volere-lite) | doc-rec-lite | %s |
 | Generating a PRD for a single legacy feature | doc-prd-lite | %s |
-| Compacting documentation into LLM-optimized SDD context, /to-sdd | doc-to-sdd | %s |
+| Compacting documentation into LLM-optimized SDD context, /doc-to-sdd | doc-to-sdd | %s |
 
 ## Compact Rules
 
 ### doc-arch
 - Base path for all projects: `+"`%s`"+`
-- Commands: `+"`arch <s>`"+` (full flow), `+"`idea`"+`, `+"`rec`"+`, `+"`prd`"+`, `+"`refine`"+`, `+"`tech`"+`, `+"`ddd`"+` (optional), `+"`pti`"+` (individual), `+"`mod <s> <m>`"+` (module), `+"`feat <path> <desc>`"+` (legacy feature)
+- Commands: `+"`doc-arch <s>`"+` (full flow), `+"`doc-idea`"+`, `+"`doc-rec`"+`, `+"`doc-prd`"+`, `+"`doc-refine`"+`, `+"`doc-tech`"+`, `+"`doc-ddd`"+` (optional), `+"`doc-pti`"+` (individual), `+"`doc-mod <s> <m>`"+` (module), `+"`doc-feat <path> <desc>`"+` (legacy feature)
 - Workflow order: idea → rec → prd → refine → tech → [ddd] → pti (ddd optional)
 - Module paths: `+"`<sistema>/<modulo>`"+` and `+"`<sistema>/<modulo>/<submodulo>`"+` — max 2 levels deep
 - Archetype detected in `+"`rec`"+`: bounded (single delivery) or evolving (long lifecycle with modules)
