@@ -165,16 +165,16 @@ func TestDocToSddRoleMD_ExecutorHeader(t *testing.T) {
 
 // TestDocToSddCommandMD_Exists verifies the command file exists.
 func TestDocToSddCommandMD_Exists(t *testing.T) {
-	_, err := embedded.ReadFile("src/content/commands/to-sdd.md")
+	_, err := embedded.ReadFile("src/content/commands/doc-to-sdd.md")
 	if err != nil {
-		t.Fatalf("src/content/commands/to-sdd.md not found in embedded FS: %v", err)
+		t.Fatalf("src/content/commands/doc-to-sdd.md not found in embedded FS: %v", err)
 	}
 }
 
 // TestDocToSddCommandMD_DelegatesToCorrectAgent verifies the command delegates
 // directly to doc-to-sdd (NOT doc-arch).
 func TestDocToSddCommandMD_DelegatesToCorrectAgent(t *testing.T) {
-	data, err := embedded.ReadFile("src/content/commands/to-sdd.md")
+	data, err := embedded.ReadFile("src/content/commands/doc-to-sdd.md")
 	if err != nil {
 		t.Fatalf("cannot read command file: %v", err)
 	}
@@ -188,7 +188,7 @@ func TestDocToSddCommandMD_DelegatesToCorrectAgent(t *testing.T) {
 // TestDocToSddCommandMD_NotRoutedThroughOrchestrator verifies the command
 // does NOT delegate through doc-arch.
 func TestDocToSddCommandMD_NotRoutedThroughOrchestrator(t *testing.T) {
-	data, err := embedded.ReadFile("src/content/commands/to-sdd.md")
+	data, err := embedded.ReadFile("src/content/commands/doc-to-sdd.md")
 	if err != nil {
 		t.Fatalf("cannot read command file: %v", err)
 	}
@@ -205,7 +205,7 @@ func TestDocToSddCommandMD_NotRoutedThroughOrchestrator(t *testing.T) {
 // TestDocToSddCommandMD_StandalonePositioning verifies the command is marked
 // as standalone and not part of the arch flow.
 func TestDocToSddCommandMD_StandalonePositioning(t *testing.T) {
-	data, err := embedded.ReadFile("src/content/commands/to-sdd.md")
+	data, err := embedded.ReadFile("src/content/commands/doc-to-sdd.md")
 	if err != nil {
 		t.Fatalf("cannot read command file: %v", err)
 	}
@@ -290,27 +290,27 @@ func TestDocToSddRegistration_RoleEntry(t *testing.T) {
 	}
 }
 
-// TestDocToSddRegistration_CommandEntry verifies the to-sdd command is registered
+// TestDocToSddRegistration_CommandEntry verifies the doc-to-sdd command is registered
 // with direct routing to doc-to-sdd (NOT doc-arch).
 func TestDocToSddRegistration_CommandEntry(t *testing.T) {
 	cm := loadContentManifest(t)
 
 	var cmd *CommandConfig
 	for i := range cm.Commands {
-		if cm.Commands[i].ID == "to-sdd" {
+		if cm.Commands[i].ID == "doc-to-sdd" {
 			cmd = &cm.Commands[i]
 			break
 		}
 	}
 	if cmd == nil {
-		t.Fatal("to-sdd command not found in content.json commands array")
+		t.Fatal("doc-to-sdd command not found in content.json commands array")
 	}
 
 	if cmd.Agent != "doc-to-sdd" {
 		t.Errorf("command agent = %q, want %q (direct routing, NOT doc-arch)", cmd.Agent, "doc-to-sdd")
 	}
-	if cmd.Content != "commands/to-sdd.md" {
-		t.Errorf("command content = %q, want %q", cmd.Content, "commands/to-sdd.md")
+	if cmd.Content != "commands/doc-to-sdd.md" {
+		t.Errorf("command content = %q, want %q", cmd.Content, "commands/doc-to-sdd.md")
 	}
 	if !strings.Contains(cmd.Description, "Standalone") {
 		t.Error("command description should indicate standalone positioning")
@@ -400,7 +400,7 @@ func TestDocToSddRegistration_RegistryRow(t *testing.T) {
 	if !strings.Contains(output, "doc-to-sdd") {
 		t.Fatal("registryTemplate missing doc-to-sdd in User Skills table")
 	}
-	if !strings.Contains(output, "/to-sdd") {
-		t.Error("registryTemplate User Skills row missing /to-sdd trigger")
+	if !strings.Contains(output, "/doc-to-sdd") {
+		t.Error("registryTemplate User Skills row missing /doc-to-sdd trigger")
 	}
 }
