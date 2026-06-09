@@ -6,6 +6,7 @@ type ContentManifest struct {
 	Skills              []string        `json:"skills"`
 	Roles               []RoleConfig    `json:"roles"`
 	Commands            []CommandConfig `json:"commands"`
+	LegacyCommandIds    []string        `json:"legacyCommandIds,omitempty"`
 }
 
 // RoleConfig represents a single role entry in content.json.
@@ -60,6 +61,7 @@ type DistManifest struct {
 	Skills              []string         `json:"skills"`
 	Roles               []DistRole       `json:"roles"`
 	Commands            []DistCommand    `json:"commands"`
+	LegacyCommandIds    []string         `json:"legacyCommandIds,omitempty"`
 	Platforms           PlatformManifest `json:"platforms"`
 }
 

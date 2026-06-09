@@ -385,6 +385,7 @@ func writeManifest(outputDir string, content ContentManifest, platforms Platform
 		Skills:              content.Skills,
 		Roles:               distRoles,
 		Commands:            distCommands,
+		LegacyCommandIds:    content.LegacyCommandIds,
 		Platforms:           platforms,
 	}
 
