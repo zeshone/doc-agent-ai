@@ -8,6 +8,180 @@ import (
 )
 
 // ---------------------------------------------------------------------------
+// Legacy command uninstall sweep tests (T-03)
+// ---------------------------------------------------------------------------
+
+// TestUninstallSweep_RemovesCurrentAndLegacy seeds the commands dir with a
+// current doc-* file and a legacy bare-name file, then runs uninstall and
+// asserts both are removed.
+func TestUninstallSweep_RemovesCurrentAndLegacy(t *testing.T) {
+	tmpHome := t.TempDir()
+	restoreHome := mockHomeEnv(t, tmpHome)
+	defer restoreHome()
+
+	distDir := filepath.Join(t.TempDir(), "dist")
+	if err := generate(distDir); err != nil {
+		t.Fatalf("generate dist: %v", err)
+	}
+	manifest, err := readManifestFrom(distDir)
+	if err != nil {
+		t.Fatalf("read manifest: %v", err)
+	}
+
+	opencodeHome := filepath.Join(tmpHome, ".config", "opencode")
+	if err := os.MkdirAll(opencodeHome, 0755); err != nil {
+		t.Fatalf("create opencode dir: %v", err)
+	}
+	cfg := map[string]any{"agent": map[string]any{}}
+	data, _ := json.Marshal(cfg)
+	if err := os.WriteFile(filepath.Join(opencodeHome, "opencode.json"), data, 0644); err != nil {
+		t.Fatalf("write opencode.json: %v", err)
+	}
+	plat := newPlatformForTest(t, "opencode", opencodeHome)
+
+	cmdsDir := filepath.Join(opencodeHome, "commands")
+	if err := os.MkdirAll(cmdsDir, 0755); err != nil {
+		t.Fatalf("create cmds dir: %v", err)
+	}
+
+	// Seed: one current file + one legacy file.
+	currentFile := filepath.Join(cmdsDir, "doc-prd.md")
+	legacyFile := filepath.Join(cmdsDir, "prd.md")
+	if err := os.WriteFile(currentFile, []byte("# doc-prd"), 0644); err != nil {
+		t.Fatalf("seed current file: %v", err)
+	}
+	if err := os.WriteFile(legacyFile, []byte("# prd legacy"), 0644); err != nil {
+		t.Fatalf("seed legacy file: %v", err)
+	}
+
+	details := installedDetails{
+		platform: plat,
+		commands: []string{"doc-prd"},
+	}
+	uninstallPlatform(details, manifest)
+
+	if _, err := os.Stat(currentFile); err == nil {
+		t.Error("doc-prd.md (current) should have been removed by uninstall")
+	}
+	if _, err := os.Stat(legacyFile); err == nil {
+		t.Error("prd.md (legacy) should have been removed by uninstall sweep")
+	}
+}
+
+// TestUninstallSweep_OnlyCurrentPresent seeds only the 11 doc-* files and
+// verifies they are all removed with no error.
+func TestUninstallSweep_OnlyCurrentPresent(t *testing.T) {
+	tmpHome := t.TempDir()
+	restoreHome := mockHomeEnv(t, tmpHome)
+	defer restoreHome()
+
+	distDir := filepath.Join(t.TempDir(), "dist")
+	if err := generate(distDir); err != nil {
+		t.Fatalf("generate dist: %v", err)
+	}
+	manifest, err := readManifestFrom(distDir)
+	if err != nil {
+		t.Fatalf("read manifest: %v", err)
+	}
+
+	opencodeHome := filepath.Join(tmpHome, ".config", "opencode")
+	if err := os.MkdirAll(opencodeHome, 0755); err != nil {
+		t.Fatalf("create opencode dir: %v", err)
+	}
+	cfg := map[string]any{"agent": map[string]any{}}
+	data, _ := json.Marshal(cfg)
+	if err := os.WriteFile(filepath.Join(opencodeHome, "opencode.json"), data, 0644); err != nil {
+		t.Fatalf("write opencode.json: %v", err)
+	}
+	plat := newPlatformForTest(t, "opencode", opencodeHome)
+
+	cmdsDir := filepath.Join(opencodeHome, "commands")
+	if err := os.MkdirAll(cmdsDir, 0755); err != nil {
+		t.Fatalf("create cmds dir: %v", err)
+	}
+
+	// Seed only doc-* files (current naming).
+	var currentCmdIDs []string
+	for _, cmd := range manifest.Commands {
+		p := filepath.Join(cmdsDir, cmd.ID+".md")
+		if err := os.WriteFile(p, []byte("# "+cmd.ID), 0644); err != nil {
+			t.Fatalf("seed command file %s: %v", cmd.ID, err)
+		}
+		currentCmdIDs = append(currentCmdIDs, cmd.ID)
+	}
+
+	details := installedDetails{
+		platform: plat,
+		commands: currentCmdIDs,
+	}
+	// Must not error even if no legacy files exist.
+	uninstallPlatform(details, manifest)
+
+	for _, cmd := range manifest.Commands {
+		p := filepath.Join(cmdsDir, cmd.ID+".md")
+		if _, err := os.Stat(p); err == nil {
+			t.Errorf("command file %s.md should have been removed", cmd.ID)
+		}
+	}
+}
+
+// TestUninstallSweep_OnlyLegacyPresent seeds only the 11 bare-name legacy
+// files (user on v3.x, never reinstalled) and verifies all are removed.
+func TestUninstallSweep_OnlyLegacyPresent(t *testing.T) {
+	tmpHome := t.TempDir()
+	restoreHome := mockHomeEnv(t, tmpHome)
+	defer restoreHome()
+
+	distDir := filepath.Join(t.TempDir(), "dist")
+	if err := generate(distDir); err != nil {
+		t.Fatalf("generate dist: %v", err)
+	}
+	manifest, err := readManifestFrom(distDir)
+	if err != nil {
+		t.Fatalf("read manifest: %v", err)
+	}
+
+	opencodeHome := filepath.Join(tmpHome, ".config", "opencode")
+	if err := os.MkdirAll(opencodeHome, 0755); err != nil {
+		t.Fatalf("create opencode dir: %v", err)
+	}
+	cfg := map[string]any{"agent": map[string]any{}}
+	data, _ := json.Marshal(cfg)
+	if err := os.WriteFile(filepath.Join(opencodeHome, "opencode.json"), data, 0644); err != nil {
+		t.Fatalf("write opencode.json: %v", err)
+	}
+	plat := newPlatformForTest(t, "opencode", opencodeHome)
+
+	cmdsDir := filepath.Join(opencodeHome, "commands")
+	if err := os.MkdirAll(cmdsDir, 0755); err != nil {
+		t.Fatalf("create cmds dir: %v", err)
+	}
+
+	// Seed only legacy (bare-name) files.
+	legacyNames := []string{"arch", "idea", "rec", "prd", "refine", "tech", "pti", "mod", "feat", "ddd", "to-sdd"}
+	for _, id := range legacyNames {
+		p := filepath.Join(cmdsDir, id+".md")
+		if err := os.WriteFile(p, []byte("# legacy "+id), 0644); err != nil {
+			t.Fatalf("seed legacy file %s: %v", id, err)
+		}
+	}
+
+	// No current commands present — commands list is empty; sweep runs anyway via LegacyCommandIds.
+	details := installedDetails{
+		platform: plat,
+		commands: nil,
+	}
+	uninstallPlatform(details, manifest)
+
+	for _, id := range legacyNames {
+		p := filepath.Join(cmdsDir, id+".md")
+		if _, err := os.Stat(p); err == nil {
+			t.Errorf("legacy file %s.md should have been removed by uninstall sweep", id)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
 // 7.7 Uninstall from mixed content
 // ---------------------------------------------------------------------------
 
