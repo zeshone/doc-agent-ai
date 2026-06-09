@@ -317,6 +317,26 @@ func TestDocToSddRegistration_CommandEntry(t *testing.T) {
 	}
 }
 
+// TestContentManifest_LegacyCommandIds verifies the legacyCommandIds field in content.json
+// contains all 11 bare command names that were renamed to doc-* prefix.
+func TestContentManifest_LegacyCommandIds(t *testing.T) {
+	cm := loadContentManifest(t)
+
+	wantLegacy := []string{"arch", "idea", "rec", "prd", "refine", "tech", "pti", "mod", "feat", "ddd", "to-sdd"}
+
+	if cm.LegacyCommandIds == nil {
+		t.Fatal("ContentManifest.LegacyCommandIds is nil — field not defined or content.json missing legacyCommandIds")
+	}
+	if len(cm.LegacyCommandIds) != len(wantLegacy) {
+		t.Fatalf("LegacyCommandIds length = %d, want %d; got %v", len(cm.LegacyCommandIds), len(wantLegacy), cm.LegacyCommandIds)
+	}
+	for i, id := range wantLegacy {
+		if cm.LegacyCommandIds[i] != id {
+			t.Errorf("LegacyCommandIds[%d] = %q, want %q", i, cm.LegacyCommandIds[i], id)
+		}
+	}
+}
+
 // TestDocArchCopilotChildren_CoversDocArchSubagents guards Copilot routing:
 // every doc-arch-managed subagent role must be declared in doc-arch.copilotChildren.
 func TestDocArchCopilotChildren_CoversDocArchSubagents(t *testing.T) {

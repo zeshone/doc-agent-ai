@@ -210,6 +210,63 @@ func TestLintEmbeddedSkills_RepoStateIsClean(t *testing.T) {
 	}
 }
 
+// TestLegacyCommandIds_FlowsToDistManifest verifies that ContentManifest carries
+// legacyCommandIds and that generate copies the field into DistManifest.
+func TestLegacyCommandIds_FlowsToDistManifest(t *testing.T) {
+	// --- Part 1: ContentManifest carries the field after unmarshal ---
+	data, err := embedded.ReadFile("src/manifests/content.json")
+	if err != nil {
+		t.Fatalf("cannot read embedded content.json: %v", err)
+	}
+
+	var cm ContentManifest
+	if err := json.Unmarshal(data, &cm); err != nil {
+		t.Fatalf("failed to unmarshal content.json: %v", err)
+	}
+
+	wantLegacy := []string{"arch", "idea", "rec", "prd", "refine", "tech", "pti", "mod", "feat", "ddd", "to-sdd"}
+
+	if cm.LegacyCommandIds == nil {
+		t.Fatal("ContentManifest.LegacyCommandIds is nil — field not defined or content.json missing legacyCommandIds")
+	}
+	if len(cm.LegacyCommandIds) != len(wantLegacy) {
+		t.Fatalf("LegacyCommandIds length = %d, want %d; got %v", len(cm.LegacyCommandIds), len(wantLegacy), cm.LegacyCommandIds)
+	}
+	for i, id := range wantLegacy {
+		if cm.LegacyCommandIds[i] != id {
+			t.Errorf("LegacyCommandIds[%d] = %q, want %q", i, cm.LegacyCommandIds[i], id)
+		}
+	}
+
+	// --- Part 2: generate copies the field into DistManifest ---
+	distDir := t.TempDir()
+	if err := generate(distDir); err != nil {
+		t.Fatalf("generate: %v", err)
+	}
+
+	distData, err := os.ReadFile(distDir + "/manifest.json")
+	if err != nil {
+		t.Fatalf("cannot read generated manifest.json: %v", err)
+	}
+
+	var dm DistManifest
+	if err := json.Unmarshal(distData, &dm); err != nil {
+		t.Fatalf("cannot unmarshal generated manifest.json: %v", err)
+	}
+
+	if dm.LegacyCommandIds == nil {
+		t.Fatal("DistManifest.LegacyCommandIds is nil — generate does not copy field")
+	}
+	if len(dm.LegacyCommandIds) != len(wantLegacy) {
+		t.Fatalf("DistManifest.LegacyCommandIds length = %d, want %d", len(dm.LegacyCommandIds), len(wantLegacy))
+	}
+	for i, id := range wantLegacy {
+		if dm.LegacyCommandIds[i] != id {
+			t.Errorf("DistManifest.LegacyCommandIds[%d] = %q, want %q", i, dm.LegacyCommandIds[i], id)
+		}
+	}
+}
+
 func TestPlatformManifest_Unmarshal(t *testing.T) {
 	data, err := embedded.ReadFile("src/manifests/platforms.json")
 	if err != nil {
