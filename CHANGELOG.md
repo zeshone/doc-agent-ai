@@ -6,6 +6,42 @@ For older releases without a section here, the GitHub Release notes have the det
 
 ---
 
+## v4.0.0 — 2026-06-09
+
+### BREAKING CHANGE — opencode command rename
+
+All 11 opencode commands now carry the `doc-` prefix. If you are using opencode and have customized any command triggers or keybindings pointing to the old bare names, update them to the new names below.
+
+**Migration table:**
+
+| Old command | New command |
+|-------------|-------------|
+| `/arch` | `/doc-arch` |
+| `/idea` | `/doc-idea` |
+| `/rec` | `/doc-rec` |
+| `/prd` | `/doc-prd` |
+| `/refine` | `/doc-refine` |
+| `/tech` | `/doc-tech` |
+| `/pti` | `/doc-pti` |
+| `/mod` | `/doc-mod` |
+| `/feat` | `/doc-feat` |
+| `/ddd` | `/doc-ddd` |
+| `/to-sdd` | `/doc-to-sdd` |
+
+Non-opencode platforms (Claude Code, GitHub Copilot, Qwen Code, Pi) are unaffected — they use role IDs and agent files, which already carried the `doc-` prefix.
+
+### Legacy file cleanup (install and uninstall)
+
+`doc-agent-ai install` now automatically removes any bare-name legacy command files (e.g. `arch.md`, `prd.md`) from the opencode commands directory after copying the new `doc-*` files. This sweep is idempotent — missing legacy files produce no error.
+
+`doc-agent-ai uninstall` removes both current `doc-*` files and any surviving legacy bare-name files, so users who never reinstalled under v4 are fully cleaned up.
+
+### Rollback caveat
+
+Downgrading to v3.x after a v4 install will leave `doc-*.md` files orphaned in your opencode commands directory (v3.x has no knowledge of the new names). To avoid this: run `doc-agent-ai uninstall` under v4 before downgrading.
+
+---
+
 ## v3.6.0 — 2026-06-03
 
 ### Added
