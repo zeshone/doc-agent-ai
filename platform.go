@@ -808,7 +808,7 @@ func registryTemplate(basePath, skillsDir, triggerStyle string) string {
 
 ### doc-feat
 - Entry point for the legacy feature mini-flow: scope → rec-lite → prd-lite → (optional tech) → pti
-- Usage: `+"`/feat <ruta-legacy> <descripcion> [--scope local <path> | cross <pattern> | none]`"+`
+- Usage: `+"`/doc-feat <ruta-legacy> <descripcion> [--scope local <path> | cross <pattern> | none]`"+`
 - Output directory: `+"`<BASE_PATH><sistema>-features/<slug>/`"+`
 
 ### doc-scope
