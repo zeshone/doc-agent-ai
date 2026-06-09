@@ -22,9 +22,12 @@ func TestRegistryParity_CommandsUsePrefix(t *testing.T) {
 			"tech", "ddd", "pti", "mod", "feat", "to-sdd",
 		}
 		for _, name := range bareNames {
-			token := "`/" + name + "`"
-			if strings.Contains(output, token) {
-				t.Errorf("[%s] registry contains bare command token %s — expected doc-prefixed only", triggerStyle, token)
+			// Catch both closed tokens (`/feat`) and tokens followed by
+			// arguments inside the backtick span (`/feat <args>...`).
+			for _, token := range []string{"`/" + name + "`", "`/" + name + " "} {
+				if strings.Contains(output, token) {
+					t.Errorf("[%s] registry contains bare command token %q — expected doc-prefixed only", triggerStyle, token)
+				}
 			}
 		}
 
