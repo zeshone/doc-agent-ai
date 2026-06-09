@@ -225,6 +225,7 @@ func uninstallPlatform(details installedDetails, manifest DistManifest) {
 		if len(details.commands) > 0 {
 			removeCommandFiles(plat, details.commands, manifest)
 		}
+		sweepLegacyCommands(plat.HomeDir(), manifest.LegacyCommandIds)
 		if len(details.agents) > 0 {
 			if err := plat.RemoveConfig(manifest, nil); err != nil {
 				errOut("Failed to clean opencode.json: " + err.Error())
