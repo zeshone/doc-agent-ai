@@ -48,6 +48,18 @@ type InstallModel struct {
 	// allPlatforms is the full detected platform list (passed to executeInstall).
 	allPlatforms []Platform
 
+	// overwriteQueue is the ordered list of platform IDs that have existing
+	// installs and are awaiting overwrite confirmation (stepOverwriteConfirm).
+	overwriteQueue []string
+
+	// overwriteQueueIdx is the index into overwriteQueue of the platform
+	// currently being shown in the overwrite confirmation step.
+	overwriteQueueIdx int
+
+	// overwriteConsent records the user's per-platform overwrite decision.
+	// true = user consented to overwrite; false / missing = skip that platform.
+	overwriteConsent map[string]bool
+
 	// progressLines collects Reporter output during stepProgress.
 	progressLines []string
 
@@ -105,20 +117,21 @@ func newInstallModel(cfg AppConfig, cfgExisted bool, manifest DistManifest, dist
 	}
 
 	return InstallModel{
-		step:         stepPlatformSelect,
-		platforms:    items,
-		cursor:       0,
-		mode:         mode,
-		modeCursor:   modeCursor,
-		pathInput:    pi,
-		cfg:          cfg,
-		cfgExisted:   cfgExisted,
-		manifest:     manifest,
-		distDir:      distDir,
-		allPlatforms: allPlatforms,
-		styles:       styles,
-		width:        80,
-		height:       24,
+		step:             stepPlatformSelect,
+		platforms:        items,
+		cursor:           0,
+		mode:             mode,
+		modeCursor:       modeCursor,
+		pathInput:        pi,
+		cfg:              cfg,
+		cfgExisted:       cfgExisted,
+		manifest:         manifest,
+		distDir:          distDir,
+		allPlatforms:     allPlatforms,
+		overwriteConsent: make(map[string]bool),
+		styles:           styles,
+		width:            80,
+		height:           24,
 	}
 }
 
@@ -186,9 +199,32 @@ func (m InstallModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				}
 			}
 			if anySelected {
-				m.step = stepDocsMode
+				m.step, m.overwriteQueue, m.overwriteQueueIdx = m.buildOverwriteQueue()
 			}
 		}
+
+	case stepOverwriteConfirm:
+		switch msg.String() {
+		case "ctrl+c", "q":
+			return m, tea.Quit
+		case "y", "Y":
+			platID := m.overwriteQueue[m.overwriteQueueIdx]
+			m.overwriteConsent[platID] = true
+			m = m.advanceOverwriteQueue()
+		case "n", "N", "enter":
+			// Default is skip (no overwrite). The platform remains selected in the
+			// checkbox list but will be excluded from the plan via BuildPlan (overwriteConsent
+			// is absent for it). Deselect it now to keep the UI consistent.
+			platID := m.overwriteQueue[m.overwriteQueueIdx]
+			for i := range m.platforms {
+				if m.platforms[i].id == platID {
+					m.platforms[i].selected = false
+					break
+				}
+			}
+			m = m.advanceOverwriteQueue()
+		}
+		return m, nil
 
 	case stepDocsMode:
 		switch msg.String() {
@@ -263,6 +299,43 @@ func (m InstallModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// buildOverwriteQueue checks which selected platforms already have agents
+// installed. Returns the next step (stepOverwriteConfirm or stepDocsMode),
+// the queue of platform IDs needing confirmation, and starting index 0.
+// For platforms with no existing install, no confirmation is needed.
+func (m InstallModel) buildOverwriteQueue() (Step, []string, int) {
+	var queue []string
+	for _, p := range m.platforms {
+		if !p.selected {
+			continue
+		}
+		// Find the matching Platform from allPlatforms.
+		for _, plat := range m.allPlatforms {
+			if plat.ID() == p.id {
+				existing := checkAlreadyInstalled(m.manifest, plat)
+				if len(existing) > 0 {
+					queue = append(queue, p.id)
+				}
+				break
+			}
+		}
+	}
+	if len(queue) > 0 {
+		return stepOverwriteConfirm, queue, 0
+	}
+	return stepDocsMode, nil, 0
+}
+
+// advanceOverwriteQueue moves to the next platform in the overwrite queue.
+// When the queue is exhausted it transitions to stepDocsMode.
+func (m InstallModel) advanceOverwriteQueue() InstallModel {
+	m.overwriteQueueIdx++
+	if m.overwriteQueueIdx >= len(m.overwriteQueue) {
+		m.step = stepDocsMode
+	}
+	return m
+}
+
 // runInstall builds an InstallPlan from the current model state and
 // executes the install engine as a Bubbletea Cmd (runs off the UI goroutine).
 func (m *InstallModel) runInstall() tea.Cmd {
@@ -277,12 +350,19 @@ func (m *InstallModel) runInstall() tea.Cmd {
 	// Determine prev mode (from config, zero-value = no prior install).
 	prevMode := DocsMode(m.cfg.Mode)
 
+	// Copy overwrite consent map into the plan so executeInstall can check it.
+	overwrite := make(map[string]bool, len(m.overwriteConsent))
+	for k, v := range m.overwriteConsent {
+		overwrite[k] = v
+	}
+
 	plan := InstallPlan{
 		Platforms: selectedIDs,
 		Mode:      m.mode,
 		BasePath:  strings.TrimSpace(m.pathInput.Value()),
 		PrevMode:  prevMode,
 		Yes:       true, // user confirmed in stepConfirm
+		Overwrite: overwrite,
 	}
 
 	manifest := m.manifest
@@ -335,6 +415,8 @@ func (m InstallModel) View() string {
 	switch m.step {
 	case stepPlatformSelect:
 		m.viewPlatformSelect(&sb)
+	case stepOverwriteConfirm:
+		m.viewOverwriteConfirm(&sb)
 	case stepDocsMode:
 		m.viewDocsMode(&sb)
 	case stepPath:
@@ -372,6 +454,33 @@ func (m InstallModel) viewPlatformSelect(sb *strings.Builder) {
 
 		sb.WriteString(cursor + checkbox + " " + label + "\n")
 	}
+}
+
+func (m InstallModel) viewOverwriteConfirm(sb *strings.Builder) {
+	if m.overwriteQueueIdx >= len(m.overwriteQueue) {
+		return
+	}
+	platID := m.overwriteQueue[m.overwriteQueueIdx]
+	platLabel := platformDisplayName(platID)
+
+	// Find which agents are already installed for this platform.
+	var existing []string
+	for _, plat := range m.allPlatforms {
+		if plat.ID() == platID {
+			existing = checkAlreadyInstalled(m.manifest, plat)
+			break
+		}
+	}
+
+	sb.WriteString(m.styles.Title.Render("  Overwrite existing installation?") + "\n\n")
+	sb.WriteString(m.styles.Subtitle.Render("  "+platLabel+" already has agents installed:") + "\n")
+	for _, id := range existing {
+		sb.WriteString(m.styles.Dim.Render("    - "+id) + "\n")
+	}
+	sb.WriteString("\n")
+	total := len(m.overwriteQueue)
+	sb.WriteString(m.styles.Dim.Render(fmt.Sprintf("  Platform %d of %d", m.overwriteQueueIdx+1, total)) + "\n\n")
+	sb.WriteString(m.styles.Confirm.Render("  Overwrite "+platLabel+"? (y/N) "))
 }
 
 func (m InstallModel) viewDocsMode(sb *strings.Builder) {
@@ -483,12 +592,19 @@ func (m InstallModel) BuildPlan() InstallPlan {
 			selectedIDs = append(selectedIDs, p.id)
 		}
 	}
+
+	overwrite := make(map[string]bool, len(m.overwriteConsent))
+	for k, v := range m.overwriteConsent {
+		overwrite[k] = v
+	}
+
 	return InstallPlan{
 		Platforms: selectedIDs,
 		Mode:      m.mode,
 		BasePath:  strings.TrimSpace(m.pathInput.Value()),
 		PrevMode:  DocsMode(m.cfg.Mode),
 		Yes:       true,
+		Overwrite: overwrite,
 	}
 }
 

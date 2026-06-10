@@ -11,16 +11,21 @@ const (
 	// stepPlatformSelect is the first step: checkbox list of available platforms.
 	stepPlatformSelect Step = iota
 
-	// stepDocsMode is the second step: choose vault vs in-project.
+	// stepOverwriteConfirm is the second step: shown when one or more selected
+	// platforms already have agents installed. The user is prompted per-platform
+	// to confirm overwrite or skip. This step is skipped on fresh installs.
+	stepOverwriteConfirm
+
+	// stepDocsMode is the third step: choose vault vs in-project.
 	stepDocsMode
 
-	// stepPath is the third step: vault base path entry (skipped for in-project).
+	// stepPath is the fourth step: vault base path entry (skipped for in-project).
 	stepPath
 
-	// stepConfirm is the fourth step: review choices and confirm.
+	// stepConfirm is the fifth step: review choices and confirm.
 	stepConfirm
 
-	// stepProgress is the fifth step: running the install engine.
+	// stepProgress is the sixth step: running the install engine.
 	stepProgress
 
 	// stepDone is the final step: success summary.
