@@ -368,14 +368,15 @@ func sweepLegacyCommands(homeDir string, legacyIDs []string) {
 // Non-interactive install (used by tests and interactive flow)
 // ---------------------------------------------------------------------------
 
-// installToPlatform installs all artifacts from distDir to a single platform.
-// This is the non-interactive core — tests can call it directly.
+// installToPlatformWithReporter installs all artifacts from distDir to a single
+// platform and routes all user-visible output through the supplied Reporter.
+// This is the canonical implementation; installToPlatform delegates to it.
 //
 // The optional globalMode variadic argument (0 or 1 values accepted) provides the
 // resolved global documentation mode string (e.g. "vault" or "in-project") that
 // is substituted for the __DOC_AGENT_GLOBAL_MODE__ placeholder in installed files.
 // When omitted, the mode defaults to "vault" to preserve pre-v4 install behaviour.
-func installToPlatform(manifest DistManifest, plat Platform, basePath, distDir string, globalMode ...string) error {
+func installToPlatformWithReporter(manifest DistManifest, plat Platform, basePath, distDir string, r Reporter, globalMode ...string) error {
 	// Resolve global mode: first explicit argument wins, otherwise default to vault.
 	resolvedGlobalMode := "vault"
 	if len(globalMode) > 0 && globalMode[0] != "" {
@@ -389,7 +390,7 @@ func installToPlatform(manifest DistManifest, plat Platform, basePath, distDir s
 	installPlaceholders := []placeholderPair{
 		{manifest.PlaceholderBasePath, basePath},                         // __DOC_AGENT_BASE_PATH__/
 		{"__DOC_AGENT_GLOBAL_MODE__", resolvedGlobalMode},                // vault | in-project
-		{"__DOC_AGENT_GLOBAL_BASE__", strings.TrimSuffix(basePath, "/")}, // vault base without trailing slash; reserved for the PR 1b path-resolution preamble, no consumer yet
+		{"__DOC_AGENT_GLOBAL_BASE__", strings.TrimSuffix(basePath, "/")}, // vault base without trailing slash
 	}
 
 	// --- Copy skills ---
@@ -400,7 +401,7 @@ func installToPlatform(manifest DistManifest, plat Platform, basePath, distDir s
 		if err := copyDir(srcDir, dstDir); err != nil {
 			return fmt.Errorf("copy skills/%s: %w", skill, err)
 		}
-		ok("skill: " + skill)
+		r.Ok("skill: " + skill)
 	}
 
 	// --- Copy prompts ---
@@ -421,7 +422,7 @@ func installToPlatform(manifest DistManifest, plat Platform, basePath, distDir s
 		if err := replaceAllInFile(dst, installPlaceholders); err != nil {
 			return fmt.Errorf("replace placeholder in %s: %w", dst, err)
 		}
-		ok("prompt: " + filepath.Base(dst))
+		r.Ok("prompt: " + filepath.Base(dst))
 	}
 
 	// --- Copy agents (non-opencode platforms) ---
@@ -443,7 +444,7 @@ func installToPlatform(manifest DistManifest, plat Platform, basePath, distDir s
 			if err := replaceAllInFile(dst, installPlaceholders); err != nil {
 				return fmt.Errorf("replace placeholder in %s: %w", dst, err)
 			}
-			ok("agent: " + filepath.Base(dst))
+			r.Ok("agent: " + filepath.Base(dst))
 		}
 	}
 
@@ -462,7 +463,7 @@ func installToPlatform(manifest DistManifest, plat Platform, basePath, distDir s
 			if err := replaceAllInFile(dst, installPlaceholders); err != nil {
 				return fmt.Errorf("replace placeholder in %s: %w", dst, err)
 			}
-			ok("command: " + filepath.Base(dst))
+			r.Ok("command: " + filepath.Base(dst))
 		}
 		sweepLegacyCommands(plat.HomeDir(), manifest.LegacyCommandIds)
 	}
@@ -474,7 +475,7 @@ func installToPlatform(manifest DistManifest, plat Platform, basePath, distDir s
 	// Emit ok for each agent registered (matching install.js patchOpencodeJson)
 	if plat.ID() == "opencode" {
 		for _, role := range manifest.Roles {
-			ok("agent registered: " + role.ID)
+			r.Ok("agent registered: " + role.ID)
 		}
 	}
 
@@ -483,19 +484,29 @@ func installToPlatform(manifest DistManifest, plat Platform, basePath, distDir s
 		return fmt.Errorf("write skill registry: %w", err)
 	}
 	if plat.SkillRegistryTrigger() != "" {
-		ok("skill-registry.md written")
+		r.Ok("skill-registry.md written")
 	}
 
 	return nil
 }
 
+// installToPlatform is the backward-compatible wrapper around
+// installToPlatformWithReporter. It routes output to the default stdout
+// Reporter so all existing call sites and tests remain unmodified.
+//
+// The optional globalMode variadic argument behaves identically to
+// installToPlatformWithReporter.
+func installToPlatform(manifest DistManifest, plat Platform, basePath, distDir string, globalMode ...string) error {
+	return installToPlatformWithReporter(manifest, plat, basePath, distDir, defaultReporter, globalMode...)
+}
+
 // installPlatforms installs to multiple platforms non-interactively.
-// This is the entry point for tests.
+// This is the entry point for tests. It defaults to vault mode for
+// backward compatibility; use executeInstall when an InstallPlan is available.
 func installPlatforms(manifest DistManifest, platforms []Platform, basePath, distDir string) error {
 	for _, plat := range platforms {
 		head("Installing for " + platformDisplayName(plat.ID()) + "...")
-		// TODO(2a): pass the resolved plan.Mode here once executeInstall wires InstallPlan through.
-		if err := installToPlatform(manifest, plat, basePath, distDir); err != nil {
+		if err := installToPlatform(manifest, plat, basePath, distDir, string(ModeVault)); err != nil {
 			return fmt.Errorf("install to %s: %w", plat.ID(), err)
 		}
 	}
@@ -677,11 +688,10 @@ func installInteractive() error {
 		return nil
 	}
 
-	// Step 7: Install to each selected platform
+	// Step 7: Install to each selected platform (vault mode — TUI arrives in slice 2b)
 	for _, plat := range finalPlatforms {
 		head("Installing for " + platformDisplayName(plat.ID()) + "...")
-		// TODO(2a): pass the resolved plan.Mode here once executeInstall wires InstallPlan through.
-		if err := installToPlatform(manifest, plat, basePath, distDir); err != nil {
+		if err := installToPlatform(manifest, plat, basePath, distDir, string(ModeVault)); err != nil {
 			errOut("Failed to install to " + plat.ID() + ": " + err.Error())
 			continue
 		}

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -28,7 +29,13 @@ func TestConfigPath(t *testing.T) {
 }
 
 // TestLoadConfig_MissingFile verifies that a missing config file returns
-// (defaults, existed=false, nil) — no error, safe default mode="vault".
+// (AppConfig{}, existed=false, nil) — no error, zero-value config (Mode=="").
+//
+// Contract: a MISSING config signals "no prior state" to callers. Mode=="" lets
+// parsePlanFromFlags apply its own resolution order (flags → config → built-in
+// default) without an invented "vault" poisoning the PrevMode field. The
+// Mode=="" → "vault" normalisation is applied ONLY to an existing parsed config
+// with an empty Mode field (old-config compat, config.go loadConfig lines 67-69).
 func TestLoadConfig_MissingFile(t *testing.T) {
 	tmpHome := t.TempDir()
 	restoreHome := mockHomeEnv(t, tmpHome)
@@ -41,8 +48,10 @@ func TestLoadConfig_MissingFile(t *testing.T) {
 	if existed {
 		t.Error("existed should be false for missing file")
 	}
-	if cfg.Mode != "vault" {
-		t.Errorf("default mode = %q, want %q", cfg.Mode, "vault")
+	// A missing config must return a zero-value AppConfig (Mode == "").
+	// Callers that need a default must apply their own fallback.
+	if cfg.Mode != "" {
+		t.Errorf("missing-file config.Mode = %q, want %q (zero value)", cfg.Mode, "")
 	}
 }
 
@@ -188,6 +197,64 @@ func TestSaveConfig_FilePermissions(t *testing.T) {
 		if !filepath.IsAbs(tmpHome) || os.PathSeparator != '\\' {
 			t.Errorf("file permissions = %o, want 0644", mode)
 		}
+	}
+}
+
+// TestFreshInstall_NoModeChangedNotice verifies that a brand-new install
+// (no prior AppConfig on disk) does NOT emit a "Mode changed" notice.
+//
+// Root-cause guard for W2: loadConfig returning Mode="vault" on a missing file
+// caused parsePlanFromFlags to set plan.PrevMode="vault", which then triggered
+// runModeSwitchHook when the user chose in-project mode — even though there was
+// no actual prior install. With the fix (loadConfig returns AppConfig{} for
+// missing file), plan.PrevMode=="" and the hook gate
+// `plan.PrevMode != ""` (execute_install.go) stays silent.
+func TestFreshInstall_NoModeChangedNotice(t *testing.T) {
+	tmpHome := t.TempDir()
+	restoreHome := mockHomeEnv(t, tmpHome)
+	defer restoreHome()
+
+	// No config file on disk — fresh install scenario.
+	distDir := filepath.Join(t.TempDir(), "dist")
+	if err := generate(distDir); err != nil {
+		t.Fatalf("generate dist: %v", err)
+	}
+	manifest, err := readManifestFrom(distDir)
+	if err != nil {
+		t.Fatalf("read manifest: %v", err)
+	}
+
+	opencodeHome := filepath.Join(tmpHome, ".config", "opencode")
+	if err := os.MkdirAll(opencodeHome, 0755); err != nil {
+		t.Fatalf("create opencode home: %v", err)
+	}
+	cfgData, _ := json.Marshal(map[string]any{})
+	if err := os.WriteFile(filepath.Join(opencodeHome, "opencode.json"), cfgData, 0644); err != nil {
+		t.Fatalf("write opencode.json: %v", err)
+	}
+	plat := newPlatformForTest(t, "opencode", opencodeHome)
+
+	// Load config (will be zero value — no file) and build plan as
+	// parsePlanFromFlags would for a --docs-mode in-project headless call.
+	cfg, _, _ := loadConfig()
+	flags := FlagSet{
+		Platforms: "opencode",
+		DocsMode:  "in-project",
+		Yes:       true,
+	}
+	plan, err := parsePlanFromFlags(flags, cfg)
+	if err != nil {
+		t.Fatalf("parsePlanFromFlags: %v", err)
+	}
+
+	r := newBufferReporter()
+	if err := executeInstall(manifest, plan, distDir, []Platform{plat}, r); err != nil {
+		t.Fatalf("executeInstall: %v", err)
+	}
+
+	out := r.buf.String()
+	if strings.Contains(out, "Mode changed") {
+		t.Errorf("fresh install must NOT emit 'Mode changed' notice; got output:\n%s", out)
 	}
 }
 

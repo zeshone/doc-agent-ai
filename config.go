@@ -40,30 +40,38 @@ func configPath() (string, error) {
 
 // loadConfig reads and parses ~/.doc-agent-ai.json.
 // Returns:
-//   - cfg: the parsed config (with safe defaults applied)
+//   - cfg: the parsed config (with safe defaults applied for EXISTING configs)
 //   - existed: true if the file was found and successfully parsed
 //   - err: non-nil only on I/O error or JSON parse failure; a missing file is
-//     NOT an error — it returns (defaults, false, nil)
+//     NOT an error — it returns (AppConfig{}, false, nil)
+//
+// Contract: a MISSING or UNREADABLE config returns the zero value AppConfig{}
+// (Mode=="") to signal "no prior state". Callers (e.g. parsePlanFromFlags) apply
+// their own resolution order and must not treat Mode=="" as a prior "vault"
+// install. The Mode=="" → "vault" normalisation is applied ONLY to an existing
+// parsed config whose Mode field is absent (old-config backward compat).
 func loadConfig() (AppConfig, bool, error) {
 	path, err := configPath()
 	if err != nil {
-		return AppConfig{Mode: "vault"}, false, err
+		return AppConfig{}, false, err
 	}
 
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return AppConfig{Mode: "vault"}, false, nil
+			return AppConfig{}, false, nil
 		}
-		return AppConfig{Mode: "vault"}, false, err
+		return AppConfig{}, false, err
 	}
 
 	var cfg AppConfig
 	if err := json.Unmarshal(data, &cfg); err != nil {
-		return AppConfig{Mode: "vault"}, false, err
+		return AppConfig{}, false, err
 	}
 
 	// Apply safe defaults for fields that may be absent in old configs.
+	// This normalisation applies only to an existing file — it preserves
+	// backward compat with pre-v4 configs that omit the "mode" field.
 	if cfg.Mode == "" {
 		cfg.Mode = "vault"
 	}

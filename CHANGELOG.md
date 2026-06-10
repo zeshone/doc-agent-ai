@@ -8,6 +8,58 @@ For older releases without a section here, the GitHub Release notes have the det
 
 ## v4.0.0 — Unreleased
 
+### Headless flags + engine seam (PR 2a)
+
+The install command now accepts four flags that bypass the interactive/TUI flow
+entirely and run a fully non-interactive install (CI-friendly):
+
+```
+doc-agent-ai install \
+  --platforms opencode,claude \
+  --docs-mode vault \
+  --path /my/docs \
+  --yes
+```
+
+**Decision order:** explicit flags > TTY-interactive (TUI in slice 2b) > error (no TTY, no flags).
+
+#### Reporter seam
+
+The engine (`installToPlatformWithReporter`) now routes all user-visible output
+through a `Reporter` interface (Ok / Warn / ErrOut / Info / Dim / Head). The
+default `stdoutReporter` is byte-identical to the former package-level helpers so
+headless and interactive-without-TUI output is unchanged. Slice 2b will supply a
+`bufferReporter` variant that collects structured results for the Bubbletea TUI
+without corrupting its frame.
+
+The original `installToPlatform(manifest, plat, basePath, distDir, globalMode...)` 
+signature is preserved as a backward-compatible wrapper; all existing tests 
+compile and pass unchanged.
+
+#### executeInstall orchestrator
+
+A new `executeInstall(manifest, plan, distDir, allPlatforms, reporter)` function
+orchestrates a full install from an `InstallPlan`:
+
+1. Resolves platform targets (nil = all detected).
+2. Passes `plan.Mode` to `installToPlatformWithReporter` so `__DOC_AGENT_GLOBAL_MODE__` is correctly substituted in all installed files.
+3. Writes `AppConfig` after a successful install (mode, path, platforms) so subsequent runs pre-fill defaults.
+4. Fires the mode-switch hook when `plan.PrevMode != plan.Mode` — emits a non-migration notice. Slice 3 will extend this hook to sweep `doc-reader` when switching in-project → vault.
+
+#### Engine purity CI guard
+
+A new `TestEnginePurity_NoCharmImports` test uses `go/parser` to assert that the
+13 engine-layer files never import `charmbracelet/*`. This test is permanently
+active and will fail immediately if charm code leaks into the engine. Charm imports
+are allowed only in `tui_*.go` files (introduced in slice 2b).
+
+`--yes` used alone (without other flags) runs a fully headless install using saved config defaults (vault mode and last-used path/platforms); it does not launch the interactive flow. It requires a prior install to have saved a config: on a fresh machine with no `~/.doc-agent-ai.json`, `--yes` alone fails with "vault mode requires a documentation base path" — pass `--path` (and optionally `--docs-mode`) explicitly in that case.
+
+- `feat(install)`: add Reporter seam (`Reporter` interface, `stdoutReporter`, `bufferReporter`, `installToPlatformWithReporter`)
+- `feat(install)`: add `executeInstall` orchestrator (platform resolution, mode wiring, config persistence, mode-switch hook seam)
+- `feat(main)`: wire `--platforms`, `--docs-mode`, `--path`, `--yes` flags; route headless vs interactive by `hasInstallFlags`
+- `test(engine)`: add purity guard asserting no charmbracelet imports in engine files
+
 ### Content sweep — preamble injection (PR 1b)
 
 All 9 role prompts and all 11 opencode commands now carry a terse resolution preamble at generate time. The preamble teaches agents to:
