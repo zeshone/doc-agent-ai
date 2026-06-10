@@ -19,7 +19,7 @@ type InstallModel struct {
 	step Step
 
 	// welcomeButtons is the footer button row on the Welcome screen.
-	// Initialized with ["Continuar", "Salir"].
+	// Initialized with ["Continue", "Quit"].
 	welcomeButtons buttonRow
 
 	// platforms is the checkbox list for platform selection.
@@ -126,7 +126,7 @@ func newInstallModel(cfg AppConfig, cfgExisted bool, manifest DistManifest, dist
 
 	return InstallModel{
 		step:             stepWelcome, // wizard starts at the Welcome screen
-		welcomeButtons:   buttonRow{labels: []string{"Continuar", "Salir"}, focus: 0},
+		welcomeButtons:   buttonRow{labels: []string{"Continue", "Quit"}, focus: 0},
 		platforms:        items,
 		cursor:           0,
 		mode:             mode,
@@ -639,16 +639,16 @@ func (m InstallModel) viewDone(sb *strings.Builder) {
 // Welcome screen — view and update
 // ---------------------------------------------------------------------------
 
-// viewWelcome renders the Welcome screen: full Zeen block-art logo, a concise
-// agent description, and the [Continuar][Salir] footer button row.
+// viewWelcome renders the Welcome screen: the Zeen block-art lockup (icon Z +
+// "een" wordmark composed horizontally), a concise agent description, and the
+// [Continue][Quit] footer button row.
 func (m InstallModel) viewWelcome(sb *strings.Builder) {
 	sb.WriteString("\n")
-	// Full-width baked banner.
-	sb.WriteString(renderBanner(welcomeBanner, m.styles))
+	// Zeen lockup: icon Z mark (12 rows) + "een" wordmark (4 rows, vertically centered).
+	sb.WriteString(renderZeenLockup(m.styles))
 	sb.WriteString("\n")
 
 	// Short agent description.
-	sb.WriteString(m.styles.Title.Render("  zeen") + "\n")
 	sb.WriteString(m.styles.Subtitle.Render("  AI-powered documentation agent for your project.") + "\n")
 	sb.WriteString(m.styles.Dim.Render("  Installs context-aware skills and roles into your AI tool.") + "\n")
 	sb.WriteString("\n")
@@ -659,8 +659,8 @@ func (m InstallModel) viewWelcome(sb *strings.Builder) {
 
 // updateWelcome handles key input on the Welcome screen.
 // Tab/Shift+Tab/Left/Right move button focus; Enter activates:
-//   - "Continuar" → advance to stepPlatformSelect
-//   - "Salir"     → tea.Quit (exit 0)
+//   - "Continue" → advance to stepPlatformSelect
+//   - "Quit"     → tea.Quit (exit 0)
 func (m InstallModel) updateWelcome(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c":
@@ -675,10 +675,10 @@ func (m InstallModel) updateWelcome(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		switch activated {
-		case "Continuar":
+		case "Continue":
 			m.step = stepPlatformSelect
 			return m, nil
-		case "Salir":
+		case "Quit":
 			return m, tea.Quit
 		}
 	}

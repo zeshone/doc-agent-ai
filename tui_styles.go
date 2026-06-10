@@ -152,18 +152,85 @@ func renderBanner(cells [][]bannerCell, s Styles) string {
 }
 
 // renderCompactHeader returns a one-line branded header for inner screens:
-// the compact Z mark followed by the cyan "zeen" wordmark.
+// the compact Z mark followed by the cyan "Zeen" wordmark.
 func renderCompactHeader(s Styles) string {
 	mark := renderBanner(compactBanner, s)
 	// Remove trailing newline from banner before joining with wordmark.
 	mark = strings.TrimRight(mark, "\n")
 
 	if s.Plain {
-		return mark + "  zeen\n"
+		return mark + "  Zeen\n"
 	}
 	wordmark := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(brandCyan)).
 		Bold(true).
-		Render("  zeen")
+		Render("  Zeen")
 	return mark + wordmark + "\n"
+}
+
+// renderZeenLockup composes the icon Z mark (welcomeBanner, 12 rows) and the
+// "een" block-art wordmark (wordmarkEen, 4 rows) side by side into a single
+// multi-line string. The "een" grid is vertically centered against the taller
+// icon: it is padded with blank lines above and below so that icon-Z + "een"
+// reads as one "Zeen" lockup.
+//
+// In Plain mode (NoColor / s.Plain==true) both halves are rendered as raw block
+// glyphs — no ANSI codes — keeping goldens byte-stable.
+func renderZeenLockup(s Styles) string {
+	iconRows := len(welcomeBanner) // 12
+	eenRows := len(wordmarkEen)    // 4
+	topPad := (iconRows - eenRows) / 2
+
+	eenWidth := 0
+	if len(wordmarkEen) > 0 {
+		eenWidth = len(wordmarkEen[0])
+	}
+
+	var sb strings.Builder
+	for i := 0; i < iconRows; i++ {
+		// Render the icon Z cell for this row.
+		for _, cell := range welcomeBanner[i] {
+			if s.Plain {
+				sb.WriteRune(cell.Char)
+			} else {
+				st := lipgloss.NewStyle()
+				if cell.FgIdx >= 0 && int(cell.FgIdx) < len(bannerPalette) {
+					st = st.Foreground(lipgloss.Color(bannerPalette[cell.FgIdx]))
+				}
+				if cell.BgIdx >= 0 && int(cell.BgIdx) < len(bannerPalette) {
+					st = st.Background(lipgloss.Color(bannerPalette[cell.BgIdx]))
+				}
+				sb.WriteString(st.Render(string(cell.Char)))
+			}
+		}
+
+		// Two-space gap between icon and wordmark.
+		sb.WriteString("  ")
+
+		// Render the "een" row (with vertical centering via topPad).
+		eenIdx := i - topPad
+		if eenIdx >= 0 && eenIdx < eenRows {
+			for _, cell := range wordmarkEen[eenIdx] {
+				if s.Plain {
+					sb.WriteRune(cell.Char)
+				} else {
+					st := lipgloss.NewStyle()
+					if cell.FgIdx >= 0 && int(cell.FgIdx) < len(bannerPalette) {
+						st = st.Foreground(lipgloss.Color(bannerPalette[cell.FgIdx]))
+					}
+					if cell.BgIdx >= 0 && int(cell.BgIdx) < len(bannerPalette) {
+						st = st.Background(lipgloss.Color(bannerPalette[cell.BgIdx]))
+					}
+					sb.WriteString(st.Render(string(cell.Char)))
+				}
+			}
+		} else {
+			// Blank padding rows to keep column widths consistent.
+			for j := 0; j < eenWidth; j++ {
+				sb.WriteByte(' ')
+			}
+		}
+		sb.WriteByte('\n')
+	}
+	return sb.String()
 }
