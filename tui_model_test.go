@@ -19,8 +19,13 @@ func testManifest() DistManifest {
 
 // newInstallModelForTest creates an InstallModel with NoColor styles and fixed
 // 80×24 viewport for deterministic test output.
+// The step is set to stepPlatformSelect (the first interactive step after
+// Welcome) so existing tests that exercise platform selection, docs mode,
+// confirm, and done flows are not affected by the new Welcome screen being
+// the new initial step in production.
 func newInstallModelForTest(cfg AppConfig, cfgExisted bool, allPlatforms []Platform) InstallModel {
 	m := newInstallModel(cfg, cfgExisted, testManifest(), "dist", allPlatforms, NoColor())
+	m.step = stepPlatformSelect
 	m.width = 80
 	m.height = 24
 	return m

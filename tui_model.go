@@ -13,10 +13,14 @@ import (
 // ---------------------------------------------------------------------------
 
 // InstallModel is the Bubbletea model for the install wizard.
-// Steps: platformSelect → docsMode → path (vault only) → confirm → progress → done
+// Steps: welcome → platformSelect → (overwriteConfirm?) → docsMode → path? → confirm → progress → done
 type InstallModel struct {
 	// step is the currently active wizard step.
 	step Step
+
+	// welcomeButtons is the footer button row on the Welcome screen.
+	// Initialized with ["Continuar", "Salir"].
+	welcomeButtons buttonRow
 
 	// platforms is the checkbox list for platform selection.
 	platforms []platformItem
@@ -121,7 +125,8 @@ func newInstallModel(cfg AppConfig, cfgExisted bool, manifest DistManifest, dist
 	}
 
 	return InstallModel{
-		step:             stepPlatformSelect,
+		step:             stepWelcome, // wizard starts at the Welcome screen
+		welcomeButtons:   buttonRow{labels: []string{"Continuar", "Salir"}, focus: 0},
 		platforms:        items,
 		cursor:           0,
 		mode:             mode,
@@ -177,6 +182,9 @@ func (m InstallModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // handleKey processes keyboard input for each wizard step.
 func (m InstallModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch m.step {
+
+	case stepWelcome:
+		return m.updateWelcome(msg)
 
 	case stepPlatformSelect:
 		switch msg.String() {
@@ -438,6 +446,16 @@ func (c *collectingReporter) Head(msg string)   { *c.lines = append(*c.lines, "\
 func (m InstallModel) View() string {
 	var sb strings.Builder
 
+	// Welcome screen renders its own full-width logo; inner screens use a
+	// compact single-line header prepended here.
+	if m.step == stepWelcome {
+		switch m.step {
+		case stepWelcome:
+			m.viewWelcome(&sb)
+		}
+		return sb.String()
+	}
+
 	sb.WriteString("\n")
 	sb.WriteString(m.styles.Banner.Render("  doc-agent-ai") + "  " +
 		m.styles.Dim.Render("v"+version+" — installer") + "\n\n")
@@ -615,6 +633,56 @@ func (m InstallModel) viewDone(sb *strings.Builder) {
 
 	sb.WriteString("\n")
 	sb.WriteString(m.styles.Dim.Render("  Restart your AI tool if it is currently running.") + "\n")
+}
+
+// ---------------------------------------------------------------------------
+// Welcome screen — view and update
+// ---------------------------------------------------------------------------
+
+// viewWelcome renders the Welcome screen: full Zeen block-art logo, a concise
+// agent description, and the [Continuar][Salir] footer button row.
+func (m InstallModel) viewWelcome(sb *strings.Builder) {
+	sb.WriteString("\n")
+	// Full-width baked banner.
+	sb.WriteString(renderBanner(welcomeBanner, m.styles))
+	sb.WriteString("\n")
+
+	// Short agent description.
+	sb.WriteString(m.styles.Title.Render("  zeen") + "\n")
+	sb.WriteString(m.styles.Subtitle.Render("  AI-powered documentation agent for your project.") + "\n")
+	sb.WriteString(m.styles.Dim.Render("  Installs context-aware skills and roles into your AI tool.") + "\n")
+	sb.WriteString("\n")
+
+	// Footer button row.
+	sb.WriteString("  " + m.welcomeButtons.render(m.styles) + "\n")
+}
+
+// updateWelcome handles key input on the Welcome screen.
+// Tab/Shift+Tab/Left/Right move button focus; Enter activates:
+//   - "Continuar" → advance to stepPlatformSelect
+//   - "Salir"     → tea.Quit (exit 0)
+func (m InstallModel) updateWelcome(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "ctrl+c":
+		return m, tea.Quit
+	case "tab", "shift+tab", "left", "right":
+		activated, _ := m.welcomeButtons.handle(msg.String())
+		_ = activated // focus-move only
+		return m, nil
+	case "enter":
+		activated, ok := m.welcomeButtons.handle("enter")
+		if !ok {
+			return m, nil
+		}
+		switch activated {
+		case "Continuar":
+			m.step = stepPlatformSelect
+			return m, nil
+		case "Salir":
+			return m, tea.Quit
+		}
+	}
+	return m, nil
 }
 
 // BuildPlan returns the InstallPlan the user confirmed. Call this after the

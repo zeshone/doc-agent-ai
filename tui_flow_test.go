@@ -37,6 +37,23 @@ func viewAtStep(t *testing.T, step Step, cfg AppConfig, cfgExisted bool) string 
 }
 
 // ---------------------------------------------------------------------------
+// Welcome screen golden test (T1.8)
+// ---------------------------------------------------------------------------
+
+// TestGolden_WelcomeScreen captures the welcome screen with NoColor styles and
+// a fixed 80×24 viewport. Run with -update to regenerate the golden file.
+func TestGolden_WelcomeScreen(t *testing.T) {
+	plats := testPlatformsFromTempDir(t)
+	// Use newInstallModel directly so the step stays at stepWelcome (the
+	// production default) rather than being overridden to stepPlatformSelect.
+	m := newInstallModel(AppConfig{}, false, testManifest(), "dist", plats, NoColor())
+	m.width = 80
+	m.height = 24
+	view := m.View()
+	assertGolden(t, view)
+}
+
+// ---------------------------------------------------------------------------
 // Golden view tests (one snapshot per wizard step)
 // ---------------------------------------------------------------------------
 
