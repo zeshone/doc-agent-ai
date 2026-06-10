@@ -17,3 +17,7 @@ The argument may be:
 - `<sistema>` → system DB design document
 - `<sistema>/<modulo>` → module DB design document
 - `<sistema>/<modulo>/<submodulo>` → sub-module DB design document
+
+---
+
+{{PATH_RESOLUTION}}

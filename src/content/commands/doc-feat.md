@@ -9,3 +9,7 @@ the `doc-feat` skill at `{{BASE_PATH}}`:
 3. Run scope classifier (or honor --scope flag if provided)
 4. Mini-flow: rec-lite → prd-lite → (optional tech, risk-gated) → pti
 5. Output to <BASE_PATH><sistema>-features/<slug>/
+
+---
+
+{{PATH_RESOLUTION}}

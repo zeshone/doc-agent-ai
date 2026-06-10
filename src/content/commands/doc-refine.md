@@ -13,3 +13,7 @@ The argument may be:
 Follow the `refine` protocol defined in your skill for the corresponding level.
 Prerequisite for non-standalone mode: `_prd.md` must exist. If it does not, instruct the user to run `/prd` first.
 Refine is a quality gate — never add, delete, or change story scope without explicit user confirmation.
+
+---
+
+{{PATH_RESOLUTION}}

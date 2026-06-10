@@ -12,3 +12,7 @@ The argument may be:
 Follow the `pti` protocol defined in your skill for the corresponding level.
 Prerequisite: `_prd.md` must exist. If it does not, instruct the user to run `/prd` first.
 Generate the issues as a local `.md` file — do not create them in GitHub unless the user explicitly requests it.
+
+---
+
+{{PATH_RESOLUTION}}

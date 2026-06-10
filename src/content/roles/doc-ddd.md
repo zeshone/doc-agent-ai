@@ -6,6 +6,8 @@ Read your skill file at:
 Also read the full agent rules at:
 {{RULES_SKILL_PATH}}
 
+{{PATH_RESOLUTION}}
+
 The base path for all projects is: {{BASE_PATH}}
 
 ---

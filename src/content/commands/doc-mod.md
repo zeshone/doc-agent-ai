@@ -14,3 +14,7 @@ Follow the `mod` protocol defined in your skill:
 5. Run idea → rec → prd → refine → tech → [ddd] → pti in sequence, pausing between each step
 6. Ask about `ddd` between `tech` and `pti` unless excluded or hard trigger fires
 7. `ddd` is optional — only run if user confirms
+
+---
+
+{{PATH_RESOLUTION}}

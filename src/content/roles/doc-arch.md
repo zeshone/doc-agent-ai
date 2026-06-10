@@ -10,6 +10,8 @@ Follow those instructions exactly. The skill file defines:
 - Behavior rules per command
 - Module hierarchy (system → module → sub-module)
 
+{{PATH_RESOLUTION}}
+
 When the user invokes a command, identify which phase it corresponds to and delegate to the correct sub-agent:
 - idea → doc-idea sub-agent
 - rec → doc-rec sub-agent

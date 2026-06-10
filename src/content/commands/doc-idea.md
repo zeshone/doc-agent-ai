@@ -12,3 +12,7 @@ The argument may be:
 Follow the `idea` protocol defined in your skill for the corresponding level.
 Idea is pure product discovery — no stack, no APIs, no databases.
 Output: master index description (and optionally `_idea-brief.md`).
+
+---
+
+{{PATH_RESOLUTION}}

@@ -11,3 +11,7 @@ The argument may be:
 
 Follow the `prd` protocol defined in your skill for the corresponding level.
 Prerequisite: `_requirements.md` must exist. If it does not, instruct the user to run `/rec` first.
+
+---
+
+{{PATH_RESOLUTION}}

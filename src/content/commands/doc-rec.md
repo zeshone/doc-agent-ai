@@ -10,3 +10,7 @@ The argument may be:
 - `<system>/<module>/<submodule>` → sub-module-level elicitation
 
 Follow the `rec` protocol defined in your skill for the corresponding level.
+
+---
+
+{{PATH_RESOLUTION}}

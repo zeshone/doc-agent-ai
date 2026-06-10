@@ -13,3 +13,7 @@ Delegate to the `doc-to-sdd` sub-agent with the argument: `$ARGUMENTS`.
 - `_sdd-tech-context.md` — Technical layer (architecture, stack, contracts, data model)
 
 All output is in English regardless of source artifact language.
+
+---
+
+{{PATH_RESOLUTION}}

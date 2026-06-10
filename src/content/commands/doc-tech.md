@@ -12,3 +12,7 @@ The argument may be:
 Follow the `tech` protocol defined in your skill for the corresponding level.
 Prerequisite: `_prd.md` must exist. If it does not, instruct the user to run `/prd` first.
 If it is a module: always ask whether it inherits the parent architecture or diverges from it.
+
+---
+
+{{PATH_RESOLUTION}}
