@@ -911,11 +911,16 @@ func (m InstallModel) updateDocsMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // updatePath handles key input on the Vault Path Entry screen.
 //
 // focusZone determines key routing:
-//   - focusZoneList: characters are forwarded to pathInput; Tab → focusZoneButtons;
-//     'b' key is a Back shortcut (navigates to stepDocsMode).
+//   - focusZoneList: characters are forwarded to pathInput (so any path
+//     character, including 'b', types normally); Tab → focusZoneButtons;
+//     Esc is a Back shortcut (navigates to stepDocsMode).
 //   - focusZoneButtons: Tab/left/right move button focus; Enter activates:
 //     Continue (if path is non-empty, advances to stepConfirm),
 //     Back (prevStep = stepDocsMode).
+//
+// Back uses Esc (not a letter) because this screen is a free-text input —
+// an alphabetic Back shortcut would make paths containing that letter
+// untypeable (e.g. C:\Users\bob\docs).
 func (m InstallModel) updatePath(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c":
@@ -931,14 +936,13 @@ func (m InstallModel) updatePath(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
-	case "b", "B":
-		// Back shortcut when in list (text input) zone.
-		if m.focusZone == focusZoneList {
-			m.focusZone = focusZoneList
-			m.pathButtons.focus = 0
-			m.step = prevStep(stepPath)
-			return m, nil
-		}
+	case "esc":
+		// Back shortcut (non-alphabetic so it never collides with path typing).
+		m.pathButtons.focus = 0
+		m.focusZone = focusZoneList
+		m.pathInput.Focus()
+		m.step = prevStep(stepPath)
+		return m, nil
 
 	case "enter":
 		if m.focusZone == focusZoneButtons {

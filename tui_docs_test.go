@@ -185,17 +185,36 @@ func TestPath_Back_ReturnsToDocsMode(t *testing.T) {
 	}
 }
 
-// TestPath_Back_KeyB_ReturnsToDocsMode verifies that pressing 'b' (or 'B') on
-// the path step returns to stepDocsMode (keyboard shortcut for Back).
-func TestPath_Back_KeyB_ReturnsToDocsMode(t *testing.T) {
+// TestPath_TypingB_InsertsIntoPath verifies that typing 'b'/'B' while entering
+// the vault path inserts the character (it must NOT be hijacked as a Back
+// shortcut — vault paths routinely contain 'b', e.g. C:\Users\bob\docs).
+func TestPath_TypingB_InsertsIntoPath(t *testing.T) {
 	plats := testPlatformsFromTempDir(t)
 	m := newInstallModelForTest(AppConfig{}, false, plats)
 	m.step = stepPath
-	m.focusZone = focusZoneList // not in button zone
+	m.focusZone = focusZoneList
+	m.pathInput.Focus()
 
 	m = sendKey(t, m, "b")
+	if m.step != stepPath {
+		t.Fatalf("typing 'b' must stay on stepPath, got %v", m.step)
+	}
+	if !strings.Contains(m.pathInput.Value(), "b") {
+		t.Errorf("typing 'b' should insert it into the path; value = %q", m.pathInput.Value())
+	}
+}
+
+// TestPath_Esc_ReturnsToDocsMode verifies that Esc on the path step returns to
+// stepDocsMode (non-alphabetic Back shortcut that doesn't collide with typing).
+func TestPath_Esc_ReturnsToDocsMode(t *testing.T) {
+	plats := testPlatformsFromTempDir(t)
+	m := newInstallModelForTest(AppConfig{}, false, plats)
+	m.step = stepPath
+	m.focusZone = focusZoneList
+
+	m = sendKey(t, m, "esc")
 	if m.step != stepDocsMode {
-		t.Fatalf("b key from stepPath should go to stepDocsMode, got %v", m.step)
+		t.Fatalf("Esc from stepPath should go to stepDocsMode, got %v", m.step)
 	}
 }
 
