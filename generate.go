@@ -61,6 +61,19 @@ func generate(outputDir string) error {
 		return fmt.Errorf("read command.md.tmpl: %w", err)
 	}
 
+	// Read the path-resolution preamble template. Its content uses __DOC_AGENT_*__
+	// tokens (install-time substitution) rather than {{KEY}} template vars, so we
+	// embed it verbatim as a string value in buildBodyVars. Content files that
+	// reference {{PATH_RESOLUTION}} get the expanded preamble prose; content files
+	// that do NOT reference it are unaffected (key present but unused is fine under
+	// missingkey=error — only a MISSING key causes an error).
+	pathResolutionTmplRaw, err := embedded.ReadFile("src/templates/path-resolution.md.tmpl")
+	if err != nil {
+		return fmt.Errorf("read path-resolution.md.tmpl: %w", err)
+	}
+	// Trim the trailing newline added by the file so the injected block is clean.
+	pathResolutionPreamble := strings.TrimRight(string(pathResolutionTmplRaw), "\n")
+
 	// Ordered platform map (matches platforms.json key order for portability)
 	type namedPlatform struct {
 		id  string
@@ -74,13 +87,19 @@ func generate(outputDir string) error {
 		{"pi", platformManifest.Pi},
 	}
 
-	// Per-role variables that change across platforms
+	// Per-role variables that change across platforms.
+	// PATH_RESOLUTION is always included in the map so that content files
+	// which reference {{PATH_RESOLUTION}} expand to the canonical resolution
+	// preamble. Content files that do NOT reference the token are unaffected
+	// (missingkey=error only fires on keys that ARE referenced but absent;
+	// a key that is present but not referenced in the template is silently ignored).
 	buildBodyVars := func(platformID string, platform PlatformConfig, role RoleConfig) map[string]string {
 		return map[string]string{
 			"BASE_PATH":          contentManifest.PlaceholderBasePath,
 			"SKILL_PATH":         platform.SkillRoot + "/" + role.Skill + "/SKILL.md",
 			"RULES_SKILL_PATH":   platform.SkillRoot + "/" + role.RulesSkill + "/SKILL.md",
 			"TECH_TEMPLATE_PATH": platform.SkillRoot + "/doc-tech/references/template.md",
+			"PATH_RESOLUTION":    pathResolutionPreamble,
 		}
 	}
 
@@ -175,7 +194,8 @@ func generate(outputDir string) error {
 		}
 
 		cmdBody, err := renderTemplate(string(cmdBodyRaw), map[string]string{
-			"BASE_PATH": contentManifest.PlaceholderBasePath,
+			"BASE_PATH":       contentManifest.PlaceholderBasePath,
+			"PATH_RESOLUTION": pathResolutionPreamble,
 		})
 		if err != nil {
 			return fmt.Errorf("render command body for %s: %w", cmd.ID, err)
