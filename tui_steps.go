@@ -1,5 +1,11 @@
 package main
 
+import (
+	"strings"
+
+	"github.com/charmbracelet/lipgloss"
+)
+
 // ---------------------------------------------------------------------------
 // TUI step definitions
 // ---------------------------------------------------------------------------
@@ -8,24 +14,29 @@ package main
 type Step int
 
 const (
-	// stepPlatformSelect is the first step: checkbox list of available platforms.
-	stepPlatformSelect Step = iota
+	// stepWelcome is the new first step: Zeen block-art lockup + agent description +
+	// [Continue][Quit] buttons. Added in slice 1; all subsequent step values
+	// shift by 1 — there are NO raw integer comparisons against Step values.
+	stepWelcome Step = iota
 
-	// stepOverwriteConfirm is the second step: shown when one or more selected
+	// stepPlatformSelect is the second step: checkbox list of available platforms.
+	stepPlatformSelect
+
+	// stepOverwriteConfirm is the third step: shown when one or more selected
 	// platforms already have agents installed. The user is prompted per-platform
 	// to confirm overwrite or skip. This step is skipped on fresh installs.
 	stepOverwriteConfirm
 
-	// stepDocsMode is the third step: choose vault vs in-project.
+	// stepDocsMode is the fourth step: choose vault vs in-project.
 	stepDocsMode
 
-	// stepPath is the fourth step: vault base path entry (skipped for in-project).
+	// stepPath is the fifth step: vault base path entry (skipped for in-project).
 	stepPath
 
-	// stepConfirm is the fifth step: review choices and confirm.
+	// stepConfirm is the sixth step: review choices and confirm.
 	stepConfirm
 
-	// stepProgress is the sixth step: running the install engine.
+	// stepProgress is the seventh step: running the install engine.
 	stepProgress
 
 	// stepDone is the final step: success summary.
@@ -66,4 +77,81 @@ type installResultMsg struct {
 
 	// progressLines holds the formatted output lines collected by collectingReporter.
 	progressLines []string
+}
+
+// ---------------------------------------------------------------------------
+// buttonRow — focusable footer button primitive
+// ---------------------------------------------------------------------------
+
+// buttonRow is a lightweight focusable button row used as the navigation footer
+// on each wizard screen. It is a value type; handle uses a pointer receiver to
+// allow mutation via a direct field access on the model.
+type buttonRow struct {
+	labels []string
+	focus  int
+}
+
+// move returns a new buttonRow with focus shifted by delta positions (wrapping).
+func (b buttonRow) move(delta int) buttonRow {
+	if len(b.labels) == 0 {
+		return b
+	}
+	n := len(b.labels)
+	b.focus = ((b.focus+delta)%n + n) % n
+	return b
+}
+
+// focused returns the label of the currently focused button.
+func (b buttonRow) focused() string {
+	if len(b.labels) == 0 || b.focus < 0 || b.focus >= len(b.labels) {
+		return ""
+	}
+	return b.labels[b.focus]
+}
+
+// handle processes a key string and updates focus or activates the focused button.
+//   - Tab / right  → move focus +1; returns ("", false)
+//   - shift+tab / left → move focus -1; returns ("", false)
+//   - enter         → returns (labels[focus], true)
+//   - unknown        → returns ("", false)
+func (b *buttonRow) handle(key string) (activated string, handled bool) {
+	switch strings.ToLower(key) {
+	case "tab", "right":
+		*b = b.move(1)
+	case "shift+tab", "left":
+		*b = b.move(-1)
+	case "enter":
+		return b.focused(), true
+	}
+	return "", false
+}
+
+// render returns a string representation of the button row.
+// The focused button is styled as an inverse chip in color mode or wrapped in
+// square brackets in plain mode. Unfocused buttons use the Dim style.
+func (b buttonRow) render(s Styles) string {
+	if len(b.labels) == 0 {
+		return ""
+	}
+	parts := make([]string, 0, len(b.labels))
+	for i, label := range b.labels {
+		if i == b.focus {
+			if s.Plain {
+				parts = append(parts, "["+label+"]")
+			} else {
+				chip := lipgloss.NewStyle().
+					Foreground(lipgloss.Color(brandDark)).
+					Background(lipgloss.Color(brandCyan)).
+					Render(" " + label + " ")
+				parts = append(parts, chip)
+			}
+		} else {
+			if s.Plain {
+				parts = append(parts, " "+label+" ")
+			} else {
+				parts = append(parts, s.Dim.Render(" "+label+" "))
+			}
+		}
+	}
+	return strings.Join(parts, "  ")
 }

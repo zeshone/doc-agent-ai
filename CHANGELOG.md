@@ -30,6 +30,10 @@ All 11 opencode commands were renamed so they are recognizable among the many co
 
 Reinstalling under v4 removes the old bare-name command files automatically — no orphans left behind. Non-opencode platforms (Claude Code, GitHub Copilot, Qwen Code, Pi) are unaffected; they already used `doc-`-prefixed roles and agent files.
 
+### New: Zeen-branded welcome screen
+
+The installer wizard opens with a Zeen block-art logo rendered from the brand palette (#00A5E7 blue, #0D1012 dark, #E5E8EA grey), a one-line agent description, and footer buttons [Continuar] and [Salir]. This replaces the plain text banner and gives the installer a recognizable branded entry point.
+
 ### New: TUI installer
 
 `doc-agent-ai install` and `uninstall` now run an interactive wizard instead of line-by-line prompts:
