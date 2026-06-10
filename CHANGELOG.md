@@ -8,6 +8,50 @@ For older releases without a section here, the GitHub Release notes have the det
 
 ## v4.0.0 — Unreleased
 
+### doc-reader conditional skill (PR 3 — FINAL SLICE)
+
+Adds a new `doc-reader` skill installed exclusively in **in-project docs mode**.
+It teaches agents in repos with `docs/doc-agent/` to use ONLY the compacted
+`/doc-to-sdd` output as documentation context, avoiding context bloat from the
+full normal-flow artifact tree.
+
+#### doc-reader skill
+
+`skills/doc-reader/SKILL.md` — LLM-first skill with:
+
+- **Reads only**: `docs/doc-agent/agent_sdd_context_project/_sdd-context.md`
+  (business layer) and `_sdd-tech-context.md` (technical layer).
+- **Explicitly excludes**: `_prd.md`, `_tech-spec.md`, and all other files
+  directly under `docs/doc-agent/` or its module/feature subdirectories.
+- **Fallback**: if the context files are absent, the skill instructs the agent
+  to suggest running `/doc-to-sdd` once — no fallback to the full docs tree.
+
+#### Conditional install
+
+`doc-reader` is marked via a new `conditionalSkills` field in `content.json`
+and `DistManifest`. The install engine skips it when `--docs-mode vault`; it
+is installed on every platform with a `SkillsDir` (opencode, Claude Code,
+Copilot, Qwen, Pi) when in-project mode is selected.
+
+#### Mode-switch cleanup
+
+When reinstalling and switching from in-project → vault, the mode-switch hook
+now calls `sweepDocReaderIfLeavingInProject`, which removes the `doc-reader`
+skill dir from all installed platforms. The sweep is idempotent.
+
+#### Registry and parity
+
+A `doc-reader` row was added to `registryTemplate` (User Skills table) and a
+`### doc-reader` compact rules block was added to the Compact Rules section.
+Registry parity tests enforce the content.json ↔ registryTemplate invariant.
+
+- `feat(skill)`: add doc-reader — in-project-only context skill
+- `feat(registry)`: add doc-reader row + compact rules to registryTemplate (atomic with content.json)
+- `feat(install)`: conditional install — skip doc-reader in vault mode
+- `feat(install)`: mode-switch cleanup — sweepDocReaderIfLeavingInProject on in-project→vault
+
+---
+
 ### 2b-remediation: overwrite confirmation, Go 1.25 pin, dead code removal
 
 Resolves two CRITICAL and four WARNING/SUGGESTION items from the verify report.
@@ -168,7 +212,7 @@ orchestrates a full install from an `InstallPlan`:
 1. Resolves platform targets (nil = all detected).
 2. Passes `plan.Mode` to `installToPlatformWithReporter` so `__DOC_AGENT_GLOBAL_MODE__` is correctly substituted in all installed files.
 3. Writes `AppConfig` after a successful install (mode, path, platforms) so subsequent runs pre-fill defaults.
-4. Fires the mode-switch hook when `plan.PrevMode != plan.Mode` — emits a non-migration notice. Slice 3 will extend this hook to sweep `doc-reader` when switching in-project → vault.
+4. Fires the mode-switch hook when `plan.PrevMode != plan.Mode` — emits a non-migration notice and (in slice 3) sweeps `doc-reader` when switching in-project → vault.
 
 #### Engine purity CI guard
 

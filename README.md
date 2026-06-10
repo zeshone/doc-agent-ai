@@ -50,6 +50,8 @@ Restart your AI tool. Then type `/doc-arch my-system` to start documenting.
 
 Pi consumes role definitions as prompt templates (no separate agent registry). The installer detects `~/.pi/agent` or `pi` on `PATH`. Override with `--pi-path <path>` or set `PI_CODING_AGENT_DIR`.
 
+The `doc-reader` skill is installed on every platform with a skills directory when **in-project docs mode** is selected. It teaches agents to use only the compacted `/doc-to-sdd` context files (`docs/doc-agent/agent_sdd_context_project/`) and to skip the full docs tree. Switching back to vault mode automatically removes it.
+
 ---
 
 ## Commands
@@ -143,7 +145,7 @@ go build -o doc-agent-ai .
 
 ### Authoring conventions
 
-- Canonical skill/role names: `doc-arch`, `doc-idea`, `doc-rec`, `doc-prd`, `doc-refinement`, `doc-tech`, `doc-ddd`, `doc-pti`, `doc-feat`, `doc-scope`, `doc-rec-lite`, `doc-prd-lite`, `doc-to-sdd`
+- Canonical skill/role names: `doc-arch`, `doc-idea`, `doc-rec`, `doc-prd`, `doc-refinement`, `doc-tech`, `doc-ddd`, `doc-pti`, `doc-feat`, `doc-scope`, `doc-rec-lite`, `doc-prd-lite`, `doc-to-sdd`, `doc-reader` (conditional — in-project mode only)
 - Command names mirror their skill with the `doc-` prefix, with two deliberate divergences: `/doc-refine` triggers the `doc-refinement` skill, and `/doc-mod` (module flow) is handled by `doc-arch`
 - Progressive workflow depth: `idea` (product framing) → `rec` (executive/business elicitation) → `prd` (technical but clear) → `refine` (story quality gate) → `tech` (maximum precision, still legible) → [`ddd` (structured data design, ERD, constraints, rationale)] → `pti` (executable issues)
 - `ddd` is optional. Triggered explicitly, by hard signals (schema files, DBMS mentions), or by orchestrator prompt between `tech` and `pti`. Dismissed for in-memory or ephemeral systems.
