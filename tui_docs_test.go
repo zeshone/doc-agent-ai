@@ -80,32 +80,31 @@ func TestDocsMode_UpArrow_MovesModeCursor(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// focusZone cycling on docs-mode screen
+// Button focus movement via ←/→ on docs-mode screen (no Tab)
 // ---------------------------------------------------------------------------
 
-// TestDocsMode_Tab_CyclesToButtons verifies Tab moves focus from list to buttons.
-func TestDocsMode_Tab_CyclesToButtons(t *testing.T) {
+// TestDocsMode_RightArrow_MovesFocusToBack verifies → moves button focus to Back.
+func TestDocsMode_RightArrow_MovesFocusToBack(t *testing.T) {
 	plats := testPlatformsFromTempDir(t)
 	m := newInstallModelForTest(AppConfig{}, false, plats)
 	m.step = stepDocsMode
-	m.focusZone = focusZoneList
 
-	m = sendSpecialKey(t, m, tea.KeyTab)
-	if m.focusZone != focusZoneButtons {
-		t.Fatalf("after Tab on list zone, focusZone = %v, want focusZoneButtons", m.focusZone)
+	m = sendSpecialKey(t, m, tea.KeyRight)
+	if m.docsModeButtons.focus != 1 {
+		t.Fatalf("→ should move docsModeButtons.focus to 1; got %d", m.docsModeButtons.focus)
 	}
 }
 
-// TestDocsMode_Tab_CyclesBackToList verifies Tab moves focus from buttons back to list.
-func TestDocsMode_Tab_CyclesBackToList(t *testing.T) {
+// TestDocsMode_LeftArrow_MovesFocusToContinue verifies ← moves button focus back.
+func TestDocsMode_LeftArrow_MovesFocusToContinue(t *testing.T) {
 	plats := testPlatformsFromTempDir(t)
 	m := newInstallModelForTest(AppConfig{}, false, plats)
 	m.step = stepDocsMode
-	m.focusZone = focusZoneButtons
+	m.docsModeButtons.focus = 1 // start at Back
 
-	m = sendSpecialKey(t, m, tea.KeyTab)
-	if m.focusZone != focusZoneList {
-		t.Fatalf("after Tab on button zone, focusZone = %v, want focusZoneList", m.focusZone)
+	m = sendSpecialKey(t, m, tea.KeyLeft)
+	if m.docsModeButtons.focus != 0 {
+		t.Fatalf("← should move docsModeButtons.focus to 0; got %d", m.docsModeButtons.focus)
 	}
 }
 
@@ -119,9 +118,8 @@ func TestDocsMode_Continue_Vault_GoesToPath(t *testing.T) {
 	plats := testPlatformsFromTempDir(t)
 	m := newInstallModelForTest(AppConfig{}, false, plats)
 	m.step = stepDocsMode
-	m.modeCursor = 0 // vault
-	m.focusZone = focusZoneButtons
-	m.docsModeButtons.focus = 0 // Continue
+	m.modeCursor = 0            // vault
+	m.docsModeButtons.focus = 0 // Continue (default)
 
 	m = sendSpecialKey(t, m, tea.KeyEnter)
 	if m.step != stepPath {
@@ -141,8 +139,7 @@ func TestDocsMode_Continue_InProject_SkipsPath(t *testing.T) {
 	m.step = stepDocsMode
 	m.modeCursor = 1                       // in-project
 	m.alreadyInstalled = map[string]bool{} // fresh install
-	m.focusZone = focusZoneButtons
-	m.docsModeButtons.focus = 0 // Continue
+	m.docsModeButtons.focus = 0            // Continue (default)
 
 	m = sendSpecialKey(t, m, tea.KeyEnter)
 	// Fresh install, in-project: skip path and overwrite → go straight to progress.
@@ -164,7 +161,6 @@ func TestDocsMode_Back_ReturnsToPlatformSelect(t *testing.T) {
 	plats := testPlatformsFromTempDir(t)
 	m := newInstallModelForTest(AppConfig{}, false, plats)
 	m.step = stepDocsMode
-	m.focusZone = focusZoneButtons
 	m.docsModeButtons.focus = 1 // Back
 
 	m = sendSpecialKey(t, m, tea.KeyEnter)
@@ -173,18 +169,17 @@ func TestDocsMode_Back_ReturnsToPlatformSelect(t *testing.T) {
 	}
 }
 
-// TestPath_Back_ReturnsToDocsMode verifies that [Back] from stepPath
-// returns to stepDocsMode.
+// TestPath_Back_ReturnsToDocsMode verifies that Esc from stepPath returns to stepDocsMode.
+// (Back is now triggered by Esc on the path screen, not by button focus.)
 func TestPath_Back_ReturnsToDocsMode(t *testing.T) {
 	plats := testPlatformsFromTempDir(t)
 	m := newInstallModelForTest(AppConfig{}, false, plats)
 	m.step = stepPath
-	m.focusZone = focusZoneButtons
-	m.pathButtons.focus = 1 // Back
 
-	m = sendSpecialKey(t, m, tea.KeyEnter)
+	// On the path screen, Esc = Back.
+	m = sendKey(t, m, "esc")
 	if m.step != stepDocsMode {
-		t.Fatalf("Back from stepPath should go to stepDocsMode, got %v", m.step)
+		t.Fatalf("Esc from stepPath should go to stepDocsMode, got %v", m.step)
 	}
 }
 
@@ -195,7 +190,6 @@ func TestPath_TypingB_InsertsIntoPath(t *testing.T) {
 	plats := testPlatformsFromTempDir(t)
 	m := newInstallModelForTest(AppConfig{}, false, plats)
 	m.step = stepPath
-	m.focusZone = focusZoneList
 	m.pathInput.Focus()
 
 	m = sendKey(t, m, "b")
@@ -213,7 +207,6 @@ func TestPath_Esc_ReturnsToDocsMode(t *testing.T) {
 	plats := testPlatformsFromTempDir(t)
 	m := newInstallModelForTest(AppConfig{}, false, plats)
 	m.step = stepPath
-	m.focusZone = focusZoneList
 
 	m = sendKey(t, m, "esc")
 	if m.step != stepDocsMode {
