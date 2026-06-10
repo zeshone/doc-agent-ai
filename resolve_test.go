@@ -55,6 +55,27 @@ func TestResolveMode(t *testing.T) {
 			globalMode:  ModeInProject,
 			want:        ModeVault,
 		},
+		{
+			name:        "invalid marker mode degrades to global mode",
+			markerMode:  "bogus",
+			markerFound: true,
+			globalMode:  ModeInProject,
+			want:        ModeInProject,
+		},
+		{
+			name:        "invalid global mode degrades to vault default",
+			markerMode:  "",
+			markerFound: false,
+			globalMode:  "bogus",
+			want:        ModeVault,
+		},
+		{
+			name:        "invalid marker and invalid global degrade to vault default",
+			markerMode:  "bogus",
+			markerFound: true,
+			globalMode:  "also-bogus",
+			want:        ModeVault,
+		},
 	}
 
 	for _, tt := range tests {
