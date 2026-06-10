@@ -66,6 +66,10 @@ type InstallModel struct {
 	// err is set when the install engine returns an error (displayed in stepDone).
 	err error
 
+	// notice is a transient warning shown in stepPlatformSelect (e.g. after the
+	// user declines overwrite for every selected platform). Cleared on toggle.
+	notice string
+
 	// styles holds the lipgloss styles for this session.
 	styles Styles
 
@@ -189,17 +193,12 @@ func (m InstallModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case " ":
 			if len(m.platforms) > 0 {
 				m.platforms[m.cursor].selected = !m.platforms[m.cursor].selected
+				m.notice = ""
 			}
 		case "enter":
 			// At least one must be selected.
-			anySelected := false
-			for _, p := range m.platforms {
-				if p.selected {
-					anySelected = true
-					break
-				}
-			}
-			if anySelected {
+			if m.anySelected() {
+				m.notice = ""
 				m.step, m.overwriteQueue, m.overwriteQueueIdx = m.buildOverwriteQueue()
 			}
 		}
@@ -327,11 +326,29 @@ func (m InstallModel) buildOverwriteQueue() (Step, []string, int) {
 	return stepDocsMode, nil, 0
 }
 
+// anySelected reports whether at least one platform checkbox is selected.
+func (m InstallModel) anySelected() bool {
+	for _, p := range m.platforms {
+		if p.selected {
+			return true
+		}
+	}
+	return false
+}
+
 // advanceOverwriteQueue moves to the next platform in the overwrite queue.
-// When the queue is exhausted it transitions to stepDocsMode.
+// When the queue is exhausted it transitions to stepDocsMode — unless declining
+// overwrites deselected every platform, in which case continuing would hand the
+// engine an empty plan (nil Platforms = "all detected", the opposite of what
+// the user chose). In that case return to platform selection with a notice.
 func (m InstallModel) advanceOverwriteQueue() InstallModel {
 	m.overwriteQueueIdx++
 	if m.overwriteQueueIdx >= len(m.overwriteQueue) {
+		if !m.anySelected() {
+			m.step = stepPlatformSelect
+			m.notice = "All platforms were declined for overwrite. Reselect platforms or quit (q)."
+			return m
+		}
 		m.step = stepDocsMode
 	}
 	return m
@@ -341,12 +358,20 @@ func (m InstallModel) advanceOverwriteQueue() InstallModel {
 // executes the install engine as a Bubbletea Cmd (runs off the UI goroutine).
 // Progress lines are collected inside the Cmd closure and returned via
 // installResultMsg so the Bubbletea event loop can apply them to the model.
-func (m *InstallModel) runInstall() tea.Cmd {
+func (m InstallModel) runInstall() tea.Cmd {
 	// Collect selected platform IDs.
 	var selectedIDs []string
 	for _, p := range m.platforms {
 		if p.selected {
 			selectedIDs = append(selectedIDs, p.id)
+		}
+	}
+
+	// Defense in depth: an empty selection must never reach the engine — a nil
+	// Platforms list means "install to all detected", the opposite intent.
+	if len(selectedIDs) == 0 {
+		return func() tea.Msg {
+			return installResultMsg{err: fmt.Errorf("no platforms selected — nothing to install")}
 		}
 	}
 
@@ -440,6 +465,10 @@ func (m InstallModel) View() string {
 func (m InstallModel) viewPlatformSelect(sb *strings.Builder) {
 	sb.WriteString(m.styles.Title.Render("  Select platforms") + "\n")
 	sb.WriteString(m.styles.Subtitle.Render("  Space to toggle · Enter to continue") + "\n\n")
+
+	if m.notice != "" {
+		sb.WriteString(m.styles.Warning.Render("  ! "+m.notice) + "\n\n")
+	}
 
 	for i, p := range m.platforms {
 		cursor := "  "
@@ -611,15 +640,4 @@ func (m InstallModel) BuildPlan() InstallPlan {
 		Yes:       true,
 		Overwrite: overwrite,
 	}
-}
-
-// Summary returns a one-line summary of the completed install for display.
-func (m InstallModel) Summary() string {
-	var selectedIDs []string
-	for _, p := range m.platforms {
-		if p.selected {
-			selectedIDs = append(selectedIDs, p.id)
-		}
-	}
-	return fmt.Sprintf("platforms=%s mode=%s", strings.Join(selectedIDs, ","), m.mode)
 }
