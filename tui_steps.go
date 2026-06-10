@@ -11,35 +11,36 @@ import (
 // ---------------------------------------------------------------------------
 
 // Step represents the current active step in the install wizard.
+// Final chain (ADR-4 / ADR-5 slice 4): Welcome → PlatformSelect → DocsMode →
+// Path → Overwrite → Progress → Done.
+// stepConfirm and stepOverwriteConfirm have been removed. There are NO raw
+// integer comparisons against Step values; all transitions use prevStep/nextStep
+// or explicit case labels.
 type Step int
 
 const (
-	// stepWelcome is the new first step: Zeen block-art lockup + agent description +
-	// [Continue][Quit] buttons. Added in slice 1; all subsequent step values
-	// shift by 1 — there are NO raw integer comparisons against Step values.
+	// stepWelcome is the first step: Zeen block-art lockup + agent description +
+	// [Continue][Quit] buttons.
 	stepWelcome Step = iota
 
 	// stepPlatformSelect is the second step: checkbox list of available platforms.
 	stepPlatformSelect
 
-	// stepOverwriteConfirm is the third step: shown when one or more selected
-	// platforms already have agents installed. The user is prompted per-platform
-	// to confirm overwrite or skip. This step is skipped on fresh installs.
-	stepOverwriteConfirm
-
-	// stepDocsMode is the fourth step: choose vault vs in-project.
+	// stepDocsMode is the third step: choose vault vs in-project.
 	stepDocsMode
 
-	// stepPath is the fifth step: vault base path entry (skipped for in-project).
+	// stepPath is the fourth step: vault base path entry (skipped for in-project).
 	stepPath
 
-	// stepConfirm is the sixth step: review choices and confirm.
-	stepConfirm
+	// stepOverwrite is the fifth step: consolidated overwrite screen. Shown only
+	// when at least one selected platform is already installed. The user chooses
+	// between "Overwrite all" and "Install only missing". Skipped on fresh installs.
+	stepOverwrite
 
-	// stepProgress is the seventh step: running the install engine.
+	// stepProgress is the sixth step: running the install engine.
 	stepProgress
 
-	// stepDone is the final step: success summary.
+	// stepDone is the final step: success or nothing-to-do summary.
 	stepDone
 )
 
@@ -67,7 +68,10 @@ const (
 // ---------------------------------------------------------------------------
 
 // nextStep returns the forward transition from the given step.
-// Welcome → PlatformSelect → DocsMode → … (slices 3-5 extend this table).
+// Final chain: Welcome → PlatformSelect → DocsMode → Path → Overwrite → Progress → Done.
+// Note: stepOverwrite is conditional (skipped when no platforms already installed);
+// the routing logic in updateDocsMode/updatePath handles that skip directly.
+// This table reflects the physical enum order used for default fallthrough.
 func nextStep(s Step) Step {
 	switch s {
 	case stepWelcome:
@@ -80,8 +84,9 @@ func nextStep(s Step) Step {
 }
 
 // prevStep returns the backward (BACK) transition from the given step.
-// BACK from PlatformSelect → Welcome; BACK from DocsMode → PlatformSelect;
-// BACK from Path → DocsMode; slices 4-5 extend this table as each screen is implemented.
+// Final chain (ADR-4): PlatformSelect → Welcome; DocsMode → PlatformSelect;
+// Path → DocsMode; Overwrite → Path (vault default; in-project uses DocsMode
+// directly via the mode-aware BACK handler, not this table).
 func prevStep(s Step) Step {
 	switch s {
 	case stepPlatformSelect:
@@ -90,6 +95,8 @@ func prevStep(s Step) Step {
 		return stepPlatformSelect
 	case stepPath:
 		return stepDocsMode
+	case stepOverwrite:
+		return stepPath
 	default:
 		if s > stepWelcome {
 			return s - 1

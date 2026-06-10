@@ -1,15 +1,19 @@
 package main
 
 // ---------------------------------------------------------------------------
-// C2 — per-platform overwrite confirmation tests (TDD RED → GREEN)
+// Overwrite semantics tests — headless + engine layer (PRESERVED)
 // ---------------------------------------------------------------------------
 //
-// Spec F1 requires parity with the old bufio flow: when checkAlreadyInstalled
-// detects an existing install for a selected platform, the user must be
-// prompted (wizard) or errors raised (headless without --yes).
+// TUI-wizard overwrite tests are in tui_overwrite_test.go (slice 4, ADR-5).
+// The per-platform queue tests (stepOverwriteConfirm, buildOverwriteQueue,
+// advanceOverwriteQueue) have been removed — that code is deleted in slice 4.
 //
-// These tests are written RED-first; they will fail until the implementation
-// is added to tui_model.go, headless.go, and execute_install.go.
+// The following tests cover the headless and engine layer which are UNTOUCHED:
+//   - TestHeadless_ExistingInstall_NoYesFlag_Errors
+//   - TestHeadless_ExistingInstall_WithYesFlag_Proceeds
+//   - TestExecuteInstall_RespectsOverwriteMap
+//   - TestExecuteInstall_OverwriteMapTrue_InstallsNormally
+//   - TestRunInstall_NoPlatformsSelected_Errors (defense-in-depth TUI guard)
 
 import (
 	"encoding/json"
@@ -21,174 +25,36 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// ---------------------------------------------------------------------------
-// Wizard overwrite step
-// ---------------------------------------------------------------------------
-
-// TestInstallModel_OverwriteStep_AppearsAfterPlatformSelectWhenAlreadyInstalled
-// tests the old per-platform queue-based overwrite flow. This test is superseded
-// by the consolidated overwrite screen introduced in slice 4 (ADR-5).
-// It is skipped in slice 2 because the platform-select step now navigates
-// directly to stepDocsMode; the overwrite screen is handled in slice 4.
-// TODO(slice-4): rewrite to assert transition to consolidated stepOverwrite.
-func TestInstallModel_OverwriteStep_AppearsAfterPlatformSelectWhenAlreadyInstalled(t *testing.T) {
-	t.Skip("superseded by slice-4 consolidated overwrite screen (ADR-5)")
-
-	dir := t.TempDir()
-	plat := newPlatformForTest(t, "claude", dir+"/claude")
-
-	// Pre-create an agent file so checkAlreadyInstalled finds something.
-	agentsDir := plat.AgentsDir()
-	if err := os.MkdirAll(agentsDir, 0755); err != nil {
-		t.Fatalf("create agentsDir: %v", err)
-	}
-	// Write a dummy agent file matching a real role name from the manifest.
-	if err := os.WriteFile(filepath.Join(agentsDir, "doc-arch.md"), []byte("content"), 0644); err != nil {
-		t.Fatalf("write dummy agent: %v", err)
-	}
-
-	m := newInstallModelForTest(AppConfig{}, false, []Platform{plat})
-	m.manifest = testManifest()
-	// Inject a role into the manifest so checkAlreadyInstalled finds "doc-arch".
-	m.manifest.Roles = []DistRole{{ID: "doc-arch"}}
-
-	// Press Enter to confirm platform selection.
-	m = sendSpecialKey(t, m, tea.KeyEnter)
-
-	// The step MUST be stepOverwriteConfirm, not stepDocsMode.
-	if m.step != stepOverwriteConfirm {
-		t.Fatalf("expected stepOverwriteConfirm after enter when platform already installed, got step=%v", m.step)
-	}
-}
-
-// TestInstallModel_OverwriteStep_SkipsPlatformOnNo verifies the old per-platform
-// queue skip behaviour. Superseded by slice-4 consolidated overwrite screen.
-// TODO(slice-4): rewrite as install-only-missing test (already-installed platform
-// excluded from plan.Platforms when install-only-missing is chosen).
-func TestInstallModel_OverwriteStep_SkipsPlatformOnNo(t *testing.T) {
-	t.Skip("superseded by slice-4 consolidated overwrite screen (ADR-5)")
-
-	dir := t.TempDir()
-	plat := newPlatformForTest(t, "claude", dir+"/claude")
-
-	agentsDir := plat.AgentsDir()
-	if err := os.MkdirAll(agentsDir, 0755); err != nil {
-		t.Fatalf("create agentsDir: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(agentsDir, "doc-arch.md"), []byte("content"), 0644); err != nil {
-		t.Fatalf("write dummy agent: %v", err)
-	}
-
-	m := newInstallModelForTest(AppConfig{}, false, []Platform{plat})
-	m.manifest.Roles = []DistRole{{ID: "doc-arch"}}
-
-	m = sendSpecialKey(t, m, tea.KeyEnter) // confirm platform select
-	if m.step != stepOverwriteConfirm {
-		t.Fatalf("expected stepOverwriteConfirm, got %v", m.step)
-	}
-
-	// 'n' → skip this platform.
-	m = sendKey(t, m, "n")
-
-	// Should advance past overwrite step (to docsMode or confirm depending on remaining platforms).
-	if m.step == stepOverwriteConfirm {
-		t.Fatalf("step should have advanced past stepOverwriteConfirm after 'n'")
-	}
-
-	// The plan must NOT include "claude".
-	plan := m.BuildPlan()
-	for _, id := range plan.Platforms {
-		if id == "claude" {
-			t.Errorf("plan.Platforms should not contain 'claude' after skipping overwrite")
-		}
-	}
-}
-
-// TestInstallModel_OverwriteStep_ProceedsOnYes tests the old per-platform 'y'
-// consent path. Superseded by slice-4 consolidated overwrite screen.
-// TODO(slice-4): rewrite as overwrite-all test (Overwrite[id]=true for all selected).
-func TestInstallModel_OverwriteStep_ProceedsOnYes(t *testing.T) {
-	t.Skip("superseded by slice-4 consolidated overwrite screen (ADR-5)")
-
-	dir := t.TempDir()
-	plat := newPlatformForTest(t, "claude", dir+"/claude")
-
-	agentsDir := plat.AgentsDir()
-	if err := os.MkdirAll(agentsDir, 0755); err != nil {
-		t.Fatalf("create agentsDir: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(agentsDir, "doc-arch.md"), []byte("content"), 0644); err != nil {
-		t.Fatalf("write dummy agent: %v", err)
-	}
-
-	m := newInstallModelForTest(AppConfig{}, false, []Platform{plat})
-	m.manifest.Roles = []DistRole{{ID: "doc-arch"}}
-
-	m = sendSpecialKey(t, m, tea.KeyEnter)
-	if m.step != stepOverwriteConfirm {
-		t.Fatalf("expected stepOverwriteConfirm, got %v", m.step)
-	}
-
-	// 'y' → keep this platform.
-	m = sendKey(t, m, "y")
-
-	// The step should have advanced.
-	if m.step == stepOverwriteConfirm {
-		t.Fatalf("step should have advanced past stepOverwriteConfirm after 'y'")
-	}
-
-	// overwriteConsent for "claude" must be true.
-	if !m.overwriteConsent["claude"] {
-		t.Errorf("overwriteConsent[\"claude\"] = false; want true after pressing 'y'")
-	}
-}
-
-// TestInstallModel_OverwriteStep_NotShownForFreshInstall verifies that the
-// overwrite step is skipped when no existing install is detected (fresh install).
+// TestInstallModel_OverwriteStep_NotShownForFreshInstall verifies that when no
+// selected platform is already installed, the overwrite step is skipped
+// entirely and the wizard proceeds directly to stepProgress.
 func TestInstallModel_OverwriteStep_NotShownForFreshInstall(t *testing.T) {
-	// No pre-existing agent files.
+	// No pre-existing agent files → alreadyInstalled will be empty.
 	dir := t.TempDir()
 	plat := newPlatformForTest(t, "claude", dir+"/claude")
 
 	m := newInstallModelForTest(AppConfig{}, false, []Platform{plat})
 	m.manifest.Roles = []DistRole{{ID: "doc-arch"}}
+	// Force empty alreadyInstalled — no agents on disk in t.TempDir().
+	m.alreadyInstalled = map[string]bool{}
 
-	// No agents dir → nothing installed → no overwrite step.
+	// Platform select → DocsMode.
+	m = sendSpecialKey(t, m, tea.KeyEnter)
+	if m.step != stepDocsMode {
+		t.Fatalf("expected stepDocsMode, got %v", m.step)
+	}
+
+	// DocsMode: in-project (modeCursor=1), Continue → should skip stepOverwrite → stepProgress.
+	m.modeCursor = 1
+	m.focusZone = focusZoneButtons
+	m.docsModeButtons.focus = 0 // Continue
 	m = sendSpecialKey(t, m, tea.KeyEnter)
 
-	if m.step != stepDocsMode {
-		t.Fatalf("expected stepDocsMode for fresh install (no overwrite), got %v", m.step)
+	if m.step == stepOverwrite {
+		t.Fatal("fresh install (no already-installed) should skip stepOverwrite, but wizard is at stepOverwrite")
 	}
-}
-
-// TestInstallModel_BuildPlan_PopulatesOverwriteMap tests the old per-platform
-// consent-based overwrite map population. Superseded by slice-4 consolidated
-// overwrite screen which sets Overwrite[id]=true for all selected when "overwrite-all"
-// is chosen.
-// TODO(slice-4): rewrite to assert overwrite-all sets Overwrite[id]=true.
-func TestInstallModel_BuildPlan_PopulatesOverwriteMap(t *testing.T) {
-	t.Skip("superseded by slice-4 consolidated overwrite screen (ADR-5)")
-
-	dir := t.TempDir()
-	plat := newPlatformForTest(t, "claude", dir+"/claude")
-
-	agentsDir := plat.AgentsDir()
-	if err := os.MkdirAll(agentsDir, 0755); err != nil {
-		t.Fatalf("create agentsDir: %v", err)
-	}
-	if err := os.WriteFile(filepath.Join(agentsDir, "doc-arch.md"), []byte("content"), 0644); err != nil {
-		t.Fatalf("write dummy agent: %v", err)
-	}
-
-	m := newInstallModelForTest(AppConfig{}, false, []Platform{plat})
-	m.manifest.Roles = []DistRole{{ID: "doc-arch"}}
-
-	m = sendSpecialKey(t, m, tea.KeyEnter) // platform select → overwrite step
-	m = sendKey(t, m, "y")                 // consent to overwrite
-
-	plan := m.BuildPlan()
-	if !plan.Overwrite["claude"] {
-		t.Errorf("BuildPlan().Overwrite[\"claude\"] = false; want true after overwrite consent")
+	if m.step != stepProgress {
+		t.Fatalf("expected stepProgress for fresh in-project install, got %v", m.step)
 	}
 }
 
@@ -384,34 +250,6 @@ func containsAny(s string, subs ...string) bool {
 		}
 	}
 	return false
-}
-
-// TestOverwriteQueue_AllDeclined_ReturnsToPlatformSelect guards the
-// all-platforms-declined edge: when every selected platform is declined for
-// overwrite, the wizard must NOT continue to stepDocsMode with zero selected
-// platforms (a nil Platforms plan means "all" to the engine — the exact
-// opposite of what the user chose). It must return to platform selection.
-func TestOverwriteQueue_AllDeclined_ReturnsToPlatformSelect(t *testing.T) {
-	m := InstallModel{
-		step:              stepOverwriteConfirm,
-		platforms:         []platformItem{{id: "opencode", label: "opencode", selected: true}},
-		overwriteQueue:    []string{"opencode"},
-		overwriteQueueIdx: 0,
-		overwriteConsent:  map[string]bool{},
-		styles:            NoColor(),
-	}
-
-	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
-	im, ok := updated.(InstallModel)
-	if !ok {
-		t.Fatalf("Update returned %T, want InstallModel", updated)
-	}
-	if im.step == stepDocsMode {
-		t.Fatal("wizard advanced to stepDocsMode with zero selected platforms — all-declined edge not guarded")
-	}
-	if im.step != stepPlatformSelect {
-		t.Errorf("step = %v, want stepPlatformSelect after declining all platforms", im.step)
-	}
 }
 
 // TestRunInstall_NoPlatformsSelected_Errors is the defense-in-depth guard:

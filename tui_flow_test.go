@@ -75,36 +75,16 @@ func TestGolden_PathStep(t *testing.T) {
 	assertGolden(t, view)
 }
 
-// TestGolden_ConfirmVault captures the confirm step view for vault mode.
-func TestGolden_ConfirmVault(t *testing.T) {
+// TestGolden_OverwriteConsolidated captures the consolidated overwrite screen.
+// Uses a model with one already-installed platform among two selected.
+func TestGolden_OverwriteConsolidated(t *testing.T) {
 	plats := testPlatformsFromTempDir(t)
 	m := newInstallModelForTest(AppConfig{}, false, plats)
-	m.step = stepConfirm
-	m.mode = ModeVault
-	// Simulate path already set.
-	m.pathInput.SetValue("/vault/docs/")
-	view := m.View()
-	assertGolden(t, view)
-}
-
-// TestGolden_ConfirmInProject captures the confirm step for in-project mode.
-func TestGolden_ConfirmInProject(t *testing.T) {
-	plats := testPlatformsFromTempDir(t)
-	m := newInstallModelForTest(AppConfig{}, false, plats)
-	m.step = stepConfirm
-	m.mode = ModeInProject
-	view := m.View()
-	assertGolden(t, view)
-}
-
-// TestGolden_ConfirmModeSwitchNotice captures the confirm step when a mode
-// switch is detected (prior vault → now in-project).
-func TestGolden_ConfirmModeSwitchNotice(t *testing.T) {
-	plats := testPlatformsFromTempDir(t)
-	cfg := AppConfig{Mode: string(ModeVault), Path: "/old/docs/", Version: 1}
-	m := newInstallModelForTest(cfg, true, plats)
-	m.step = stepConfirm
-	m.mode = ModeInProject
+	// Mark the first platform as already installed.
+	m.alreadyInstalled = map[string]bool{plats[0].ID(): true}
+	m.step = stepOverwrite
+	m.overwriteChoice = 0 // overwrite-all (default)
+	m.focusZone = focusZoneList
 	view := m.View()
 	assertGolden(t, view)
 }
@@ -167,21 +147,18 @@ func TestGolden_UninstallConfirm(t *testing.T) {
 // teatest full-flow tests
 // ---------------------------------------------------------------------------
 
-// TestTUIFlow_InProject exercises the full vault→in-project happy path using
-// teatest: platform select (all) → docs-mode (in-project) → confirm → done.
+// TestTUIFlow_InProject exercises the in-project navigation using teatest:
+// platform select (all) → docs-mode (in-project) → stepOverwrite (with an
+// already-installed platform, so no engine goroutine during teardown).
 //
-// This test does NOT actually run the install engine (it would need a real dist/
-// and platform dirs). We test the wizard navigation end-to-end and verify that
-// stepDone is reached; engine correctness is covered by execute_install_test.go.
+// We verify wizard navigation only; engine correctness is in execute_install_test.go.
 func TestTUIFlow_InProject(t *testing.T) {
 	plats := testPlatformsFromTempDir(t)
 	m := newInstallModelForTest(AppConfig{}, false, plats)
+	// Mark a platform as already installed so the flow routes to stepOverwrite
+	// rather than stepProgress (which runs the engine goroutine during teardown).
+	m.alreadyInstalled = map[string]bool{plats[0].ID(): true}
 
-	// Replace runInstall with a no-op to avoid needing a real dist/ in tests.
-	// We verify navigation to stepConfirm; the actual install is covered by
-	// execute_install_test.go integration tests.
-
-	// Navigate: platform select → Enter → docs-mode (default vault) → j → Enter (in-project)
 	tm := teatest.NewTestModel(
 		t,
 		m,
@@ -190,30 +167,35 @@ func TestTUIFlow_InProject(t *testing.T) {
 
 	// Enter on platform select (all selected by default).
 	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyEnter}))
-	// Navigate to in-project (j = down).
+	// Navigate to in-project (j = down) in docs-mode.
 	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyRunes, Runes: []rune("j")}))
-	// Enter to select in-project → should be at stepConfirm (no path step).
+	// Enter → in-project Continue → stepOverwrite (platform already installed).
 	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyEnter}))
 
-	// Cancel at confirm step with 'n' (sends tea.Quit).
-	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyRunes, Runes: []rune("n")}))
+	// Ctrl+C to quit from overwrite screen.
+	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyCtrlC}))
 
 	tm.WaitFinished(t, teatest.WithFinalTimeout(3*time.Second))
 	final := tm.FinalModel(t).(InstallModel)
 
-	// We cancelled — the model should be at stepConfirm (quit before going to progress).
-	if final.step != stepConfirm {
-		t.Fatalf("expected stepConfirm after n-cancel, got %v", final.step)
-	}
 	if final.mode != ModeInProject {
 		t.Fatalf("expected mode=in-project after j+enter, got %v", final.mode)
+	}
+	// With installed platform: in-project → stepOverwrite (not stepPath, not stepProgress).
+	if final.step != stepOverwrite {
+		t.Fatalf("expected stepOverwrite (in-project, platform already installed), got %v", final.step)
 	}
 }
 
 // TestTUIFlow_Vault exercises the vault flow navigation.
+// With an already-installed platform, vault path entry leads to stepOverwrite
+// (engine goroutine never runs, no temp-dir cleanup issues on Windows).
 func TestTUIFlow_Vault(t *testing.T) {
 	plats := testPlatformsFromTempDir(t)
 	m := newInstallModelForTest(AppConfig{}, false, plats)
+	// Mark a platform as already installed so path-entry routes to stepOverwrite,
+	// not stepProgress (which would run the engine goroutine during teardown).
+	m.alreadyInstalled = map[string]bool{plats[0].ID(): true}
 
 	tm := teatest.NewTestModel(
 		t,
@@ -231,11 +213,11 @@ func TestTUIFlow_Vault(t *testing.T) {
 	for _, ch := range "/my/vault/" {
 		tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyRunes, Runes: []rune{ch}}))
 	}
-	// Enter to confirm path → should advance to stepConfirm.
+	// Enter to confirm path → some platforms installed → stepOverwrite (not stepProgress).
 	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyEnter}))
 
-	// Cancel at confirm step with 'n' (sends tea.Quit).
-	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyRunes, Runes: []rune("n")}))
+	// Ctrl+C to quit from overwrite screen.
+	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyCtrlC}))
 
 	tm.WaitFinished(t, teatest.WithFinalTimeout(3*time.Second))
 
@@ -244,8 +226,9 @@ func TestTUIFlow_Vault(t *testing.T) {
 	if final.mode != ModeVault {
 		t.Fatalf("expected mode=vault, got %v", final.mode)
 	}
-	if final.step != stepConfirm {
-		t.Fatalf("expected stepConfirm after vault path + n-cancel, got %v", final.step)
+	// With an installed platform, path entry → stepOverwrite (not stepProgress).
+	if final.step != stepOverwrite {
+		t.Fatalf("expected stepOverwrite after vault path (platform already installed), got %v", final.step)
 	}
 }
 
@@ -418,10 +401,15 @@ func TestTUIFlow_DocsMode_VaultGoesToPath(t *testing.T) {
 }
 
 // TestTUIFlow_DocsMode_InProjectSkipsPath exercises the in-project path via
-// teatest: docs-mode (in-project selected) → Continue → stepConfirm (skip path).
+// teatest: docs-mode (in-project selected) → Continue → stepOverwrite (with an
+// already-installed platform, so overwrite is shown — but path is skipped).
+// Verifies that the wizard does NOT navigate through stepPath for in-project mode.
 func TestTUIFlow_DocsMode_InProjectSkipsPath(t *testing.T) {
 	plats := testPlatformsFromTempDir(t)
 	m := newInstallModelForTest(AppConfig{}, false, plats)
+	// Mark a platform as already installed so the flow routes to stepOverwrite
+	// rather than stepProgress (which would run the engine goroutine in teardown).
+	m.alreadyInstalled = map[string]bool{plats[0].ID(): true}
 	m.step = stepDocsMode
 	m.modeCursor = 0 // start at vault
 	m.focusZone = focusZoneList
@@ -432,10 +420,10 @@ func TestTUIFlow_DocsMode_InProjectSkipsPath(t *testing.T) {
 	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyRunes, Runes: []rune("j")}))
 	// Tab → button zone.
 	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyTab}))
-	// Enter → Continue → stepConfirm (no stepPath for in-project).
+	// Enter → Continue (in-project with installed platform) → stepOverwrite (not stepPath).
 	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyEnter}))
-	// 'n' to cancel at confirm.
-	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyRunes, Runes: []rune("n")}))
+	// Ctrl+C to quit from overwrite screen.
+	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyCtrlC}))
 
 	tm.WaitFinished(t, teatest.WithFinalTimeout(3*time.Second))
 	final := tm.FinalModel(t).(InstallModel)
@@ -443,8 +431,12 @@ func TestTUIFlow_DocsMode_InProjectSkipsPath(t *testing.T) {
 	if final.mode != ModeInProject {
 		t.Fatalf("expected ModeInProject, got %v", final.mode)
 	}
-	if final.step != stepConfirm {
-		t.Fatalf("expected stepConfirm (in-project skips path), got %v", final.step)
+	// In-project skips stepPath → should be at stepOverwrite (not stepPath, not stepProgress).
+	if final.step == stepPath {
+		t.Fatal("in-project Continue must NOT navigate through stepPath")
+	}
+	if final.step != stepOverwrite {
+		t.Fatalf("expected stepOverwrite (in-project with installed platform), got %v", final.step)
 	}
 }
 

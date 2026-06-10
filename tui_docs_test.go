@@ -133,18 +133,21 @@ func TestDocsMode_Continue_Vault_GoesToPath(t *testing.T) {
 }
 
 // TestDocsMode_Continue_InProject_SkipsPath verifies that Continue from docs-mode
-// with in-project selected skips stepPath and goes to stepConfirm.
+// with in-project selected and no already-installed platforms skips both stepPath
+// and stepOverwrite, going directly to stepProgress.
 func TestDocsMode_Continue_InProject_SkipsPath(t *testing.T) {
 	plats := testPlatformsFromTempDir(t)
 	m := newInstallModelForTest(AppConfig{}, false, plats)
 	m.step = stepDocsMode
-	m.modeCursor = 1 // in-project
+	m.modeCursor = 1                       // in-project
+	m.alreadyInstalled = map[string]bool{} // fresh install
 	m.focusZone = focusZoneButtons
 	m.docsModeButtons.focus = 0 // Continue
 
 	m = sendSpecialKey(t, m, tea.KeyEnter)
-	if m.step != stepConfirm {
-		t.Fatalf("Continue (in-project) should skip stepPath and go to stepConfirm, got %v", m.step)
+	// Fresh install, in-project: skip path and overwrite → go straight to progress.
+	if m.step != stepProgress {
+		t.Fatalf("Continue (in-project, fresh) should skip path+overwrite and go to stepProgress, got %v", m.step)
 	}
 	if m.mode != ModeInProject {
 		t.Fatalf("mode should be ModeInProject, got %v", m.mode)
