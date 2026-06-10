@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -114,6 +115,34 @@ func TestDocReaderSkillMD_IsEnglish(t *testing.T) {
 	for _, m := range englishMarkers {
 		if !strings.Contains(content, m) {
 			t.Errorf("doc-reader SKILL.md missing English section heading: %q", m)
+		}
+	}
+}
+
+// TestConditionalSkillsSubsetOfSkills guards the manifest invariant: every ID
+// in conditionalSkills must also exist in skills. The install loop iterates
+// manifest.Skills and consults ConditionalSkills only to decide skipping — a
+// conditional entry missing from skills would be silently never installed.
+func TestConditionalSkillsSubsetOfSkills(t *testing.T) {
+	data, err := embedded.ReadFile("src/manifests/content.json")
+	if err != nil {
+		t.Fatalf("read content.json: %v", err)
+	}
+	var manifest struct {
+		Skills            []string `json:"skills"`
+		ConditionalSkills []string `json:"conditionalSkills"`
+	}
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		t.Fatalf("parse content.json: %v", err)
+	}
+
+	skillSet := make(map[string]bool, len(manifest.Skills))
+	for _, s := range manifest.Skills {
+		skillSet[s] = true
+	}
+	for _, c := range manifest.ConditionalSkills {
+		if !skillSet[c] {
+			t.Errorf("conditionalSkills entry %q is not present in skills — it would never be installed", c)
 		}
 	}
 }

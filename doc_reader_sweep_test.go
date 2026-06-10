@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -83,7 +84,10 @@ func TestSweepDocReader_Idempotent_NoErrorWhenAbsent(t *testing.T) {
 	r := newBufferReporter()
 	sweepDocReaderIfLeavingInProject([]Platform{opencode}, r)
 
-	// No assertion needed: absence of panic + test completes = success.
+	out := r.buf.String()
+	if strings.Contains(out, "✖") || strings.Contains(out, "⚠") {
+		t.Errorf("sweep with absent doc-reader emitted error/warn output:\n%s", out)
+	}
 }
 
 // TestRunModeSwitchHook_InProjectToVault_CallsSweep verifies that the
