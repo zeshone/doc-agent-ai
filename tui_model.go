@@ -152,6 +152,7 @@ func (m InstallModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case installResultMsg:
 		m.err = msg.err
+		m.progressLines = msg.progressLines
 		m.step = stepDone
 		return m, tea.Quit
 
@@ -338,6 +339,8 @@ func (m InstallModel) advanceOverwriteQueue() InstallModel {
 
 // runInstall builds an InstallPlan from the current model state and
 // executes the install engine as a Bubbletea Cmd (runs off the UI goroutine).
+// Progress lines are collected inside the Cmd closure and returned via
+// installResultMsg so the Bubbletea event loop can apply them to the model.
 func (m *InstallModel) runInstall() tea.Cmd {
 	// Collect selected platform IDs.
 	var selectedIDs []string
@@ -369,37 +372,39 @@ func (m *InstallModel) runInstall() tea.Cmd {
 	distDir := m.distDir
 	allPlatforms := m.allPlatforms
 
-	// Capture progress lines via a collecting Reporter.
-	collector := &collectingReporter{model: m}
-
 	return func() tea.Msg {
+		// Collect progress lines into a local slice owned by this closure.
+		// We do not store a pointer to the InstallModel here because tea.Cmd
+		// runs on a separate goroutine; writing to the model copy in the event
+		// loop's goroutine would cause a data race with no guarantee the lines
+		// reach the rendered model. Instead, lines are returned inside
+		// installResultMsg and the Update method merges them into the live model.
+		var lines []string
+		collector := &collectingReporter{lines: &lines}
 		err := executeInstall(manifest, plan, distDir, allPlatforms, collector)
-		return installResultMsg{err: err}
+		return installResultMsg{err: err, progressLines: lines}
 	}
 }
 
 // ---------------------------------------------------------------------------
-// collectingReporter — routes engine output to the TUI progressLines slice
+// collectingReporter — collects engine output for display in the done step
 // ---------------------------------------------------------------------------
 
-// collectingReporter is a Reporter that appends formatted lines to the
-// InstallModel.progressLines slice. Because tea.Cmd runs on a separate
-// goroutine, we collect into a local buffer and the final installResultMsg
-// carries the model update.
-//
-// Note: this reporter stores a pointer to the InstallModel so it can append
-// progressLines during the install. The tea.Cmd closure captures the model
-// by pointer; Bubbletea handles the final state handoff via installResultMsg.
+// collectingReporter is a Reporter that appends formatted lines to a local
+// []string slice owned by the tea.Cmd closure. The collected lines are
+// returned via installResultMsg and merged into the live model by Update,
+// ensuring they are displayed in the done step. This avoids writing to a
+// detached model copy from the Cmd goroutine.
 type collectingReporter struct {
-	model *InstallModel
+	lines *[]string
 }
 
-func (c *collectingReporter) Ok(msg string)     { c.model.progressLines = append(c.model.progressLines, "  ✔ "+msg) }
-func (c *collectingReporter) Warn(msg string)   { c.model.progressLines = append(c.model.progressLines, "  ⚠  "+msg) }
-func (c *collectingReporter) ErrOut(msg string) { c.model.progressLines = append(c.model.progressLines, "  ✖ "+msg) }
-func (c *collectingReporter) Info(msg string)   { c.model.progressLines = append(c.model.progressLines, "  → "+msg) }
-func (c *collectingReporter) Dim(msg string)    { c.model.progressLines = append(c.model.progressLines, "  "+msg) }
-func (c *collectingReporter) Head(msg string)   { c.model.progressLines = append(c.model.progressLines, "\n  "+msg) }
+func (c *collectingReporter) Ok(msg string)     { *c.lines = append(*c.lines, "  ✔ "+msg) }
+func (c *collectingReporter) Warn(msg string)   { *c.lines = append(*c.lines, "  ⚠  "+msg) }
+func (c *collectingReporter) ErrOut(msg string) { *c.lines = append(*c.lines, "  ✖ "+msg) }
+func (c *collectingReporter) Info(msg string)   { *c.lines = append(*c.lines, "  → "+msg) }
+func (c *collectingReporter) Dim(msg string)    { *c.lines = append(*c.lines, "  "+msg) }
+func (c *collectingReporter) Head(msg string)   { *c.lines = append(*c.lines, "\n  "+msg) }
 
 // ---------------------------------------------------------------------------
 // View
@@ -480,7 +485,7 @@ func (m InstallModel) viewOverwriteConfirm(sb *strings.Builder) {
 	sb.WriteString("\n")
 	total := len(m.overwriteQueue)
 	sb.WriteString(m.styles.Dim.Render(fmt.Sprintf("  Platform %d of %d", m.overwriteQueueIdx+1, total)) + "\n\n")
-	sb.WriteString(m.styles.Confirm.Render("  Overwrite "+platLabel+"? (y/N) "))
+	sb.WriteString(m.styles.Confirm.Render("  Overwrite " + platLabel + "? (y/N) "))
 }
 
 func (m InstallModel) viewDocsMode(sb *strings.Builder) {

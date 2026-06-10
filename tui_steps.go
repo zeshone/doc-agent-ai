@@ -58,7 +58,12 @@ type platformItem struct {
 // installResultMsg is sent on the Bubbletea message bus when executeInstall
 // completes (either with success or an error). The TUI Update method receives
 // this message and transitions from stepProgress → stepDone.
+// progressLines carries all Reporter output collected during the install so
+// the event-loop model can display them in the done step.
 type installResultMsg struct {
 	// err is nil on success, non-nil on failure.
 	err error
+
+	// progressLines holds the formatted output lines collected by collectingReporter.
+	progressLines []string
 }

@@ -50,18 +50,18 @@ type Styles struct {
 // NewStyles returns the default production styles with full ANSI colour.
 func NewStyles() Styles {
 	return Styles{
-		Banner:       lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6")),   // cyan
+		Banner:       lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("6")), // cyan
 		Title:        lipgloss.NewStyle().Bold(true),
-		Subtitle:     lipgloss.NewStyle().Foreground(lipgloss.Color("8")),              // gray
-		SelectedItem: lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("2")),   // green
+		Subtitle:     lipgloss.NewStyle().Foreground(lipgloss.Color("8")),            // gray
+		SelectedItem: lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("2")), // green
 		NormalItem:   lipgloss.NewStyle(),
-		CheckedItem:  lipgloss.NewStyle().Foreground(lipgloss.Color("2")),              // green
-		Ok:           lipgloss.NewStyle().Foreground(lipgloss.Color("2")),              // green
-		Warning:      lipgloss.NewStyle().Foreground(lipgloss.Color("3")),              // yellow
-		ErrStyle:     lipgloss.NewStyle().Foreground(lipgloss.Color("1")),              // red
-		Dim:          lipgloss.NewStyle().Foreground(lipgloss.Color("8")),              // gray
-		Notice:       lipgloss.NewStyle().Foreground(lipgloss.Color("3")).Bold(true),   // yellow bold
-		Confirm:      lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("3")),   // yellow bold
+		CheckedItem:  lipgloss.NewStyle().Foreground(lipgloss.Color("2")),            // green
+		Ok:           lipgloss.NewStyle().Foreground(lipgloss.Color("2")),            // green
+		Warning:      lipgloss.NewStyle().Foreground(lipgloss.Color("3")),            // yellow
+		ErrStyle:     lipgloss.NewStyle().Foreground(lipgloss.Color("1")),            // red
+		Dim:          lipgloss.NewStyle().Foreground(lipgloss.Color("8")),            // gray
+		Notice:       lipgloss.NewStyle().Foreground(lipgloss.Color("3")).Bold(true), // yellow bold
+		Confirm:      lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("3")), // yellow bold
 	}
 }
 

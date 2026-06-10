@@ -17,7 +17,6 @@ func testManifest() DistManifest {
 	return DistManifest{PlaceholderBasePath: "__DOC_AGENT_BASE_PATH__/"}
 }
 
-
 // newInstallModelForTest creates an InstallModel with NoColor styles and fixed
 // 80×24 viewport for deterministic test output.
 func newInstallModelForTest(cfg AppConfig, cfgExisted bool, allPlatforms []Platform) InstallModel {

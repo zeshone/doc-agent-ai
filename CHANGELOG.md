@@ -8,6 +8,70 @@ For older releases without a section here, the GitHub Release notes have the det
 
 ## v4.0.0 — Unreleased
 
+### 2b-remediation: overwrite confirmation, Go 1.25 pin, dead code removal
+
+Resolves two CRITICAL and four WARNING/SUGGESTION items from the verify report.
+
+#### C1 — Go version resolved: go.mod stays at `go 1.25.0`
+
+`golang.org/x/sys v0.46.0` and `golang.org/x/term v0.44.0` (transitive deps of
+charmbracelet) both declare `go 1.25.0` as their minimum. Lowering the directive
+is not possible without downgrading those deps. CI and release workflows updated
+to `go-version: '1.25'`; README badge updated to `1.25+`.
+`go mod tidy` run — charmbracelet packages promoted from `// indirect` to direct
+requires (W2 resolved).
+
+#### C2 — Per-platform overwrite confirmation (spec F1 parity)
+
+Restores the overwrite prompt from the old bufio flow. The wizard now inserts
+a `stepOverwriteConfirm` step between platform selection and docs-mode when any
+selected platform already has agents installed.
+
+- **Wizard**: queues affected platforms in order; per-platform prompt "Overwrite
+  X? (y/N)". `y` = consent (stored in `overwriteConsent` map); `n`/Enter = skip
+  (platform deselected). Fresh installs skip this step entirely.
+- **Headless**: `executeInstall` calls `checkAlreadyInstalled` per target; without
+  consent (`plan.Overwrite[id]=true`) and without `--yes`, returns an error
+  directing the user to pass `--yes` or use the TUI. `--yes` bypasses the check.
+- `InstallPlan.Overwrite` is now populated by `BuildPlan()` and `runInstall()`.
+- `checkAlreadyInstalled` was effectively dead (only `installInteractive` used it).
+  This fix revives it on the live install paths (both TUI wizard and engine).
+
+Tests (9 new, TDD RED → GREEN): wizard step appears/skips/proceeds, BuildPlan
+populates Overwrite map, headless errors without `--yes`, headless proceeds with
+`--yes`, engine respects the Overwrite map.
+
+#### W4 — collectingReporter: progress output shown correctly in done step
+
+The previous implementation stored a `*InstallModel` pointer in the reporter and
+appended to it from the `tea.Cmd` goroutine. Because `handleKey` is a value
+receiver, the pointer pointed to a detached copy; progress lines never reached
+the rendered model. Fixed: `collectingReporter` now owns a `*[]string` inside the
+`tea.Cmd` closure. Lines are returned via `installResultMsg.progressLines` and
+merged into the live model by `Update`. Progress is displayed in the done step
+(after the install completes) rather than during the progress step. No live
+streaming during progress — that is the correct description of what ships.
+
+#### S1 — Removed dead `installInteractive` and `normalizeBasePath`
+
+`installInteractive` was fully dead (zero live callers since the Bubbletea wizard
+replaced the bufio flow in PR 2b). Removed along with `normalizeBasePath` (only
+used by `installInteractive`). `ask()` is kept — `uninstallInteractive` is its
+only live caller. `checkAlreadyInstalled` is now live via the overwrite fix above.
+
+#### S2 — Documented install vs. uninstall no-TTY asymmetry
+
+Added a rationale comment in `main.go` at the uninstall routing block explaining
+why install errors on no-TTY (needs user input: mode, path) while uninstall falls
+back to the bufio flow (only needs a yes/no, safe to default).
+
+#### W3 — gofmt applied
+
+`tui_model.go`, `tui_styles.go`, `tui_model_test.go`, `overwrite_test.go`, and
+`install.go` reformatted. `gofmt -l .` is now clean.
+
+---
+
 ### Bubbletea installer TUI (PR 2b)
 
 Replaces the hand-rolled `bufio` interactive flow with a Bubbletea wizard. The
@@ -23,22 +87,29 @@ github.com/charmbracelet/lipgloss v1.1.0
 golang.org/x/term                  (TTY detection)
 ```
 
+**Build requirement:** `go 1.25.0` minimum (see C1 note above).
+
 **Binary size (T2-1 measurement):** with deps, `CGO_ENABLED=0 go build -ldflags="-s -w"` produces
 **5.32 MiB** (up from 4.0 MiB before charm; CI gate: 6 MiB — gate is safe).
 
 #### Install wizard
 
-Six-step wizard: platform selection → docs-mode → vault path (vault only) → confirm → progress → done.
+Seven-step wizard: platform selection → overwrite confirm (existing installs only) →
+docs-mode → vault path (vault only) → confirm → progress → done.
 
 - Config defaults pre-fill mode, vault path, and platform selection on reinstall.
 - In-project mode skips the path entry step.
 - Mode-switch notice displayed in the confirm step when mode changes from config.
-- Progress step renders engine output (via a `collectingReporter`) without corrupting frames.
+- Engine output collected via `collectingReporter` and displayed in the done step.
 
 #### Uninstall wizard
 
 Three-step wizard: confirm (lists what will be removed) → progress → done.
 Enter defaults to no; explicit `y` is required (destructive action guard).
+
+**no-TTY behavior:** uninstall without a TTY falls back to the bufio
+`uninstallInteractive` flow. Install without a TTY (and without flags) errors with
+an actionable flag example. See `main.go` comment for the rationale.
 
 #### TTY detection routing (main.go)
 
@@ -54,6 +125,7 @@ Decision order:
   plan correctness, mode-switch notice display, TTY-error message components).
 - `tui_flow_test.go`: 9 golden view snapshots (one per step + mode-switch + uninstall confirm)
   + 4 teatest full-flow tests (in-project, vault, config-prefilled, uninstall-cancel).
+- `overwrite_test.go`: 9 overwrite-specific tests (see C2 above).
 
 - `feat(tui)`: add Bubbletea install wizard (tui.go, tui_model.go, tui_steps.go, tui_styles.go)
 - `feat(tui)`: add Bubbletea uninstall wizard (tui_uninstall.go)

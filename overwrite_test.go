@@ -166,7 +166,7 @@ func TestInstallModel_BuildPlan_PopulatesOverwriteMap(t *testing.T) {
 	m.manifest.Roles = []DistRole{{ID: "doc-arch"}}
 
 	m = sendSpecialKey(t, m, tea.KeyEnter) // platform select → overwrite step
-	m = sendKey(t, m, "y")                  // consent to overwrite
+	m = sendKey(t, m, "y")                 // consent to overwrite
 
 	plan := m.BuildPlan()
 	if !plan.Overwrite["claude"] {

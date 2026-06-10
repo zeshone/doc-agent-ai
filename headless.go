@@ -71,7 +71,7 @@ func hasInstallFlags(f FlagSet) bool {
 // Steps:
 //  1. Load AppConfig for defaults.
 //  2. parsePlanFromFlags to validate flags and build InstallPlan.
-//  3. Auto-generate dist if missing (same as installInteractive).
+//  3. Auto-generate dist if missing.
 //  4. Read and validate manifest.
 //  5. Detect platforms; filter to plan.Platforms.
 //  6. executeInstall with a stdout Reporter.

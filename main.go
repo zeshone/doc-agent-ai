@@ -77,7 +77,12 @@ func main() {
 		}
 
 	case "uninstall":
-		// Decision order: TTY present → Bubbletea TUI; no TTY → existing interactive fallback.
+		// Decision order: TTY present → Bubbletea TUI; no TTY → bufio fallback.
+		//
+		// Asymmetry with install: install errors on no-TTY + no-flags because it
+		// needs user input (mode, path) that cannot be reasonably defaulted.
+		// Uninstall only needs a yes/no confirmation, so the bufio fallback is safe
+		// and avoids breaking automated environments that call uninstall directly.
 		if isTerminal() {
 			if err := runUninstallTUI(); err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
