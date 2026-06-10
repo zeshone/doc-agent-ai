@@ -3,7 +3,9 @@ package main
 import (
 	"fmt"
 	"strings"
+	"time"
 
+	"github.com/charmbracelet/bubbles/progress"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -83,6 +85,22 @@ type InstallModel struct {
 	// allPlatforms is the full detected platform list (passed to executeInstall).
 	allPlatforms []Platform
 
+	// installing is set to true when the install engine starts running.
+	// While true, BACK navigation is disabled on stepProgress.
+	installing bool
+
+	// checklist is the per-platform animated progress list for stepProgress.
+	// Seeded from selected platforms when entering stepProgress.
+	checklist []checklistItem
+
+	// checklistCursor is the index of the next item to advance in the checklist.
+	// A tickMsg increments this cursor, marking each platform Installing → Done.
+	checklistCursor int
+
+	// progressBar is the bubbles/progress bar model used for visual pacing.
+	// Rendered with ViewAs(pct) for deterministic golden output (no spring frames).
+	progressBar progress.Model
+
 	// progressLines collects Reporter output during stepProgress, or the
 	// "nothing to install" summary when all selected platforms were already present.
 	progressLines []string
@@ -150,6 +168,15 @@ func newInstallModel(cfg AppConfig, cfgExisted bool, manifest DistManifest, dist
 		pi.Focus()
 	}
 
+	// Initialize the progress bar with brand-cyan solid fill; no gradient.
+	// Width is set to 40 here and can be adjusted by WindowSizeMsg.
+	// WithSolidFill ensures NoColor mode doesn't break rendering.
+	pb := progress.New(
+		progress.WithSolidFill(brandCyan),
+		progress.WithWidth(40),
+		progress.WithoutPercentage(),
+	)
+
 	return InstallModel{
 		step:                  stepWelcome, // wizard starts at the Welcome screen
 		welcomeButtons:        buttonRow{labels: []string{"Continue", "Quit"}, focus: 0},
@@ -170,6 +197,7 @@ func newInstallModel(cfg AppConfig, cfgExisted bool, manifest DistManifest, dist
 		manifest:              manifest,
 		distDir:               distDir,
 		allPlatforms:          allPlatforms,
+		progressBar:           pb,
 		styles:                styles,
 		width:                 80,
 		height:                24,
@@ -207,11 +235,27 @@ func (m InstallModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		m.progressBar.Width = msg.Width - 8 // leave margin; at least 10 wide
+		if m.progressBar.Width < 10 {
+			m.progressBar.Width = 10
+		}
+		return m, nil
+
+	case tickMsg:
+		if m.step == stepProgress && m.installing {
+			return m.processTickMsg()
+		}
 		return m, nil
 
 	case installResultMsg:
 		m.err = msg.err
 		m.progressLines = msg.progressLines
+		// Mark all non-skipped checklist items as Done on engine completion.
+		for i, item := range m.checklist {
+			if item.state != stateChecklist_Skipped {
+				m.checklist[i].state = stateChecklist_Done
+			}
+		}
 		m.step = stepDone
 		// Do NOT quit here — stay on the done screen so the user can read the
 		// summary. Any key (handled in the stepDone case of handleKey) exits.
@@ -600,12 +644,52 @@ func (m InstallModel) viewPath(sb *strings.Builder) {
 }
 
 func (m InstallModel) viewProgress(sb *strings.Builder) {
-	sb.WriteString(m.styles.Title.Render("  Installing...") + "\n\n")
-	for _, line := range m.progressLines {
-		sb.WriteString(line + "\n")
+	sb.WriteString(m.styles.Title.Render("  Installing Zeen...") + "\n\n")
+
+	// Progress bar: compute percentage from non-skipped done items.
+	total := 0
+	done := 0
+	for _, item := range m.checklist {
+		if item.state == stateChecklist_Skipped {
+			continue
+		}
+		total++
+		if item.state == stateChecklist_Done {
+			done++
+		}
 	}
+	pct := 0.0
+	if total > 0 {
+		pct = float64(done) / float64(total)
+	}
+	// ViewAs renders a static bar at the given percentage — deterministic,
+	// no spring-animation FrameMsg noise in golden tests.
+	sb.WriteString("  " + m.progressBar.ViewAs(pct) + "\n\n")
+
+	// Per-platform checklist.
+	for _, item := range m.checklist {
+		var marker string
+		var label string
+		displayName := platformDisplayName(item.platformID)
+		switch item.state {
+		case stateChecklist_Pending:
+			marker = "  ○ "
+			label = m.styles.Dim.Render(displayName)
+		case stateChecklist_Installing:
+			marker = "  → "
+			label = m.styles.Subtitle.Render(displayName)
+		case stateChecklist_Done:
+			marker = "  ✔ "
+			label = m.styles.Ok.Render(displayName)
+		case stateChecklist_Skipped:
+			marker = "  — "
+			label = m.styles.Dim.Render(displayName + " (already installed, skipped)")
+		}
+		sb.WriteString(marker + label + "\n")
+	}
+
 	sb.WriteString("\n")
-	sb.WriteString(m.styles.Dim.Render("  Please wait...") + "\n")
+	sb.WriteString(m.styles.Dim.Render("  Please wait... (press Ctrl+C to abort)") + "\n")
 }
 
 func (m InstallModel) viewDone(sb *strings.Builder) {
@@ -1079,7 +1163,82 @@ func (m InstallModel) commitOverwriteAndInstall() (tea.Model, tea.Cmd) {
 	}
 
 	m.step = stepProgress
-	return m, m.runInstall()
+	m.installing = true
+	m = m.seedChecklist()
+	return m, tea.Batch(m.runInstall(), tickCmd())
+}
+
+// seedChecklist builds the initial checklist from the current platform selection.
+// For install-only-missing (overwriteChoice=1), already-installed platforms that
+// are in alreadyInstalled are seeded as Skipped; all others are Pending.
+// For overwrite-all (overwriteChoice=0), all selected platforms are Pending.
+// Only selected platforms appear in the checklist.
+func (m InstallModel) seedChecklist() InstallModel {
+	var items []checklistItem
+	for _, p := range m.platforms {
+		if !p.selected {
+			continue
+		}
+		state := stateChecklist_Pending
+		if m.overwriteChoice == 1 && m.alreadyInstalled[p.id] {
+			state = stateChecklist_Skipped
+		}
+		items = append(items, checklistItem{platformID: p.id, state: state})
+	}
+	m.checklist = items
+	m.checklistCursor = 0
+	return m
+}
+
+// tickCmd returns a tea.Cmd that fires a tickMsg after stepDelay.
+// Using tea.Tick (not time.Sleep) keeps the tick cancelable and teatest-friendly:
+// tests can inject tickMsg directly into Update() without waiting for wall-clock time.
+func tickCmd() tea.Cmd {
+	return tea.Tick(stepDelay, func(_ time.Time) tea.Msg {
+		return tickMsg{}
+	})
+}
+
+// processTickMsg advances the checklist cursor by one non-skipped step.
+// Each call marks the current pending item as Installing and advances the cursor.
+// If all items are processed, no further tick is emitted.
+func (m InstallModel) processTickMsg() (tea.Model, tea.Cmd) {
+	total := len(m.checklist)
+	if total == 0 {
+		return m, nil
+	}
+
+	// Find the next Pending item at or after checklistCursor.
+	idx := m.checklistCursor
+	for idx < total && m.checklist[idx].state != stateChecklist_Pending {
+		idx++
+	}
+
+	if idx >= total {
+		// All items processed — no more ticks needed.
+		return m, nil
+	}
+
+	// Mark current item as Installing and advance cursor.
+	m.checklist[idx].state = stateChecklist_Installing
+	m.checklistCursor = idx + 1
+
+	// Count non-skipped total to compute bar percentage.
+	nonSkipped := 0
+	done := 0
+	for _, item := range m.checklist {
+		if item.state == stateChecklist_Skipped {
+			continue
+		}
+		nonSkipped++
+		if item.state == stateChecklist_Done {
+			done++
+		}
+	}
+	_ = done // percentage managed at completion; bar uses ViewAs in view
+
+	// Re-issue tickCmd for the next step.
+	return m, tickCmd()
 }
 
 // BuildPlan returns the InstallPlan reflecting the current model state.

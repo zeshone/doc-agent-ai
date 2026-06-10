@@ -110,7 +110,7 @@ func TestDocsMode_Tab_CyclesBackToList(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Continue from docs-mode: vault → stepPath; in-project → stepConfirm
+// Continue from docs-mode: vault → stepPath; in-project → install/overwrite
 // ---------------------------------------------------------------------------
 
 // TestDocsMode_Continue_Vault_GoesToPath verifies that Continue from docs-mode
