@@ -8,6 +8,20 @@ For older releases without a section here, the GitHub Release notes have the det
 
 ## v4.0.0 — Unreleased
 
+### Content sweep — preamble injection (PR 1b)
+
+All 9 role prompts and all 11 opencode commands now carry a terse resolution preamble at generate time. The preamble teaches agents to:
+
+1. Check `.doc-agent.json` at the project root first; read its `mode` field if present.
+2. Fall back to the global mode (`__DOC_AGENT_GLOBAL_MODE__`, substituted at install time).
+3. Use vault layout (`__DOC_AGENT_BASE_PATH__<system>/...`) in vault mode.
+4. Use the simplified `docs/doc-agent/` layout in in-project mode (no `<system>` folder):
+   `docs/doc-agent/_prd.md`, `docs/doc-agent/<module>/`, `docs/doc-agent/features/<slug>/`, `docs/doc-agent/agent_sdd_context_project/`.
+
+The preamble is a single canonical block rendered from `src/templates/path-resolution.md.tmpl` via the `{{PATH_RESOLUTION}}` generate-time token. It is additive prose — vault path semantics (`__DOC_AGENT_BASE_PATH__/`) are unchanged.
+
+- `feat(content)`: insert `{{PATH_RESOLUTION}}` preamble into all 9 role files and all 11 command files
+
 ### Resolution engine (PR 1a)
 
 - `feat(config)`: add `~/.doc-agent-ai.json` persistent config (mode, path, platforms)
