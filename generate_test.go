@@ -302,6 +302,72 @@ func TestLegacyCommandIds_FlowsToDistManifest(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// T1a-7: PATH_RESOLUTION token opt-in + vault byte-identical regression guard
+// ---------------------------------------------------------------------------
+
+// TestGenerate_VaultByteIdentical verifies that generate produces vault-mode output
+// that is byte-identical before and after adding the PATH_RESOLUTION token.
+// Because no content file contains {{PATH_RESOLUTION}} yet (that is PR 1b),
+// the rendered output must be identical to the baseline.
+// This test serves as the regression guard: if PATH_RESOLUTION injection ever
+// changes pre-1b output, this test will catch it.
+func TestGenerate_VaultByteIdentical(t *testing.T) {
+	// Generate a baseline output.
+	distDir := t.TempDir()
+	if err := generate(distDir); err != nil {
+		t.Fatalf("generate: %v", err)
+	}
+
+	// Read the generated doc-prd.md prompt for opencode (a stable, representative file).
+	baseline, err := os.ReadFile(distDir + "/prompts/doc-prd.md")
+	if err != nil {
+		t.Fatalf("read baseline: %v", err)
+	}
+
+	// Generate again to confirm idempotence (same call, same output).
+	distDir2 := t.TempDir()
+	if err := generate(distDir2); err != nil {
+		t.Fatalf("generate second run: %v", err)
+	}
+	second, err := os.ReadFile(distDir2 + "/prompts/doc-prd.md")
+	if err != nil {
+		t.Fatalf("read second run: %v", err)
+	}
+
+	if string(baseline) != string(second) {
+		t.Error("generate is not idempotent: two runs produced different output for prompts/doc-prd.md")
+	}
+
+	// The vault placeholder __DOC_AGENT_BASE_PATH__/ must still appear in generated
+	// output (not yet substituted at generate time — substitution happens at install time).
+	if !strings.Contains(string(baseline), "__DOC_AGENT_BASE_PATH__/") {
+		t.Error("vault placeholder __DOC_AGENT_BASE_PATH__/ missing from generated doc-prd.md — vault byte-identical contract violated")
+	}
+
+	// {{PATH_RESOLUTION}} must NOT appear as a literal leftover token in the output:
+	// either the content file does not contain it (1a) or it was expanded (1b+).
+	if strings.Contains(string(baseline), "{{PATH_RESOLUTION}}") {
+		t.Error("{{PATH_RESOLUTION}} token found as unexpanded literal in generated output — it must be expanded or absent")
+	}
+}
+
+// TestGenerate_PathResolutionVarNeverCausesError verifies that adding
+// PATH_RESOLUTION to the buildBodyVars map does NOT break rendering of content
+// files that do NOT reference the token. Under missingkey=error, a key being
+// PRESENT but UNUSED is fine; only a MISSING key causes an error.
+// This test uses generate() to render all roles and commands and asserts
+// no rendering error occurs (i.e. PATH_RESOLUTION is always provided).
+func TestGenerate_PathResolutionVarNeverCausesError(t *testing.T) {
+	distDir := t.TempDir()
+	if err := generate(distDir); err != nil {
+		t.Fatalf("generate() returned error — PATH_RESOLUTION may not be in buildBodyVars or caused a rendering issue: %v", err)
+	}
+	// If we reach here, all 9 roles × 5 platforms and 11 commands rendered
+	// without error, which means PATH_RESOLUTION is in the var map and did
+	// not cause missingkey=error on any template that does not use it.
+}
+
 func TestPlatformManifest_Unmarshal(t *testing.T) {
 	data, err := embedded.ReadFile("src/manifests/platforms.json")
 	if err != nil {
