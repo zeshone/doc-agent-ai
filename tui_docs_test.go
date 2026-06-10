@@ -6,13 +6,13 @@ package main
 //
 // Tests for:
 //   - Docs-mode screen: radio-style selection toggles; Tab cycles list ↔ buttons.
-//   - In-project mode: skips stepPath and goes directly to stepConfirm.
-//   - Vault mode: includes stepPath before stepConfirm.
+//   - In-project mode: skips stepPath and goes directly to install (or stepOverwrite).
+//   - Vault mode: includes stepPath before install (or stepOverwrite).
 //   - Config pre-fill: mode and vault path pre-filled from AppConfig.
 //   - [Back] from docs-mode → stepPlatformSelect (prevStep).
-//   - [Back] from stepPath → stepDocsMode.
+//   - [Back] from stepPath → stepDocsMode (Esc).
 //   - [Continue] from docs-mode with vault → stepPath.
-//   - [Continue] from docs-mode with in-project → stepConfirm.
+//   - [Continue] from docs-mode with in-project → install or stepOverwrite.
 //   - Mode-switch notice: shown on docs-mode screen when PrevMode != selected mode
 //     (cfgExisted=true, cfg.Mode != selected mode); NOT shown on fresh install.
 //   - focusZone movement on docs-mode screen.
