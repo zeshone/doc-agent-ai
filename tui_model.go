@@ -204,7 +204,9 @@ func (m InstallModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.err = msg.err
 		m.progressLines = msg.progressLines
 		m.step = stepDone
-		return m, tea.Quit
+		// Do NOT quit here — stay on the done screen so the user can read the
+		// summary. Any key (handled in the stepDone case of handleKey) exits.
+		return m, nil
 
 	case tea.KeyMsg:
 		return m.handleKey(msg)
@@ -654,7 +656,8 @@ func (m InstallModel) viewDone(sb *strings.Builder) {
 	if m.err != nil {
 		sb.WriteString(m.styles.ErrStyle.Render("  ✖ Install failed") + "\n\n")
 		sb.WriteString(m.styles.ErrStyle.Render("  "+m.err.Error()) + "\n\n")
-		sb.WriteString(m.styles.Dim.Render("  Run with --help for headless flag usage.") + "\n")
+		sb.WriteString(m.styles.Dim.Render("  Run with --help for headless flag usage.") + "\n\n")
+		sb.WriteString(m.styles.Dim.Render("  Press any key to exit.") + "\n")
 		return
 	}
 
@@ -666,7 +669,8 @@ func (m InstallModel) viewDone(sb *strings.Builder) {
 	}
 
 	sb.WriteString("\n")
-	sb.WriteString(m.styles.Dim.Render("  Restart your AI tool if it is currently running.") + "\n")
+	sb.WriteString(m.styles.Dim.Render("  Restart your AI tool if it is currently running.") + "\n\n")
+	sb.WriteString(m.styles.Dim.Render("  Press any key to exit.") + "\n")
 }
 
 // ---------------------------------------------------------------------------

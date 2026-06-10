@@ -360,6 +360,36 @@ func TestInstallModel_ViewDoneError(t *testing.T) {
 	}
 }
 
+// TestInstallResultMsg_DoesNotAutoQuit verifies the wizard stays on the done
+// screen after the install finishes (no auto-quit), so the user can read the
+// summary; a subsequent keypress is what exits.
+func TestInstallResultMsg_DoesNotAutoQuit(t *testing.T) {
+	plats := testPlatformsFromTempDir(t)
+	m := newInstallModelForTest(AppConfig{}, false, plats)
+	m.step = stepProgress
+
+	updated, cmd := m.Update(installResultMsg{err: nil, progressLines: []string{"  ✔ skill: x"}})
+	im, ok := updated.(InstallModel)
+	if !ok {
+		t.Fatalf("Update returned %T, want InstallModel", updated)
+	}
+	if im.step != stepDone {
+		t.Fatalf("step = %v, want stepDone after install result", im.step)
+	}
+	if cmd != nil {
+		t.Error("installResultMsg must NOT auto-quit; cmd should be nil so the done screen stays")
+	}
+	if !strings.Contains(im.View(), "Press any key to exit") {
+		t.Error("done view should prompt 'Press any key to exit'")
+	}
+
+	// Any key on the done screen quits.
+	_, quitCmd := im.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
+	if quitCmd == nil {
+		t.Error("a keypress on the done screen should return a quit command")
+	}
+}
+
 // ---------------------------------------------------------------------------
 // UninstallModel unit tests
 // ---------------------------------------------------------------------------
