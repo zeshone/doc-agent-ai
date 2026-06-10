@@ -6,257 +6,13 @@ For older releases without a section here, the GitHub Release notes have the det
 
 ---
 
-## v4.0.0 — Unreleased
+## v4.0.0 — 2026-06-10
 
-### doc-reader conditional skill (PR 3 — FINAL SLICE)
+A major release: a TUI installer, your choice of where documentation lives, a new context skill for in-project docs, and a breaking rename of the opencode commands. Non-opencode users upgrade transparently; opencode users have one rename to absorb (see below).
 
-Adds a new `doc-reader` skill installed exclusively in **in-project docs mode**.
-It teaches agents in repos with `docs/doc-agent/` to use ONLY the compacted
-`/doc-to-sdd` output as documentation context, avoiding context bloat from the
-full normal-flow artifact tree.
+### BREAKING CHANGE — opencode commands now carry the `doc-` prefix
 
-#### doc-reader skill
-
-`skills/doc-reader/SKILL.md` — LLM-first skill with:
-
-- **Reads only**: `docs/doc-agent/agent_sdd_context_project/_sdd-context.md`
-  (business layer) and `_sdd-tech-context.md` (technical layer).
-- **Explicitly excludes**: `_prd.md`, `_tech-spec.md`, and all other files
-  directly under `docs/doc-agent/` or its module/feature subdirectories.
-- **Fallback**: if the context files are absent, the skill instructs the agent
-  to suggest running `/doc-to-sdd` once — no fallback to the full docs tree.
-
-#### Conditional install
-
-`doc-reader` is marked via a new `conditionalSkills` field in `content.json`
-and `DistManifest`. The install engine skips it when `--docs-mode vault`; it
-is installed on every platform with a `SkillsDir` (opencode, Claude Code,
-Copilot, Qwen, Pi) when in-project mode is selected.
-
-#### Mode-switch cleanup
-
-When reinstalling and switching from in-project → vault, the mode-switch hook
-now calls `sweepDocReaderIfLeavingInProject`, which removes the `doc-reader`
-skill dir from all installed platforms. The sweep is idempotent.
-
-#### Registry and parity
-
-A `doc-reader` row was added to `registryTemplate` (User Skills table) and a
-`### doc-reader` compact rules block was added to the Compact Rules section.
-Registry parity tests enforce the content.json ↔ registryTemplate invariant.
-
-- `feat(skill)`: add doc-reader — in-project-only context skill
-- `feat(registry)`: add doc-reader row + compact rules to registryTemplate (atomic with content.json)
-- `feat(install)`: conditional install — skip doc-reader in vault mode
-- `feat(install)`: mode-switch cleanup — sweepDocReaderIfLeavingInProject on in-project→vault
-
----
-
-### 2b-remediation: overwrite confirmation, Go 1.25 pin, dead code removal
-
-Resolves two CRITICAL and four WARNING/SUGGESTION items from the verify report.
-
-#### C1 — Go version resolved: go.mod stays at `go 1.25.0`
-
-`golang.org/x/sys v0.46.0` and `golang.org/x/term v0.44.0` (transitive deps of
-charmbracelet) both declare `go 1.25.0` as their minimum. Lowering the directive
-is not possible without downgrading those deps. CI and release workflows updated
-to `go-version: '1.25'`; README badge updated to `1.25+`.
-`go mod tidy` run — charmbracelet packages promoted from `// indirect` to direct
-requires (W2 resolved).
-
-#### C2 — Per-platform overwrite confirmation (spec F1 parity)
-
-Restores the overwrite prompt from the old bufio flow. The wizard now inserts
-a `stepOverwriteConfirm` step between platform selection and docs-mode when any
-selected platform already has agents installed.
-
-- **Wizard**: queues affected platforms in order; per-platform prompt "Overwrite
-  X? (y/N)". `y` = consent (stored in `overwriteConsent` map); `n`/Enter = skip
-  (platform deselected). Fresh installs skip this step entirely.
-- **Headless**: `executeInstall` calls `checkAlreadyInstalled` per target; without
-  consent (`plan.Overwrite[id]=true`) and without `--yes`, returns an error
-  directing the user to pass `--yes` or use the TUI. `--yes` bypasses the check.
-- `InstallPlan.Overwrite` is now populated by `BuildPlan()` and `runInstall()`.
-- `checkAlreadyInstalled` was effectively dead (only `installInteractive` used it).
-  This fix revives it on the live install paths (both TUI wizard and engine).
-
-Tests (9 new, TDD RED → GREEN): wizard step appears/skips/proceeds, BuildPlan
-populates Overwrite map, headless errors without `--yes`, headless proceeds with
-`--yes`, engine respects the Overwrite map.
-
-#### W4 — collectingReporter: progress output shown correctly in done step
-
-The previous implementation stored a `*InstallModel` pointer in the reporter and
-appended to it from the `tea.Cmd` goroutine. Because `handleKey` is a value
-receiver, the pointer pointed to a detached copy; progress lines never reached
-the rendered model. Fixed: `collectingReporter` now owns a `*[]string` inside the
-`tea.Cmd` closure. Lines are returned via `installResultMsg.progressLines` and
-merged into the live model by `Update`. Progress is displayed in the done step
-(after the install completes) rather than during the progress step. No live
-streaming during progress — that is the correct description of what ships.
-
-#### S1 — Removed dead `installInteractive` and `normalizeBasePath`
-
-`installInteractive` was fully dead (zero live callers since the Bubbletea wizard
-replaced the bufio flow in PR 2b). Removed along with `normalizeBasePath` (only
-used by `installInteractive`). `ask()` is kept — `uninstallInteractive` is its
-only live caller. `checkAlreadyInstalled` is now live via the overwrite fix above.
-
-#### S2 — Documented install vs. uninstall no-TTY asymmetry
-
-Added a rationale comment in `main.go` at the uninstall routing block explaining
-why install errors on no-TTY (needs user input: mode, path) while uninstall falls
-back to the bufio flow (only needs a yes/no, safe to default).
-
-#### W3 — gofmt applied
-
-`tui_model.go`, `tui_styles.go`, `tui_model_test.go`, `overwrite_test.go`, and
-`install.go` reformatted. `gofmt -l .` is now clean.
-
----
-
-### Bubbletea installer TUI (PR 2b)
-
-Replaces the hand-rolled `bufio` interactive flow with a Bubbletea wizard. The
-wizard is isolated in `tui_*.go` files; the engine remains charm-free (enforced
-by the purity guard from PR 2a).
-
-#### Charm dependencies added
-
-```
-github.com/charmbracelet/bubbletea v1.3.10
-github.com/charmbracelet/bubbles  (textinput only)
-github.com/charmbracelet/lipgloss v1.1.0
-golang.org/x/term                  (TTY detection)
-```
-
-**Build requirement:** `go 1.25.0` minimum (see C1 note above).
-
-**Binary size (T2-1 measurement):** with deps, `CGO_ENABLED=0 go build -ldflags="-s -w"` produces
-**≈5.3–5.4 MiB depending on platform** (up from 4.0 MiB before charm; CI gate: 6 MiB — gate is safe).
-
-#### Install wizard
-
-Seven-step wizard: platform selection → overwrite confirm (existing installs only) →
-docs-mode → vault path (vault only) → confirm → progress → done.
-
-- Config defaults pre-fill mode, vault path, and platform selection on reinstall.
-- In-project mode skips the path entry step.
-- Mode-switch notice displayed in the confirm step when mode changes from config.
-- Engine output collected via `collectingReporter` and displayed in the done step.
-
-#### Uninstall wizard
-
-Three-step wizard: confirm (lists what will be removed) → progress → done.
-Enter defaults to no; explicit `y` is required (destructive action guard).
-
-**no-TTY behavior:** uninstall without a TTY falls back to the bufio
-`uninstallInteractive` flow. Install without a TTY (and without flags) errors with
-an actionable flag example. See `main.go` comment for the rationale.
-
-#### TTY detection routing (main.go)
-
-Decision order:
-1. **Flags present** → headless path (existing, from PR 2a).
-2. **No flags + TTY** → Bubbletea wizard (this PR).
-3. **No flags + no TTY** → actionable error with flag examples; exit 1.
-
-#### Tests
-
-- `tui_model_test.go`: 15 direct `Model.Update()` state-transition tests (platform toggle,
-  cursor nav, step advance, in-project skips path, vault includes path, config pre-fill,
-  plan correctness, mode-switch notice display, TTY-error message components).
-- `tui_flow_test.go`: 9 golden view snapshots (one per step + mode-switch + uninstall confirm)
-  + 4 teatest full-flow tests (in-project, vault, config-prefilled, uninstall-cancel).
-- `overwrite_test.go`: 9 overwrite-specific tests (see C2 above).
-
-- `feat(tui)`: add Bubbletea install wizard (tui.go, tui_model.go, tui_steps.go, tui_styles.go)
-- `feat(tui)`: add Bubbletea uninstall wizard (tui_uninstall.go)
-- `feat(main)`: wire TTY detection — flags > TTY-TUI > no-TTY-error
-- `test(tui)`: add 15 unit tests, 9 golden snapshots, 4 teatest flow tests
-
-### Headless flags + engine seam (PR 2a)
-
-The install command now accepts four flags that bypass the interactive/TUI flow
-entirely and run a fully non-interactive install (CI-friendly):
-
-```
-doc-agent-ai install \
-  --platforms opencode,claude \
-  --docs-mode vault \
-  --path /my/docs \
-  --yes
-```
-
-**Decision order:** explicit flags > TTY-interactive (TUI in slice 2b) > error (no TTY, no flags).
-
-#### Reporter seam
-
-The engine (`installToPlatformWithReporter`) now routes all user-visible output
-through a `Reporter` interface (Ok / Warn / ErrOut / Info / Dim / Head). The
-default `stdoutReporter` is byte-identical to the former package-level helpers so
-headless and interactive-without-TUI output is unchanged. Slice 2b will supply a
-`bufferReporter` variant that collects structured results for the Bubbletea TUI
-without corrupting its frame.
-
-The original `installToPlatform(manifest, plat, basePath, distDir, globalMode...)` 
-signature is preserved as a backward-compatible wrapper; all existing tests 
-compile and pass unchanged.
-
-#### executeInstall orchestrator
-
-A new `executeInstall(manifest, plan, distDir, allPlatforms, reporter)` function
-orchestrates a full install from an `InstallPlan`:
-
-1. Resolves platform targets (nil = all detected).
-2. Passes `plan.Mode` to `installToPlatformWithReporter` so `__DOC_AGENT_GLOBAL_MODE__` is correctly substituted in all installed files.
-3. Writes `AppConfig` after a successful install (mode, path, platforms) so subsequent runs pre-fill defaults.
-4. Fires the mode-switch hook when `plan.PrevMode != plan.Mode` — emits a non-migration notice and (in slice 3) sweeps `doc-reader` when switching in-project → vault.
-
-#### Engine purity CI guard
-
-A new `TestEnginePurity_NoCharmImports` test uses `go/parser` to assert that the
-13 engine-layer files never import `charmbracelet/*`. This test is permanently
-active and will fail immediately if charm code leaks into the engine. Charm imports
-are allowed only in `tui_*.go` files (introduced in slice 2b).
-
-`--yes` used alone (without other flags) runs a fully headless install using saved config defaults (vault mode and last-used path/platforms); it does not launch the interactive flow. It requires a prior install to have saved a config: on a fresh machine with no `~/.doc-agent-ai.json`, `--yes` alone fails with "vault mode requires a documentation base path" — pass `--path` (and optionally `--docs-mode`) explicitly in that case.
-
-- `feat(install)`: add Reporter seam (`Reporter` interface, `stdoutReporter`, `bufferReporter`, `installToPlatformWithReporter`)
-- `feat(install)`: add `executeInstall` orchestrator (platform resolution, mode wiring, config persistence, mode-switch hook seam)
-- `feat(main)`: wire `--platforms`, `--docs-mode`, `--path`, `--yes` flags; route headless vs interactive by `hasInstallFlags`
-- `test(engine)`: add purity guard asserting no charmbracelet imports in engine files
-
-### Content sweep — preamble injection (PR 1b)
-
-All 9 role prompts and all 11 opencode commands now carry a terse resolution preamble at generate time. The preamble teaches agents to:
-
-1. Check `.doc-agent.json` at the project root first; read its `mode` field if present.
-2. Fall back to the global mode (`__DOC_AGENT_GLOBAL_MODE__`, substituted at install time).
-3. Use vault layout (`<resolved-base>/<system>/...`) in vault mode — the base is substituted from `__DOC_AGENT_GLOBAL_BASE__` (no trailing slash) at install time.
-4. Use the simplified `docs/doc-agent/` layout in in-project mode (no `<system>` folder):
-   `docs/doc-agent/_prd.md`, `docs/doc-agent/<module>/`, `docs/doc-agent/features/<slug>/`, `docs/doc-agent/agent_sdd_context_project/`.
-
-The preamble is a single canonical block rendered from `src/templates/path-resolution.md.tmpl` via the `{{PATH_RESOLUTION}}` generate-time token. Existing body `{{BASE_PATH}}` tokens (`__DOC_AGENT_BASE_PATH__/`) are unchanged; the preamble uses the complementary `__DOC_AGENT_GLOBAL_BASE__` token (vault base without trailing slash) reserved for this purpose in the 1a install engine.
-
-A post-install no-leak regression guard (`TestInstallNoRawTokenLeak`) was also added to permanently assert that no installed file retains any bare `__DOC_AGENT_` token after substitution.
-
-- `feat(content)`: insert `{{PATH_RESOLUTION}}` preamble into all 9 role files and all 11 command files
-
-### Resolution engine (PR 1a)
-
-- `feat(config)`: add `~/.doc-agent-ai.json` persistent config (mode, path, platforms)
-- `feat(resolve)`: add dual-mode path resolution engine (vault / in-project) with `.doc-agent.json` per-project marker support
-- `feat(plan)`: add `InstallPlan` value object decoupling TUI from engine; headless `parsePlanFromFlags` for `--platforms`, `--docs-mode`, `--path`, `--yes`
-- `feat(generate)`: inject `{{PATH_RESOLUTION}}` token into `buildBodyVars` and commands render loop (opt-in per content file; vault output byte-identical when token absent)
-- `feat(install)`: extend `installToPlatform` placeholder substitution to ordered multi-token list adding `__DOC_AGENT_GLOBAL_MODE__`
-
-### BREAKING CHANGE — opencode command rename
-
-All 11 opencode commands now carry the `doc-` prefix. If you are using opencode and have customized any command triggers or keybindings pointing to the old bare names, update them to the new names below.
-
-**Migration table:**
+All 11 opencode commands were renamed so they are recognizable among the many commands agents expose. If you use opencode and customized any command triggers or keybindings, update them:
 
 | Old command | New command |
 |-------------|-------------|
@@ -272,17 +28,60 @@ All 11 opencode commands now carry the `doc-` prefix. If you are using opencode 
 | `/ddd` | `/doc-ddd` |
 | `/to-sdd` | `/doc-to-sdd` |
 
-Non-opencode platforms (Claude Code, GitHub Copilot, Qwen Code, Pi) are unaffected — they use role IDs and agent files, which already carried the `doc-` prefix.
+Reinstalling under v4 removes the old bare-name command files automatically — no orphans left behind. Non-opencode platforms (Claude Code, GitHub Copilot, Qwen Code, Pi) are unaffected; they already used `doc-`-prefixed roles and agent files.
 
-### Legacy file cleanup (install and uninstall)
+### New: TUI installer
 
-`doc-agent-ai install` now automatically removes any bare-name legacy command files (e.g. `arch.md`, `prd.md`) from the opencode commands directory after copying the new `doc-*` files. This sweep is idempotent — missing legacy files produce no error.
+`doc-agent-ai install` and `uninstall` now run an interactive wizard instead of line-by-line prompts:
 
-`doc-agent-ai uninstall` removes both current `doc-*` files and any surviving legacy bare-name files, so users who never reinstalled under v4 are fully cleaned up.
+- **Install**: select platforms → confirm overwrite for any platform that already has agents → choose docs mode → enter the vault path (vault mode only) → review → install. Your previous choices pre-fill the next run.
+- **Uninstall**: shows exactly what will be removed (your documentation is never touched) and requires an explicit `y`.
+
+The wizard appears when you run from a terminal. In a non-interactive environment (CI, pipes), pass flags instead — see *Headless install* below.
+
+### New: choose where documentation lives
+
+Two documentation modes, selectable in the wizard:
+
+- **Vault** — the original behavior: all docs under one configurable base path, organized as `<base>/<system>/...`. Ideal for an Obsidian vault that spans many projects.
+- **In-project** — docs live inside the repository under `docs/doc-agent/` (simplified layout, no `<system>` folder): `docs/doc-agent/_prd.md`, `docs/doc-agent/<module>/`, `docs/doc-agent/features/<slug>/`, `docs/doc-agent/agent_sdd_context_project/`.
+
+Your choice persists in `~/.doc-agent-ai.json` and pre-fills future installs. A per-project `.doc-agent.json` marker (`{"mode": "in-project"}`) overrides the global mode for that repository — so one machine can use a vault by default and a specific repo can keep its docs in-tree. Installed prompts resolve the mode automatically: they check the project marker first, then fall back to the global mode.
+
+### New: `doc-reader` skill for in-project mode
+
+When you install in in-project mode, a new `doc-reader` skill ships to every platform that supports skills. It tells agents working in that repository to use **only** the compacted `/doc-to-sdd` output (`docs/doc-agent/agent_sdd_context_project/_sdd-context.md` and `_sdd-tech-context.md`) as documentation context — the full human-readable artifacts (`_prd.md`, `_tech-spec.md`, …) are explicitly excluded to keep agent context lean. If the compacted files don't exist yet, the skill suggests running `/doc-to-sdd` once rather than loading the whole docs tree.
+
+The skill is installed only in in-project mode; switching a reinstall back to vault mode removes it automatically.
+
+### New: headless install for CI and scripts
+
+Any install flag bypasses the wizard for a fully non-interactive run:
+
+```sh
+doc-agent-ai install \
+  --platforms opencode,claude \
+  --docs-mode vault \
+  --path /home/you/docs/ \
+  --yes
+```
+
+| Flag | Meaning |
+|------|---------|
+| `--platforms <csv>` | Platform IDs (`opencode,claude,copilot,qwen,pi`); omit for all detected |
+| `--docs-mode <mode>` | `vault` or `in-project` |
+| `--path <path>` | Vault base path (required for vault mode unless saved in config) |
+| `--yes` | Skip confirmations (required to overwrite existing installs non-interactively) |
+
+`--yes` alone reuses saved config defaults; on a fresh machine with no config, pass `--path` (and optionally `--docs-mode`) explicitly.
+
+### Build requirement
+
+doc-agent-ai now requires **Go 1.25+** to build from source (a transitive dependency of the TUI libraries sets the floor). Prebuilt binaries from Releases, Homebrew, and Scoop are unaffected. The stripped binary is ≈5.3–5.4 MiB depending on platform.
 
 ### Rollback caveat
 
-Downgrading to v3.x after a v4 install will leave `doc-*.md` files orphaned in your opencode commands directory (v3.x has no knowledge of the new names). To avoid this: run `doc-agent-ai uninstall` under v4 before downgrading.
+Downgrading to v3.x after a v4 install leaves `doc-*.md` command files orphaned in your opencode commands directory (v3.x doesn't know the new names). To avoid this, run `doc-agent-ai uninstall` under v4 before downgrading.
 
 ---
 
