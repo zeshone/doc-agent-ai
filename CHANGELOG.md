@@ -32,13 +32,13 @@ Reinstalling under v4 removes the old bare-name command files automatically — 
 
 ### New: Zeen-branded welcome screen
 
-The installer wizard opens with a Zeen block-art logo rendered from the brand palette (#00A5E7 blue, #0D1012 dark, #E5E8EA grey), a one-line agent description, and footer buttons [Continuar] and [Salir]. This replaces the plain text banner and gives the installer a recognizable branded entry point.
+The installer wizard opens with a Zeen block-art logo rendered from the brand palette (#00A5E7 blue, #0D1012 dark, #E5E8EA grey), a one-line agent description, and footer buttons `[Continue]` and `[Quit]`. This replaces the plain text banner and gives the installer a recognizable branded entry point.
 
 ### New: TUI installer
 
 `doc-agent-ai install` and `uninstall` now run an interactive wizard instead of line-by-line prompts:
 
-- **Install**: select platforms → confirm overwrite for any platform that already has agents → choose docs mode → enter the vault path (vault mode only) → review → install. Your previous choices pre-fill the next run.
+- **Install** — a button-driven wizard with full Back navigation: welcome → select platforms (already-installed ones are tagged) → choose docs mode → enter the vault path (vault mode only) → if some selected platforms already have Zeen, one consolidated screen to *overwrite all* or *install only missing* → animated progress with a per-platform checklist → done (waits for a keypress so you can read the summary). Your previous choices pre-fill the next run.
 - **Uninstall**: shows exactly what will be removed (your documentation is never touched) and requires an explicit `y`.
 
 The wizard appears when you run from a terminal. In a non-interactive environment (CI, pipes), pass flags instead — see *Headless install* below.
