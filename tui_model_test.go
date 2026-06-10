@@ -455,3 +455,30 @@ func TestNoTTYErrorMessage(t *testing.T) {
 		}
 	}
 }
+
+// TestUninstallModel_ProgressLinesReachDoneStep verifies that progress lines
+// produced by the uninstall engine closure are merged into the model when
+// uninstallResultMsg arrives, and rendered in the done step — guarding against
+// the detached-copy defect where lines were appended to a dead model copy.
+func TestUninstallModel_ProgressLinesReachDoneStep(t *testing.T) {
+	m := newUninstallModel(nil, DistManifest{}, NoColor())
+	m.step = uninstallStepProgress
+
+	updated, _ := m.Update(uninstallResultMsg{
+		err:           nil,
+		progressLines: []string{"  Removing from opencode..."},
+	})
+	um, ok := updated.(UninstallModel)
+	if !ok {
+		t.Fatalf("Update returned %T, want UninstallModel", updated)
+	}
+	if um.step != uninstallStepDone {
+		t.Fatalf("step = %v, want uninstallStepDone", um.step)
+	}
+	if len(um.progressLines) == 0 {
+		t.Fatal("progressLines not merged into model from uninstallResultMsg")
+	}
+	if !strings.Contains(um.View(), "Removing from opencode") {
+		t.Error("done view does not render the collected progress lines")
+	}
+}
