@@ -90,7 +90,7 @@ golang.org/x/term                  (TTY detection)
 **Build requirement:** `go 1.25.0` minimum (see C1 note above).
 
 **Binary size (T2-1 measurement):** with deps, `CGO_ENABLED=0 go build -ldflags="-s -w"` produces
-**5.32 MiB** (up from 4.0 MiB before charm; CI gate: 6 MiB — gate is safe).
+**≈5.3–5.4 MiB depending on platform** (up from 4.0 MiB before charm; CI gate: 6 MiB — gate is safe).
 
 #### Install wizard
 
