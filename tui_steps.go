@@ -2,6 +2,7 @@ package main
 
 import (
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/lipgloss"
 )
@@ -144,6 +145,47 @@ type installResultMsg struct {
 	// progressLines holds the formatted output lines collected by collectingReporter.
 	progressLines []string
 }
+
+// ---------------------------------------------------------------------------
+// Animated progress checklist — slice-5 types (ADR-6)
+// ---------------------------------------------------------------------------
+
+// stepDelay is the per-platform tick delay for the animated progress checklist.
+// Drives the tea.Tick cadence; named so tests can assert its value and keep
+// teatest timeout expectations bounded.
+const stepDelay = 150 * time.Millisecond
+
+// checklistState describes the animation state of one platform entry in the
+// progress checklist. Transitions: Pending → Installing → Done (or Skipped).
+type checklistState int
+
+const (
+	// stateChecklist_Pending means this platform has not started yet.
+	stateChecklist_Pending checklistState = iota
+
+	// stateChecklist_Installing means the tick cursor is on this platform.
+	stateChecklist_Installing
+
+	// stateChecklist_Done means this platform completed installation.
+	stateChecklist_Done
+
+	// stateChecklist_Skipped means this platform was already installed and
+	// the user chose "install only missing". It never transitions to Done.
+	stateChecklist_Skipped
+)
+
+// checklistItem is one row in the animated progress checklist.
+type checklistItem struct {
+	// platformID is the canonical platform ID (e.g. "opencode").
+	platformID string
+
+	// state is the current animation state of this row.
+	state checklistState
+}
+
+// tickMsg is fired by tickCmd on each tea.Tick to advance the checklist cursor.
+// It carries no payload — the model advances its own internal cursor.
+type tickMsg struct{}
 
 // ---------------------------------------------------------------------------
 // buttonRow — focusable footer button primitive

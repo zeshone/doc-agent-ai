@@ -89,6 +89,45 @@ func TestGolden_OverwriteConsolidated(t *testing.T) {
 	assertGolden(t, view)
 }
 
+// TestGolden_ProgressMidState captures the progress step at a mid-state:
+// first platform Installing, second platform Pending. Uses NoColor + fixed
+// dimensions for deterministic golden output (no ANSI, no animation frames).
+func TestGolden_ProgressMidState(t *testing.T) {
+	plats := testPlatformsFromTempDir(t)
+	if len(plats) < 2 {
+		t.Skip("need at least 2 platforms for mid-state golden")
+	}
+	m := newInstallModelForTest(AppConfig{}, false, plats)
+	m.step = stepProgress
+	m.installing = true
+	m.checklist = []checklistItem{
+		{platformID: plats[0].ID(), state: stateChecklist_Installing},
+		{platformID: plats[1].ID(), state: stateChecklist_Pending},
+	}
+	m.checklistCursor = 1
+	view := m.View()
+	assertGolden(t, view)
+}
+
+// TestGolden_ProgressSkipped captures the progress step when one platform is
+// skipped (install only missing with an already-installed platform).
+func TestGolden_ProgressSkipped(t *testing.T) {
+	plats := testPlatformsFromTempDir(t)
+	if len(plats) < 2 {
+		t.Skip("need at least 2 platforms for skipped golden")
+	}
+	m := newInstallModelForTest(AppConfig{}, false, plats)
+	m.step = stepProgress
+	m.installing = true
+	m.checklist = []checklistItem{
+		{platformID: plats[0].ID(), state: stateChecklist_Skipped},
+		{platformID: plats[1].ID(), state: stateChecklist_Done},
+	}
+	m.checklistCursor = 2
+	view := m.View()
+	assertGolden(t, view)
+}
+
 // TestGolden_DoneSuccess captures the done step view on success.
 func TestGolden_DoneSuccess(t *testing.T) {
 	plats := testPlatformsFromTempDir(t)

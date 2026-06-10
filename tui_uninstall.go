@@ -159,8 +159,8 @@ func (m UninstallModel) View() string {
 	var sb strings.Builder
 
 	sb.WriteString("\n")
-	sb.WriteString(m.styles.Banner.Render("  doc-agent-ai") + "  " +
-		m.styles.Dim.Render("v"+version+" — uninstaller") + "\n\n")
+	sb.WriteString(renderCompactHeader(m.styles))
+	sb.WriteString("\n")
 
 	switch m.step {
 	case uninstallStepConfirm:
