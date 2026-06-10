@@ -10,8 +10,8 @@ import (
 // Conditional install tests for doc-reader (T3-2 RED → GREEN)
 // ---------------------------------------------------------------------------
 
-// setupMultiPlatformFixture creates a tmpHome with opencode + claude + pi platforms
-// for testing conditional skill install across all skillsDir platforms.
+// setupMultiPlatformFixture creates a tmpHome with opencode + claude platforms
+// for testing conditional skill install across skillsDir platforms.
 func setupMultiPlatformFixture(t *testing.T) (string, string, DistManifest, []Platform) {
 	t.Helper()
 	tmpHome := t.TempDir()

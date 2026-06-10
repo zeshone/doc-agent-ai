@@ -59,8 +59,25 @@ The `doc-reader` skill is installed on every platform with a skills directory wh
 | Subcommand | What it does |
 |------------|--------------|
 | `generate` | Build `dist/` from embedded canonical content |
-| `install` | Interactive installer — copies agents, skills, and commands to detected platforms |
-| `uninstall` | Interactive uninstaller — removes only doc-agent-ai artifacts, leaves your docs untouched |
+| `install` | TUI installer — platform selection, docs mode (vault / in-project), overwrite confirmation |
+| `uninstall` | TUI uninstaller — removes only doc-agent-ai artifacts, leaves your docs untouched |
+
+### Headless install (CI / scripts)
+
+Any install flag skips the TUI entirely:
+
+```sh
+doc-agent-ai install --platforms opencode,claude --docs-mode vault --path /home/you/docs/ --yes
+```
+
+| Flag | Meaning |
+|------|---------|
+| `--platforms <csv>` | Comma-separated platform IDs (`opencode,claude,copilot,qwen,pi`); omit for all detected |
+| `--docs-mode <mode>` | `vault` (fixed base path) or `in-project` (`docs/doc-agent/` per repo) |
+| `--path <path>` | Vault base path (required for vault mode unless saved in config) |
+| `--yes` | Skip confirmations; alone, reuses saved config defaults — needs `--path` on a fresh machine |
+
+The chosen mode and path persist in `~/.doc-agent-ai.json` and pre-fill the next install. A per-project `.doc-agent.json` marker (`{"mode": "in-project"}`) overrides the global mode for that repository.
 
 ---
 
