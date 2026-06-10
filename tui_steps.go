@@ -81,13 +81,15 @@ func nextStep(s Step) Step {
 
 // prevStep returns the backward (BACK) transition from the given step.
 // BACK from PlatformSelect → Welcome; BACK from DocsMode → PlatformSelect;
-// slices 3-5 extend this table as each screen is implemented.
+// BACK from Path → DocsMode; slices 4-5 extend this table as each screen is implemented.
 func prevStep(s Step) Step {
 	switch s {
 	case stepPlatformSelect:
 		return stepWelcome
 	case stepDocsMode:
 		return stepPlatformSelect
+	case stepPath:
+		return stepDocsMode
 	default:
 		if s > stepWelcome {
 			return s - 1

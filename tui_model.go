@@ -26,6 +26,14 @@ type InstallModel struct {
 	// Initialized with ["Continue", "Back"].
 	platformSelectButtons buttonRow
 
+	// docsModeButtons is the footer button row on the Docs Mode screen.
+	// Initialized with ["Continue", "Back"].
+	docsModeButtons buttonRow
+
+	// pathButtons is the footer button row on the Path Entry screen.
+	// Initialized with ["Continue", "Back"].
+	pathButtons buttonRow
+
 	// focusZone tracks which UI region owns keyboard focus on the current screen.
 	// On screens with a list + button row (e.g. stepPlatformSelect), Tab cycles
 	// between focusZoneList and focusZoneButtons.
@@ -148,6 +156,8 @@ func newInstallModel(cfg AppConfig, cfgExisted bool, manifest DistManifest, dist
 		step:                  stepWelcome, // wizard starts at the Welcome screen
 		welcomeButtons:        buttonRow{labels: []string{"Continue", "Quit"}, focus: 0},
 		platformSelectButtons: buttonRow{labels: []string{"Continue", "Back"}, focus: 0},
+		docsModeButtons:       buttonRow{labels: []string{"Continue", "Back"}, focus: 0},
+		pathButtons:           buttonRow{labels: []string{"Continue", "Back"}, focus: 0},
 		focusZone:             focusZoneList,
 		platforms:             items,
 		cursor:                0,
@@ -256,47 +266,10 @@ func (m InstallModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case stepDocsMode:
-		switch msg.String() {
-		case "ctrl+c", "q":
-			return m, tea.Quit
-		case "up", "k":
-			if m.modeCursor > 0 {
-				m.modeCursor--
-			}
-		case "down", "j":
-			if m.modeCursor < 1 {
-				m.modeCursor++
-			}
-		case "enter":
-			if m.modeCursor == 0 {
-				m.mode = ModeVault
-			} else {
-				m.mode = ModeInProject
-			}
-			if m.mode == ModeVault {
-				m.pathInput.Focus()
-				m.step = stepPath
-			} else {
-				m.step = stepConfirm
-			}
-		}
-		return m, nil
+		return m.updateDocsMode(msg)
 
 	case stepPath:
-		switch msg.String() {
-		case "ctrl+c":
-			return m, tea.Quit
-		case "enter":
-			path := strings.TrimSpace(m.pathInput.Value())
-			if path != "" {
-				m.step = stepConfirm
-			}
-			return m, nil
-		}
-		// Forward to textinput.
-		var cmd tea.Cmd
-		m.pathInput, cmd = m.pathInput.Update(msg)
-		return m, cmd
+		return m.updatePath(msg)
 
 	case stepConfirm:
 		switch msg.String() {
@@ -573,7 +546,26 @@ func (m InstallModel) viewOverwriteConfirm(sb *strings.Builder) {
 
 func (m InstallModel) viewDocsMode(sb *strings.Builder) {
 	sb.WriteString(m.styles.Title.Render("  Documentation mode") + "\n")
-	sb.WriteString(m.styles.Subtitle.Render("  ↑/↓ to move · Enter to select") + "\n\n")
+
+	// Hint line changes based on active focus zone.
+	if m.focusZone == focusZoneList {
+		sb.WriteString(m.styles.Subtitle.Render("  ↑/↓ to move · Tab for buttons") + "\n\n")
+	} else {
+		sb.WriteString(m.styles.Subtitle.Render("  ←/→ to move buttons · Enter to activate · Tab back to list") + "\n\n")
+	}
+
+	// Mode-switch notice: shown when there is a prior config and the currently
+	// selected mode differs from the saved mode. Relocated here from stepConfirm
+	// (slice 3 — the stepConfirm notice is kept on confirm; this is an additional
+	// early signal on the docs-mode screen itself).
+	selectedMode := ModeVault
+	if m.modeCursor == 1 {
+		selectedMode = ModeInProject
+	}
+	if m.cfgExisted && m.cfg.Mode != "" && m.cfg.Mode != string(selectedMode) {
+		sb.WriteString(m.styles.Notice.Render("  ! Mode change detected.") + "\n")
+		sb.WriteString(m.styles.Dim.Render("    Existing documentation files are not automatically migrated.") + "\n\n")
+	}
 
 	modes := []struct {
 		label string
@@ -603,13 +595,16 @@ func (m InstallModel) viewDocsMode(sb *strings.Builder) {
 		sb.WriteString(cursor + radio + " " + label + "\n")
 		sb.WriteString(desc + "\n")
 	}
+
+	sb.WriteString("\n")
+	sb.WriteString("  " + m.docsModeButtons.render(m.styles) + "\n")
 }
 
 func (m InstallModel) viewPath(sb *strings.Builder) {
 	sb.WriteString(m.styles.Title.Render("  Vault base path") + "\n")
 	sb.WriteString(m.styles.Subtitle.Render("  Enter the root folder for all your doc-agent-ai documentation") + "\n\n")
 	sb.WriteString("  " + m.pathInput.View() + "\n\n")
-	sb.WriteString(m.styles.Dim.Render("  Enter to continue") + "\n")
+	sb.WriteString("  " + m.pathButtons.render(m.styles) + "\n")
 }
 
 func (m InstallModel) viewConfirm(sb *strings.Builder) {
@@ -811,6 +806,187 @@ func (m InstallModel) updatePlatformSelect(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 			}
 		}
 		return m, nil
+	}
+
+	return m, nil
+}
+
+// updateDocsMode handles key input on the Documentation Mode screen.
+//
+// focusZone determines key routing:
+//   - focusZoneList: up/down/j/k move modeCursor; Tab → focusZoneButtons.
+//   - focusZoneButtons: Tab/left/right move button focus; Enter activates:
+//     Continue (sets mode from modeCursor, advances to stepPath or stepConfirm),
+//     Back (prevStep = stepPlatformSelect).
+//
+// The mode-switch notice (non-migration warning) is rendered in viewDocsMode
+// when cfgExisted=true and the selected mode differs from cfg.Mode.
+func (m InstallModel) updateDocsMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "ctrl+c":
+		return m, tea.Quit
+
+	case "tab":
+		// Cycle focus between radio list and button row.
+		if m.focusZone == focusZoneList {
+			m.focusZone = focusZoneButtons
+		} else {
+			m.focusZone = focusZoneList
+		}
+		return m, nil
+
+	case "up", "k":
+		if m.modeCursor > 0 {
+			m.modeCursor--
+		}
+		return m, nil
+
+	case "down", "j":
+		if m.modeCursor < 1 {
+			m.modeCursor++
+		}
+		return m, nil
+
+	case "left", "shift+tab":
+		if m.focusZone == focusZoneButtons {
+			m.docsModeButtons = m.docsModeButtons.move(-1)
+		}
+		return m, nil
+
+	case "right":
+		if m.focusZone == focusZoneButtons {
+			m.docsModeButtons = m.docsModeButtons.move(1)
+		}
+		return m, nil
+
+	case "enter":
+		if m.focusZone == focusZoneButtons {
+			activated := m.docsModeButtons.focused()
+			switch activated {
+			case "Continue":
+				// Commit the mode from the current cursor position.
+				if m.modeCursor == 0 {
+					m.mode = ModeVault
+				} else {
+					m.mode = ModeInProject
+				}
+				// Reset button focus and zone for the next screen.
+				m.docsModeButtons.focus = 0
+				m.pathButtons.focus = 0
+				m.focusZone = focusZoneList
+				if m.mode == ModeVault {
+					m.pathInput.Focus()
+					m.step = stepPath
+				} else {
+					m.step = stepConfirm
+				}
+				return m, nil
+			case "Back":
+				m.docsModeButtons.focus = 0
+				m.focusZone = focusZoneList
+				m.step = prevStep(stepDocsMode)
+				return m, nil
+			}
+		} else {
+			// Enter in list zone: treat as Continue shortcut.
+			if m.modeCursor == 0 {
+				m.mode = ModeVault
+			} else {
+				m.mode = ModeInProject
+			}
+			m.focusZone = focusZoneList
+			if m.mode == ModeVault {
+				m.pathInput.Focus()
+				m.step = stepPath
+			} else {
+				m.step = stepConfirm
+			}
+			return m, nil
+		}
+	}
+
+	return m, nil
+}
+
+// updatePath handles key input on the Vault Path Entry screen.
+//
+// focusZone determines key routing:
+//   - focusZoneList: characters are forwarded to pathInput; Tab → focusZoneButtons;
+//     'b' key is a Back shortcut (navigates to stepDocsMode).
+//   - focusZoneButtons: Tab/left/right move button focus; Enter activates:
+//     Continue (if path is non-empty, advances to stepConfirm),
+//     Back (prevStep = stepDocsMode).
+func (m InstallModel) updatePath(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "ctrl+c":
+		return m, tea.Quit
+
+	case "tab":
+		if m.focusZone == focusZoneList {
+			m.focusZone = focusZoneButtons
+			m.pathInput.Blur()
+		} else {
+			m.focusZone = focusZoneList
+			m.pathInput.Focus()
+		}
+		return m, nil
+
+	case "b", "B":
+		// Back shortcut when in list (text input) zone.
+		if m.focusZone == focusZoneList {
+			m.focusZone = focusZoneList
+			m.pathButtons.focus = 0
+			m.step = prevStep(stepPath)
+			return m, nil
+		}
+
+	case "enter":
+		if m.focusZone == focusZoneButtons {
+			activated := m.pathButtons.focused()
+			switch activated {
+			case "Continue":
+				path := strings.TrimSpace(m.pathInput.Value())
+				if path != "" {
+					m.pathButtons.focus = 0
+					m.focusZone = focusZoneList
+					m.step = stepConfirm
+				}
+				return m, nil
+			case "Back":
+				m.pathButtons.focus = 0
+				m.focusZone = focusZoneList
+				m.pathInput.Focus()
+				m.step = prevStep(stepPath)
+				return m, nil
+			}
+		} else {
+			// Enter in list zone: treat as Continue shortcut.
+			path := strings.TrimSpace(m.pathInput.Value())
+			if path != "" {
+				m.focusZone = focusZoneList
+				m.step = stepConfirm
+			}
+			return m, nil
+		}
+
+	case "left", "shift+tab":
+		if m.focusZone == focusZoneButtons {
+			m.pathButtons = m.pathButtons.move(-1)
+		}
+		return m, nil
+
+	case "right":
+		if m.focusZone == focusZoneButtons {
+			m.pathButtons = m.pathButtons.move(1)
+		}
+		return m, nil
+	}
+
+	// Forward to textinput when in list zone.
+	if m.focusZone == focusZoneList {
+		var cmd tea.Cmd
+		m.pathInput, cmd = m.pathInput.Update(msg)
+		return m, cmd
 	}
 
 	return m, nil

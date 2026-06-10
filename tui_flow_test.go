@@ -358,6 +358,124 @@ func TestTUIFlow_Welcome_Continue_ToPlatformSelect(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// Slice 3 teatest flows: docs-mode navigation
+// ---------------------------------------------------------------------------
+
+// TestTUIFlow_DocsMode_BackReturnsToPlatformSelect exercises the BACK path from
+// docs-mode back to platform-select via teatest.
+func TestTUIFlow_DocsMode_BackReturnsToPlatformSelect(t *testing.T) {
+	plats := testPlatformsFromTempDir(t)
+	m := newInstallModelForTest(AppConfig{}, false, plats)
+	m.step = stepDocsMode
+	m.focusZone = focusZoneList
+
+	tm := teatest.NewTestModel(t, m, teatest.WithInitialTermSize(80, 24))
+
+	// Tab → focus button zone.
+	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyTab}))
+	// Right → move to Back button (index 1).
+	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyRight}))
+	// Enter → activate Back → stepPlatformSelect.
+	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyEnter}))
+	// Ctrl+C to quit.
+	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyCtrlC}))
+
+	tm.WaitFinished(t, teatest.WithFinalTimeout(3*time.Second))
+	final := tm.FinalModel(t).(InstallModel)
+
+	if final.step != stepPlatformSelect {
+		t.Fatalf("expected stepPlatformSelect after Back from docs-mode, got %v", final.step)
+	}
+}
+
+// TestTUIFlow_DocsMode_VaultGoesToPath exercises the vault path via teatest:
+// docs-mode (vault selected) → Continue → stepPath.
+func TestTUIFlow_DocsMode_VaultGoesToPath(t *testing.T) {
+	plats := testPlatformsFromTempDir(t)
+	m := newInstallModelForTest(AppConfig{}, false, plats)
+	m.step = stepDocsMode
+	m.modeCursor = 0 // vault
+	m.focusZone = focusZoneList
+
+	tm := teatest.NewTestModel(t, m, teatest.WithInitialTermSize(80, 24))
+
+	// Tab → button zone.
+	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyTab}))
+	// Enter → Continue (index 0, default) → stepPath.
+	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyEnter}))
+	// Ctrl+C to quit from path.
+	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyCtrlC}))
+
+	tm.WaitFinished(t, teatest.WithFinalTimeout(3*time.Second))
+	final := tm.FinalModel(t).(InstallModel)
+
+	if final.step != stepPath {
+		t.Fatalf("expected stepPath after vault Continue, got %v", final.step)
+	}
+	if final.mode != ModeVault {
+		t.Fatalf("expected ModeVault, got %v", final.mode)
+	}
+}
+
+// TestTUIFlow_DocsMode_InProjectSkipsPath exercises the in-project path via
+// teatest: docs-mode (in-project selected) → Continue → stepConfirm (skip path).
+func TestTUIFlow_DocsMode_InProjectSkipsPath(t *testing.T) {
+	plats := testPlatformsFromTempDir(t)
+	m := newInstallModelForTest(AppConfig{}, false, plats)
+	m.step = stepDocsMode
+	m.modeCursor = 0 // start at vault
+	m.focusZone = focusZoneList
+
+	tm := teatest.NewTestModel(t, m, teatest.WithInitialTermSize(80, 24))
+
+	// Move to in-project.
+	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyRunes, Runes: []rune("j")}))
+	// Tab → button zone.
+	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyTab}))
+	// Enter → Continue → stepConfirm (no stepPath for in-project).
+	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyEnter}))
+	// 'n' to cancel at confirm.
+	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyRunes, Runes: []rune("n")}))
+
+	tm.WaitFinished(t, teatest.WithFinalTimeout(3*time.Second))
+	final := tm.FinalModel(t).(InstallModel)
+
+	if final.mode != ModeInProject {
+		t.Fatalf("expected ModeInProject, got %v", final.mode)
+	}
+	if final.step != stepConfirm {
+		t.Fatalf("expected stepConfirm (in-project skips path), got %v", final.step)
+	}
+}
+
+// TestTUIFlow_Path_BackReturnsToDocsMode exercises the Back path from stepPath
+// back to stepDocsMode via teatest.
+func TestTUIFlow_Path_BackReturnsToDocsMode(t *testing.T) {
+	plats := testPlatformsFromTempDir(t)
+	m := newInstallModelForTest(AppConfig{}, false, plats)
+	m.step = stepPath
+	m.focusZone = focusZoneList
+
+	tm := teatest.NewTestModel(t, m, teatest.WithInitialTermSize(80, 24))
+
+	// Tab → button zone.
+	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyTab}))
+	// Right → Back button (index 1).
+	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyRight}))
+	// Enter → activate Back → stepDocsMode.
+	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyEnter}))
+	// Ctrl+C to quit.
+	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyCtrlC}))
+
+	tm.WaitFinished(t, teatest.WithFinalTimeout(3*time.Second))
+	final := tm.FinalModel(t).(InstallModel)
+
+	if final.step != stepDocsMode {
+		t.Fatalf("expected stepDocsMode after Back from path, got %v", final.step)
+	}
+}
+
+// ---------------------------------------------------------------------------
 // View output content tests (not golden, just key string assertions)
 // ---------------------------------------------------------------------------
 
