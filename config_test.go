@@ -68,8 +68,8 @@ func TestLoadConfig_MalformedJSON(t *testing.T) {
 // mode, path, and platforms across vault and in-project variants.
 func TestLoadConfig_RoundTrip(t *testing.T) {
 	tests := []struct {
-		name      string
-		cfg       AppConfig
+		name string
+		cfg  AppConfig
 	}{
 		{
 			name: "vault mode",

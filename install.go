@@ -402,8 +402,8 @@ func installToPlatform(manifest DistManifest, plat Platform, basePath, distDir s
 	// __DOC_AGENT_BASE_PATH__-prefixed tokens (e.g. in path-resolution preamble)
 	// are already resolved before the mode token runs.
 	installPlaceholders := []placeholderPair{
-		{manifest.PlaceholderBasePath, basePath},                        // __DOC_AGENT_BASE_PATH__/
-		{"__DOC_AGENT_GLOBAL_MODE__", resolvedGlobalMode},              // vault | in-project
+		{manifest.PlaceholderBasePath, basePath},                         // __DOC_AGENT_BASE_PATH__/
+		{"__DOC_AGENT_GLOBAL_MODE__", resolvedGlobalMode},                // vault | in-project
 		{"__DOC_AGENT_GLOBAL_BASE__", strings.TrimSuffix(basePath, "/")}, // vault base without trailing slash (preamble prose)
 	}
 

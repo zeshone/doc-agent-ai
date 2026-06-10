@@ -12,7 +12,8 @@ import (
 // ---------------------------------------------------------------------------
 
 // TestResolveMode verifies the precedence rule:
-//   marker.mode (cwd) > global config.mode > built-in default "vault"
+//
+//	marker.mode (cwd) > global config.mode > built-in default "vault"
 //
 // Cases:
 //  1. marker present with in-project + global vault     → in-project
