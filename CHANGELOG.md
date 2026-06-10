@@ -81,7 +81,7 @@ doc-agent-ai install \
 
 ### Build requirement
 
-doc-agent-ai now requires **Go 1.25+** to build from source (a transitive dependency of the TUI libraries sets the floor). Prebuilt binaries from Releases, Homebrew, and Scoop are unaffected. The stripped binary is ≈5.3–5.4 MiB depending on platform.
+doc-agent-ai now requires **Go 1.25+** to build from source (a transitive dependency of the TUI libraries sets the floor). Prebuilt binaries from Releases, Homebrew, and Scoop are unaffected. The stripped binary is ≈5.4–5.5 MiB depending on platform.
 
 ### Rollback caveat
 
