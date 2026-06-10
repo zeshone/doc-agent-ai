@@ -501,12 +501,12 @@ func installToPlatform(manifest DistManifest, plat Platform, basePath, distDir s
 }
 
 // installPlatforms installs to multiple platforms non-interactively.
-// This is the entry point for tests.
+// This is the entry point for tests. It defaults to vault mode for
+// backward compatibility; use executeInstall when an InstallPlan is available.
 func installPlatforms(manifest DistManifest, platforms []Platform, basePath, distDir string) error {
 	for _, plat := range platforms {
 		head("Installing for " + platformDisplayName(plat.ID()) + "...")
-		// TODO(2a): pass the resolved plan.Mode here once executeInstall wires InstallPlan through.
-		if err := installToPlatform(manifest, plat, basePath, distDir); err != nil {
+		if err := installToPlatform(manifest, plat, basePath, distDir, string(ModeVault)); err != nil {
 			return fmt.Errorf("install to %s: %w", plat.ID(), err)
 		}
 	}
@@ -688,11 +688,10 @@ func installInteractive() error {
 		return nil
 	}
 
-	// Step 7: Install to each selected platform
+	// Step 7: Install to each selected platform (vault mode — TUI arrives in slice 2b)
 	for _, plat := range finalPlatforms {
 		head("Installing for " + platformDisplayName(plat.ID()) + "...")
-		// TODO(2a): pass the resolved plan.Mode here once executeInstall wires InstallPlan through.
-		if err := installToPlatform(manifest, plat, basePath, distDir); err != nil {
+		if err := installToPlatform(manifest, plat, basePath, distDir, string(ModeVault)); err != nil {
 			errOut("Failed to install to " + plat.ID() + ": " + err.Error())
 			continue
 		}
