@@ -129,8 +129,8 @@ func TestContentManifest_Unmarshal(t *testing.T) {
 		t.Errorf("PlaceholderBasePath = %q", cm.PlaceholderBasePath)
 	}
 
-	if len(cm.Skills) != 13 {
-		t.Errorf("expected 13 skills, got %d", len(cm.Skills))
+	if len(cm.Skills) != 14 {
+		t.Errorf("expected 14 skills, got %d", len(cm.Skills))
 	}
 
 	if len(cm.Roles) != 9 {
