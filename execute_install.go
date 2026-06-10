@@ -31,7 +31,10 @@ func executeInstall(manifest DistManifest, plan InstallPlan, distDir string, all
 	// nil Platforms → install to all provided platforms (headless "all" behaviour).
 	targets := resolvePlatformTargets(plan.Platforms, allPlatforms)
 	if len(targets) == 0 {
-		return fmt.Errorf("no platforms to install: provided list is empty")
+		if len(plan.Platforms) > 0 {
+			return fmt.Errorf("none of the requested platforms were detected on this system")
+		}
+		return fmt.Errorf("no platforms detected on this system")
 	}
 
 	// --- Step 2: Install to each target platform ---

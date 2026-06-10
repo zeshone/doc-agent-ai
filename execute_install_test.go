@@ -199,9 +199,10 @@ func TestExecuteInstall_ModeSwitchHook_NoopWhenSameMode(t *testing.T) {
 	if err := executeInstall(manifest, plan, distDir, []Platform{plat}, r); err != nil {
 		t.Fatalf("executeInstall (no mode switch): %v", err)
 	}
-	// No mode-switch notice should appear.
-	if strings.Contains(r.buf.String(), "mode switch") ||
-		strings.Contains(r.buf.String(), "migration") {
+	// No mode-switch notice should appear — assert against the exact strings
+	// runModeSwitchHook emits, or this guard is a false negative.
+	if strings.Contains(r.buf.String(), "Mode changed") ||
+		strings.Contains(r.buf.String(), "not automatically migrated") {
 		t.Errorf("unexpected mode-switch notice when mode did not change; output:\n%s", r.buf.String())
 	}
 }

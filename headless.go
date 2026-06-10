@@ -76,11 +76,13 @@ func hasInstallFlags(f FlagSet) bool {
 //  5. Detect platforms; filter to plan.Platforms.
 //  6. executeInstall with a stdout Reporter.
 func runHeadlessInstall(flags FlagSet, distDirOverride string) error {
+	r := defaultReporter
+
 	// --- Step 1: Load config for defaults ---
 	cfg, _, cfgErr := loadConfig()
 	if cfgErr != nil {
 		// Non-fatal; fall through with empty defaults and let flag validation decide.
-		warn("could not read config: " + cfgErr.Error())
+		r.Warn("could not read config: " + cfgErr.Error())
 	}
 
 	// --- Step 2: Parse and validate InstallPlan ---
@@ -97,11 +99,11 @@ func runHeadlessInstall(flags FlagSet, distDirOverride string) error {
 
 	// Auto-generate dist if missing.
 	if _, err := os.Stat(distDir + "/manifest.json"); os.IsNotExist(err) {
-		info("Auto-generating dist/ from embedded source...")
+		r.Info("Auto-generating dist/ from embedded source...")
 		if err := generate(distDir); err != nil {
 			return fmt.Errorf("auto-generate dist: %w", err)
 		}
-		ok("dist/ generated")
+		r.Ok("dist/ generated")
 	}
 
 	// --- Step 4: Read and validate manifest ---
@@ -113,17 +115,11 @@ func runHeadlessInstall(flags FlagSet, distDirOverride string) error {
 		return fmt.Errorf("incomplete dist: %d missing artifacts", len(missing))
 	}
 
-	// --- Step 5: Detect platforms + filter to requested list ---
+	// --- Step 5: Detect platforms ---
+	// Platform filtering to plan.Platforms is executeInstall's responsibility —
+	// pass the full detected universe and let the engine resolve.
 	allDetected := detectAllPlatforms(manifest)
 
-	// If plan.Platforms is non-nil, filter to only those requested.
-	// Unknown IDs were already rejected by parsePlanFromFlags.
-	targetPlatforms := resolvePlatformTargets(plan.Platforms, allDetected)
-	if len(targetPlatforms) == 0 {
-		return fmt.Errorf("none of the requested platforms were detected on this system")
-	}
-
 	// --- Step 6: Execute install ---
-	r := defaultReporter
-	return executeInstall(manifest, plan, distDir, targetPlatforms, r)
+	return executeInstall(manifest, plan, distDir, allDetected, r)
 }

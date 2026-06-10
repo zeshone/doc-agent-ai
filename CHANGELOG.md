@@ -49,11 +49,11 @@ orchestrates a full install from an `InstallPlan`:
 #### Engine purity CI guard
 
 A new `TestEnginePurity_NoCharmImports` test uses `go/parser` to assert that the
-12 engine-layer files never import `charmbracelet/*`. This test is permanently
+13 engine-layer files never import `charmbracelet/*`. This test is permanently
 active and will fail immediately if charm code leaks into the engine. Charm imports
 are allowed only in `tui_*.go` files (introduced in slice 2b).
 
-`--yes` used alone (without other flags) runs a fully headless install using saved config defaults (vault mode and last-used path/platforms); it does not launch the interactive flow.
+`--yes` used alone (without other flags) runs a fully headless install using saved config defaults (vault mode and last-used path/platforms); it does not launch the interactive flow. It requires a prior install to have saved a config: on a fresh machine with no `~/.doc-agent-ai.json`, `--yes` alone fails with "vault mode requires a documentation base path" — pass `--path` (and optionally `--docs-mode`) explicitly in that case.
 
 - `feat(install)`: add Reporter seam (`Reporter` interface, `stdoutReporter`, `bufferReporter`, `installToPlatformWithReporter`)
 - `feat(install)`: add `executeInstall` orchestrator (platform resolution, mode wiring, config persistence, mode-switch hook seam)
