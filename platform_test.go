@@ -1260,6 +1260,162 @@ func TestPiSkillRegistryTrigger(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// Pi PromptsDir flat-dir tests (fix: Pi discovers prompts non-recursively)
+// ---------------------------------------------------------------------------
+
+// TestPiPromptsDir_IsFlat asserts that piPlatform.PromptsDir() returns
+// <home>/prompts (flat), NOT <home>/prompts/doc.
+// Pi discovers prompt templates non-recursively from ~/.pi/agent/prompts/*.md;
+// writing to a subdirectory means commands never register.
+func TestPiPromptsDir_IsFlat(t *testing.T) {
+	tmpDir := t.TempDir()
+	home := filepath.Join(tmpDir, ".pi", "agent")
+	p := newPlatformForTest(t, "pi", home)
+
+	got := p.PromptsDir()
+	want := filepath.Join(home, "prompts")
+	wantNot := filepath.Join(home, "prompts", "doc")
+
+	if got == wantNot {
+		t.Errorf("Pi PromptsDir() = %q — this is the non-scanned subdir Pi never discovers; want flat %q", got, want)
+	}
+	if got != want {
+		t.Errorf("Pi PromptsDir() = %q, want flat %q", got, want)
+	}
+}
+
+// TestOtherPlatforms_PromptsDirUnchanged guards that the basePlatform default
+// (prompts/doc) is unchanged for all non-Pi platforms.
+func TestOtherPlatforms_PromptsDirUnchanged(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	cases := []struct {
+		id   string
+		home string
+	}{
+		{"opencode", filepath.Join(tmpDir, ".config", "opencode")},
+		{"qwen", filepath.Join(tmpDir, ".qwen")},
+		{"copilot", filepath.Join(tmpDir, ".copilot")},
+		{"claude", filepath.Join(tmpDir, ".claude")},
+	}
+
+	for _, tc := range cases {
+		p := newPlatformForTest(t, tc.id, tc.home)
+		want := filepath.Join(tc.home, "prompts", "doc")
+		if got := p.PromptsDir(); got != want {
+			t.Errorf("%s PromptsDir() = %q, want %q (must remain prompts/doc)", tc.id, got, want)
+		}
+	}
+}
+
+// TestPiInstall_PromptsWriteToFlatDir verifies that installToPlatform writes
+// Pi prompt files directly under <home>/prompts/<role>.md (flat), not under
+// <home>/prompts/doc/<role>.md (the subdirectory Pi never scans).
+func TestPiInstall_PromptsWriteToFlatDir(t *testing.T) {
+	tmpHome := t.TempDir()
+	restoreHome := mockHomeEnv(t, tmpHome)
+	defer restoreHome()
+
+	// Generate a real dist so there are actual prompt files to copy.
+	distDir := filepath.Join(t.TempDir(), "dist")
+	if err := generate(distDir); err != nil {
+		t.Fatalf("generate dist: %v", err)
+	}
+	manifest, err := readManifestFrom(distDir)
+	if err != nil {
+		t.Fatalf("read manifest: %v", err)
+	}
+
+	// Use a temp Pi home inside tmpHome so we never touch the real ~/.pi.
+	piHome := filepath.Join(tmpHome, ".pi", "agent")
+	if err := os.MkdirAll(piHome, 0755); err != nil {
+		t.Fatalf("create pi home: %v", err)
+	}
+	plat := newPlatformForTest(t, "pi", piHome)
+
+	basePath := filepath.ToSlash(filepath.Join(tmpHome, "projects")) + "/"
+	if err := installToPlatform(manifest, plat, basePath, distDir); err != nil {
+		t.Fatalf("installToPlatform: %v", err)
+	}
+
+	// At least one role must have a Pi prompt file in the manifest.
+	piPromptCount := 0
+	for _, role := range manifest.Roles {
+		if role.PromptFiles.Pi == "" {
+			continue
+		}
+		piPromptCount++
+
+		// Flat path: <piHome>/prompts/<role>.md — must exist.
+		flatPath := filepath.Join(piHome, "prompts", role.ID+".md")
+		if _, err := os.Stat(flatPath); os.IsNotExist(err) {
+			t.Errorf("Pi prompt for role %s should exist at flat path %s", role.ID, flatPath)
+		}
+
+		// Subdir path: <piHome>/prompts/doc/<role>.md — must NOT exist.
+		subdirPath := filepath.Join(piHome, "prompts", "doc", role.ID+".md")
+		if _, err := os.Stat(subdirPath); err == nil {
+			t.Errorf("Pi prompt for role %s must NOT exist at subdir path %s (Pi never scans subdirs)", role.ID, subdirPath)
+		}
+	}
+
+	if piPromptCount == 0 {
+		t.Skip("manifest has no Pi prompt files — skipping path assertion")
+	}
+}
+
+// TestPiUninstall_PromptRemovedFromFlatDir verifies that uninstalling Pi prompts
+// targets the flat <home>/prompts/ directory, not the subdirectory.
+func TestPiUninstall_PromptRemovedFromFlatDir(t *testing.T) {
+	tmpHome := t.TempDir()
+	restoreHome := mockHomeEnv(t, tmpHome)
+	defer restoreHome()
+
+	distDir := filepath.Join(t.TempDir(), "dist")
+	if err := generate(distDir); err != nil {
+		t.Fatalf("generate dist: %v", err)
+	}
+	manifest, err := readManifestFrom(distDir)
+	if err != nil {
+		t.Fatalf("read manifest: %v", err)
+	}
+
+	piHome := filepath.Join(tmpHome, ".pi", "agent")
+	if err := os.MkdirAll(piHome, 0755); err != nil {
+		t.Fatalf("create pi home: %v", err)
+	}
+	plat := newPlatformForTest(t, "pi", piHome)
+
+	basePath := filepath.ToSlash(filepath.Join(tmpHome, "projects")) + "/"
+
+	// Install first.
+	if err := installToPlatform(manifest, plat, basePath, distDir); err != nil {
+		t.Fatalf("installToPlatform: %v", err)
+	}
+
+	// Collect installed prompt IDs.
+	installed := map[string]bool{}
+	promptIDs, err := plat.GetPromptIDs(manifest, installed)
+	if err != nil {
+		t.Fatalf("GetPromptIDs: %v", err)
+	}
+	if len(promptIDs) == 0 {
+		t.Skip("no Pi prompts installed — skipping uninstall path assertion")
+	}
+
+	// Uninstall prompts.
+	removePromptFilesForPlatform(plat, promptIDs, manifest)
+
+	// All flat prompt files must be gone.
+	for _, id := range promptIDs {
+		flatPath := filepath.Join(piHome, "prompts", id+".md")
+		if _, err := os.Stat(flatPath); err == nil {
+			t.Errorf("Pi prompt %s should have been removed from flat path %s after uninstall", id, flatPath)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
 // helpers
 // ---------------------------------------------------------------------------
 
