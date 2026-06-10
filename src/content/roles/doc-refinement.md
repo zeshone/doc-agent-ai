@@ -37,6 +37,8 @@ Parse the argument to determine the node type and resolve all paths:
 | `<system>/<module>` | module | `{{BASE_PATH}}<system>/modules/<module>/` | `<module>_prd.md` |
 | `<system>/<module>/<submodule>` | submodule | `{{BASE_PATH}}<system>/modules/<module>/modules/<submodule>/` | `<submodule>_prd.md` |
 
+> Path column shows vault layout. In in-project mode apply the docs root resolved per the preamble above (no `<system>` folder, no `modules/` nesting).
+
 **Check 1 — System exists (always):**
 Verify `{{BASE_PATH}}<system>/` exists.
 If NOT → STOP. Respond:

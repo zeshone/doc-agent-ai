@@ -22,6 +22,8 @@ Parse the argument to determine the node type and resolve all paths:
 | `<sistema>/<modulo>` | modulo | `{{BASE_PATH}}<sistema>/modules/<modulo>/` | `<modulo>_requirements.md` |
 | `<sistema>/<modulo>/<submodulo>` | submodulo | `{{BASE_PATH}}<sistema>/modules/<modulo>/modules/<submodulo>/` | `<submodulo>_requirements.md` |
 
+> Path column shows vault layout. In in-project mode apply the docs root resolved per the preamble above (no `<sistema>` folder, no `modules/` nesting).
+
 **Check 1 — System exists (always):**
 Verify `{{BASE_PATH}}<sistema>/` exists.
 If NOT → STOP. Respond:

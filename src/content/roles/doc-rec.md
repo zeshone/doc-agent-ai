@@ -22,6 +22,8 @@ Parse the argument to determine the node type and resolve all paths:
 | `<system>/<module>` | module | `{{BASE_PATH}}<system>/modules/<module>/` | `<module>.md` |
 | `<system>/<module>/<submodule>` | submodule | `{{BASE_PATH}}<system>/modules/<module>/modules/<submodule>/` | `<submodule>.md` |
 
+> Path column shows vault layout. In in-project mode apply the docs root resolved per the preamble above (no `<system>` folder, no `modules/` nesting).
+
 **Check 1 — Determine whether the system is new or existing:**
 If node type is `system`, check whether `{{BASE_PATH}}<system>/` already exists and carry that result into the rec protocol.
 If node type is `module` or `submodule`, verify `{{BASE_PATH}}<system>/` exists.
