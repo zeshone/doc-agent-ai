@@ -20,7 +20,7 @@ func mockHomeEnv(t *testing.T, tmpDir string) func() {
 
 	restore := make(map[string]string)
 
-	for _, env := range []string{"HOME", "USERPROFILE"} {
+	for _, env := range []string{"HOME", "USERPROFILE", "XDG_CONFIG_HOME"} {
 		old, ok := os.LookupEnv(env)
 		if ok {
 			restore[env] = old
@@ -29,6 +29,10 @@ func mockHomeEnv(t *testing.T, tmpDir string) func() {
 	// On Windows, Go prefers USERPROFILE over HOME for os.UserHomeDir().
 	t.Setenv("HOME", tmpDir)
 	t.Setenv("USERPROFILE", tmpDir)
+	// Pin XDG_CONFIG_HOME inside the mocked home: opencode detection prefers it
+	// over ~/.config, so an inherited value (e.g. on CI runners) would make
+	// detection escape the test sandbox.
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpDir, ".config"))
 
 	return func() {
 		for k, v := range restore {
