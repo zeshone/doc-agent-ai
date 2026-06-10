@@ -8,24 +8,12 @@ import (
 // T1a-5: Failing tests for plan.go (RED phase)
 // ---------------------------------------------------------------------------
 
-// knownPlatformIDs is the canonical set of valid platform identifiers.
-var knownPlatformIDs = []string{"opencode", "claude", "copilot", "qwen", "pi"}
-
-// makePlanTestManifest returns a minimal DistManifest suitable for plan tests.
-func makePlanTestManifest() DistManifest {
-	return DistManifest{
-		PlaceholderBasePath: "__DOC_AGENT_BASE_PATH__/",
-	}
-}
-
 // TestParsePlan_PlatformsCSV verifies that a comma-separated platforms string
 // is split into the expected slice.
 func TestParsePlan_PlatformsCSV(t *testing.T) {
 	flags := FlagSet{Platforms: "opencode,claude"}
 	cfg := AppConfig{Mode: "vault", Path: "/docs/"}
-	manifest := makePlanTestManifest()
-
-	plan, err := parsePlanFromFlags(flags, cfg, manifest)
+	plan, err := parsePlanFromFlags(flags, cfg)
 	if err != nil {
 		t.Fatalf("parsePlanFromFlags() error: %v", err)
 	}
@@ -45,9 +33,7 @@ func TestParsePlan_PlatformsCSV(t *testing.T) {
 func TestParsePlan_InvalidPlatform(t *testing.T) {
 	flags := FlagSet{Platforms: "opencode,unknown-plat"}
 	cfg := AppConfig{Mode: "vault", Path: "/docs/"}
-	manifest := makePlanTestManifest()
-
-	_, err := parsePlanFromFlags(flags, cfg, manifest)
+	_, err := parsePlanFromFlags(flags, cfg)
 	if err == nil {
 		t.Fatal("expected error for unknown platform, got nil")
 	}
@@ -62,9 +48,7 @@ func TestParsePlan_DocsModeValidation(t *testing.T) {
 		Path:      "/docs/",
 	}
 	cfg := AppConfig{Mode: "vault"}
-	manifest := makePlanTestManifest()
-
-	_, err := parsePlanFromFlags(flags, cfg, manifest)
+	_, err := parsePlanFromFlags(flags, cfg)
 	if err == nil {
 		t.Fatal("expected error for invalid docs-mode, got nil")
 	}
@@ -79,9 +63,7 @@ func TestParsePlan_InProjectDropsPathRequirement(t *testing.T) {
 		// No Path provided
 	}
 	cfg := AppConfig{Mode: "in-project"}
-	manifest := makePlanTestManifest()
-
-	plan, err := parsePlanFromFlags(flags, cfg, manifest)
+	plan, err := parsePlanFromFlags(flags, cfg)
 	if err != nil {
 		t.Fatalf("parsePlanFromFlags() error: %v", err)
 	}
@@ -102,9 +84,7 @@ func TestParsePlan_VaultRequiresPath(t *testing.T) {
 		// No Path flag
 	}
 	cfg := AppConfig{Mode: "vault", Path: ""} // no config default either
-	manifest := makePlanTestManifest()
-
-	_, err := parsePlanFromFlags(flags, cfg, manifest)
+	_, err := parsePlanFromFlags(flags, cfg)
 	if err == nil {
 		t.Fatal("expected error: vault mode requires a path when no config default exists")
 	}
@@ -119,9 +99,7 @@ func TestParsePlan_YesFlag(t *testing.T) {
 		Yes:       true,
 	}
 	cfg := AppConfig{Mode: "vault"}
-	manifest := makePlanTestManifest()
-
-	plan, err := parsePlanFromFlags(flags, cfg, manifest)
+	plan, err := parsePlanFromFlags(flags, cfg)
 	if err != nil {
 		t.Fatalf("parsePlanFromFlags() error: %v", err)
 	}
@@ -140,9 +118,7 @@ func TestParsePlan_ConfigDefaults(t *testing.T) {
 		Path:      "/home/user/docs/",
 		Platforms: []string{"opencode", "claude"},
 	}
-	manifest := makePlanTestManifest()
-
-	plan, err := parsePlanFromFlags(flags, cfg, manifest)
+	plan, err := parsePlanFromFlags(flags, cfg)
 	if err != nil {
 		t.Fatalf("parsePlanFromFlags() error: %v", err)
 	}
@@ -151,6 +127,9 @@ func TestParsePlan_ConfigDefaults(t *testing.T) {
 	}
 	if plan.BasePath != cfg.Path {
 		t.Errorf("BasePath = %q, want %q", plan.BasePath, cfg.Path)
+	}
+	if len(plan.Platforms) != 2 || plan.Platforms[0] != "opencode" || plan.Platforms[1] != "claude" {
+		t.Errorf("Platforms = %v, want config default [opencode claude]", plan.Platforms)
 	}
 }
 
@@ -166,9 +145,7 @@ func TestParsePlan_FlagOverridesConfig(t *testing.T) {
 		Mode: "vault",
 		Path: "/old/vault/path/",
 	}
-	manifest := makePlanTestManifest()
-
-	plan, err := parsePlanFromFlags(flags, cfg, manifest)
+	plan, err := parsePlanFromFlags(flags, cfg)
 	if err != nil {
 		t.Fatalf("parsePlanFromFlags() error: %v", err)
 	}
