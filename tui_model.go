@@ -40,11 +40,6 @@ type InstallModel struct {
 	// Initialized with ["Install", "Back"].
 	overwriteButtons buttonRow
 
-	// focusZone tracks which UI region owns keyboard focus on the current screen.
-	// On screens with a list + button row, Tab cycles between focusZoneList and
-	// focusZoneButtons.
-	focusZone focusZone
-
 	// platforms is the checkbox list for platform selection.
 	platforms []platformItem
 
@@ -184,7 +179,6 @@ func newInstallModel(cfg AppConfig, cfgExisted bool, manifest DistManifest, dist
 		docsModeButtons:       buttonRow{labels: []string{"Continue", "Back"}, focus: 0},
 		pathButtons:           buttonRow{labels: []string{"Continue", "Back"}, focus: 0},
 		overwriteButtons:      buttonRow{labels: []string{"Install", "Back"}, focus: 0},
-		focusZone:             focusZoneList,
 		platforms:             items,
 		cursor:                0,
 		alreadyInstalled:      alreadyInstalled,
@@ -486,13 +480,7 @@ func (m InstallModel) View() string {
 
 func (m InstallModel) viewPlatformSelect(sb *strings.Builder) {
 	sb.WriteString(m.styles.Title.Render("  Select platforms") + "\n")
-
-	// Hint line changes based on active zone.
-	if m.focusZone == focusZoneList {
-		sb.WriteString(m.styles.Subtitle.Render("  ↑/↓ to move · Space to toggle · Tab for buttons") + "\n\n")
-	} else {
-		sb.WriteString(m.styles.Subtitle.Render("  ←/→ to move buttons · Enter to activate · Tab back to list") + "\n\n")
-	}
+	sb.WriteString(m.styles.Subtitle.Render("  ↑/↓ choose · Space toggle · ←/→ buttons · Enter select") + "\n\n")
 
 	if m.notice != "" {
 		sb.WriteString(m.styles.Warning.Render("  ! "+m.notice) + "\n\n")
@@ -554,11 +542,7 @@ func (m InstallModel) viewOverwrite(sb *strings.Builder) {
 	sb.WriteString("\n")
 
 	// Hint line.
-	if m.focusZone == focusZoneList {
-		sb.WriteString(m.styles.Subtitle.Render("  ↑/↓ to choose · Tab for buttons") + "\n\n")
-	} else {
-		sb.WriteString(m.styles.Subtitle.Render("  ←/→ to move buttons · Enter to activate · Tab back to list") + "\n\n")
-	}
+	sb.WriteString(m.styles.Subtitle.Render("  ↑/↓ choose · ←/→ buttons · Enter select") + "\n\n")
 
 	choices := []string{"Overwrite all", "Install only missing"}
 	for i, label := range choices {
@@ -584,12 +568,7 @@ func (m InstallModel) viewOverwrite(sb *strings.Builder) {
 func (m InstallModel) viewDocsMode(sb *strings.Builder) {
 	sb.WriteString(m.styles.Title.Render("  Documentation mode") + "\n")
 
-	// Hint line changes based on active focus zone.
-	if m.focusZone == focusZoneList {
-		sb.WriteString(m.styles.Subtitle.Render("  ↑/↓ to move · Tab for buttons") + "\n\n")
-	} else {
-		sb.WriteString(m.styles.Subtitle.Render("  ←/→ to move buttons · Enter to activate · Tab back to list") + "\n\n")
-	}
+	sb.WriteString(m.styles.Subtitle.Render("  ↑/↓ choose · ←/→ buttons · Enter select") + "\n\n")
 
 	// Mode-switch notice: shown when there is a prior config and the currently
 	// selected mode differs from the saved mode. Rendered here (docs-mode screen)
@@ -638,7 +617,8 @@ func (m InstallModel) viewDocsMode(sb *strings.Builder) {
 
 func (m InstallModel) viewPath(sb *strings.Builder) {
 	sb.WriteString(m.styles.Title.Render("  Vault base path") + "\n")
-	sb.WriteString(m.styles.Subtitle.Render("  Enter the root folder for all your doc-agent-ai documentation") + "\n\n")
+	sb.WriteString(m.styles.Subtitle.Render("  Enter the root folder for all your doc-agent-ai documentation") + "\n")
+	sb.WriteString(m.styles.Dim.Render("  Enter to continue · Esc to go back") + "\n\n")
 	sb.WriteString("  " + m.pathInput.View() + "\n\n")
 	sb.WriteString("  " + m.pathButtons.render(m.styles) + "\n")
 }
@@ -736,16 +716,18 @@ func (m InstallModel) viewWelcome(sb *strings.Builder) {
 }
 
 // updateWelcome handles key input on the Welcome screen.
-// Tab/Shift+Tab/Left/Right move button focus; Enter activates:
+// ←/→ move button focus; Enter activates:
 //   - "Continue" → advance to stepPlatformSelect
 //   - "Quit"     → tea.Quit (exit 0)
+//
+// ↑/↓ are no-ops on this screen (no content list).
+// Tab is NOT bound (no focusZone switching).
 func (m InstallModel) updateWelcome(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c":
 		return m, tea.Quit
-	case "tab", "shift+tab", "left", "right":
-		activated, _ := m.welcomeButtons.handle(msg.String())
-		_ = activated // focus-move only
+	case "left", "right":
+		m.welcomeButtons.handle(msg.String())
 		return m, nil
 	case "enter":
 		activated, ok := m.welcomeButtons.handle("enter")
@@ -765,27 +747,18 @@ func (m InstallModel) updateWelcome(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // updatePlatformSelect handles key input on the Platform Selection screen.
 //
-// focusZone determines key routing:
-//   - focusZoneList: up/down/j/k move cursor; Space toggles checkbox; Tab → focusZoneButtons.
-//   - focusZoneButtons: Tab/left/right move button focus; Enter activates;
-//     up/down pass-through to the list (ergonomic: user may expect list navigation from buttons).
-//
-// Enter with focusZoneButtons:
-//   - "Continue" → nextStep (stepDocsMode); blocked if zero selected (shows notice).
-//   - "Back"     → prevStep (stepWelcome); state is preserved.
+// Both navigation axes are always live (no Tab / focusZone switching):
+//   - ↑/↓ (k/j) move the platform checkbox cursor.
+//   - ←/→ move button-row focus.
+//   - Space toggles the focused platform checkbox; always active.
+//   - Enter activates the focused button:
+//     "Continue" → nextStep (stepDocsMode); blocked if zero selected (shows notice).
+//     "Back"     → prevStep (stepWelcome); state is preserved.
+//   - Tab is a no-op (ignored).
 func (m InstallModel) updatePlatformSelect(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c":
 		return m, tea.Quit
-
-	case "tab":
-		// Cycle focus between list and button row.
-		if m.focusZone == focusZoneList {
-			m.focusZone = focusZoneButtons
-		} else {
-			m.focusZone = focusZoneList
-		}
-		return m, nil
 
 	case "up", "k":
 		if m.cursor > 0 {
@@ -800,55 +773,38 @@ func (m InstallModel) updatePlatformSelect(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 		return m, nil
 
 	case " ":
-		// Space toggles the checkbox only when the list zone is focused.
-		if m.focusZone == focusZoneList && len(m.platforms) > 0 {
+		// Space always toggles the focused checkbox.
+		if len(m.platforms) > 0 {
 			m.platforms[m.cursor].selected = !m.platforms[m.cursor].selected
 			m.notice = ""
 		}
 		return m, nil
 
-	case "left", "shift+tab":
-		if m.focusZone == focusZoneButtons {
-			m.platformSelectButtons = m.platformSelectButtons.move(-1)
-		}
+	case "left":
+		m.platformSelectButtons = m.platformSelectButtons.move(-1)
 		return m, nil
 
 	case "right":
-		if m.focusZone == focusZoneButtons {
-			m.platformSelectButtons = m.platformSelectButtons.move(1)
-		}
+		m.platformSelectButtons = m.platformSelectButtons.move(1)
 		return m, nil
 
 	case "enter":
-		if m.focusZone == focusZoneButtons {
-			// Activate the focused button.
-			activated := m.platformSelectButtons.focused()
-			switch activated {
-			case "Continue":
-				if !m.anySelected() {
-					m.notice = "Select at least one platform to continue."
-					return m, nil
-				}
-				m.notice = ""
-				m.step = nextStep(stepPlatformSelect)
-				// Reset button focus and zone for the next screen.
-				m.platformSelectButtons.focus = 0
-				m.focusZone = focusZoneList
-				return m, nil
-			case "Back":
-				m.step = prevStep(stepPlatformSelect)
-				m.platformSelectButtons.focus = 0
-				m.focusZone = focusZoneList
+		// Activate the focused button.
+		activated := m.platformSelectButtons.focused()
+		switch activated {
+		case "Continue":
+			if !m.anySelected() {
+				m.notice = "Select at least one platform to continue."
 				return m, nil
 			}
-		} else {
-			// Enter in list zone: same as Continue button shortcut.
-			if m.anySelected() {
-				m.notice = ""
-				m.step = nextStep(stepPlatformSelect)
-				m.focusZone = focusZoneList
-				return m, nil
-			}
+			m.notice = ""
+			m.step = nextStep(stepPlatformSelect)
+			m.platformSelectButtons.focus = 0
+			return m, nil
+		case "Back":
+			m.step = prevStep(stepPlatformSelect)
+			m.platformSelectButtons.focus = 0
+			return m, nil
 		}
 		return m, nil
 	}
@@ -858,12 +814,14 @@ func (m InstallModel) updatePlatformSelect(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 
 // updateDocsMode handles key input on the Documentation Mode screen.
 //
-// focusZone determines key routing:
-//   - focusZoneList: up/down/j/k move modeCursor; Tab → focusZoneButtons.
-//   - focusZoneButtons: Tab/left/right move button focus; Enter activates:
-//     Continue (sets mode from modeCursor; vault → stepPath; in-project →
-//     stepOverwrite if any selected platform is already installed, else stepProgress),
-//     Back (prevStep = stepPlatformSelect).
+// Both navigation axes are always live (no Tab / focusZone switching):
+//   - ↑/↓ (k/j) move modeCursor between vault (0) and in-project (1).
+//   - ←/→ move button-row focus.
+//   - Enter activates the focused button:
+//     "Continue" → commits mode; vault → stepPath; in-project →
+//     stepOverwrite (if any selected platform is already installed) or stepProgress.
+//     "Back" → prevStep (stepPlatformSelect).
+//   - Tab is a no-op (ignored).
 //
 // The mode-switch notice (non-migration warning) is rendered in viewDocsMode
 // when cfgExisted=true and the selected mode differs from cfg.Mode.
@@ -871,15 +829,6 @@ func (m InstallModel) updateDocsMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c":
 		return m, tea.Quit
-
-	case "tab":
-		// Cycle focus between radio list and button row.
-		if m.focusZone == focusZoneList {
-			m.focusZone = focusZoneButtons
-		} else {
-			m.focusZone = focusZoneList
-		}
-		return m, nil
 
 	case "up", "k":
 		if m.modeCursor > 0 {
@@ -893,69 +842,42 @@ func (m InstallModel) updateDocsMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
-	case "left", "shift+tab":
-		if m.focusZone == focusZoneButtons {
-			m.docsModeButtons = m.docsModeButtons.move(-1)
-		}
+	case "left":
+		m.docsModeButtons = m.docsModeButtons.move(-1)
 		return m, nil
 
 	case "right":
-		if m.focusZone == focusZoneButtons {
-			m.docsModeButtons = m.docsModeButtons.move(1)
-		}
+		m.docsModeButtons = m.docsModeButtons.move(1)
 		return m, nil
 
 	case "enter":
-		if m.focusZone == focusZoneButtons {
-			activated := m.docsModeButtons.focused()
-			switch activated {
-			case "Continue":
-				// Commit the mode from the current cursor position.
-				if m.modeCursor == 0 {
-					m.mode = ModeVault
-				} else {
-					m.mode = ModeInProject
-				}
-				// Reset button focus and zone for the next screen.
-				m.docsModeButtons.focus = 0
-				m.pathButtons.focus = 0
-				m.overwriteButtons.focus = 0
-				m.focusZone = focusZoneList
-				if m.mode == ModeVault {
-					m.pathInput.Focus()
-					m.step = stepPath
-				} else {
-					// In-project: skip path step; go to overwrite if needed, else progress.
-					m.step = m.nextStepAfterDocsOrPath()
-					if m.step == stepProgress {
-						return m, m.runInstall()
-					}
-				}
-				return m, nil
-			case "Back":
-				m.docsModeButtons.focus = 0
-				m.focusZone = focusZoneList
-				m.step = prevStep(stepDocsMode)
-				return m, nil
-			}
-		} else {
-			// Enter in list zone: treat as Continue shortcut.
+		activated := m.docsModeButtons.focused()
+		switch activated {
+		case "Continue":
+			// Commit the mode from the current cursor position.
 			if m.modeCursor == 0 {
 				m.mode = ModeVault
 			} else {
 				m.mode = ModeInProject
 			}
+			// Reset button focus for the next screen.
+			m.docsModeButtons.focus = 0
+			m.pathButtons.focus = 0
 			m.overwriteButtons.focus = 0
-			m.focusZone = focusZoneList
 			if m.mode == ModeVault {
 				m.pathInput.Focus()
 				m.step = stepPath
 			} else {
+				// In-project: skip path step; go to overwrite if needed, else progress.
 				m.step = m.nextStepAfterDocsOrPath()
 				if m.step == stepProgress {
 					return m, m.runInstall()
 				}
 			}
+			return m, nil
+		case "Back":
+			m.docsModeButtons.focus = 0
+			m.step = prevStep(stepDocsMode)
 			return m, nil
 		}
 	}
@@ -965,111 +887,59 @@ func (m InstallModel) updateDocsMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // updatePath handles key input on the Vault Path Entry screen.
 //
-// focusZone determines key routing:
-//   - focusZoneList: characters are forwarded to pathInput (so any path
-//     character types normally); Tab → focusZoneButtons;
-//     Esc is a Back shortcut (navigates to stepDocsMode).
-//   - focusZoneButtons: Tab/left/right move button focus; Enter activates:
-//     Continue (if path is non-empty, advances to stepOverwrite when any selected
-//     platform is already installed, else stepProgress),
-//     Back (prevStep = stepDocsMode).
+// The textinput owns ALL keys on this screen (path-screen exception):
+//   - ←/→ edit the path cursor (they do NOT move button focus).
+//   - Printable characters type into the path.
+//   - Enter = Continue (if path is non-empty, advances to stepOverwrite when any
+//     selected platform is already installed, else stepProgress).
+//   - Esc = Back (navigates to stepDocsMode; non-alphabetic so it never collides
+//     with path typing, e.g. C:\Users\bob\docs).
 //
-// Back uses Esc (not a letter) because this screen is a free-text input —
-// an alphabetic Back shortcut would make paths containing that letter
-// untypeable (e.g. C:\Users\bob\docs).
+// The [Continue]/[Back] footer is a visual hint only; button focus does not
+// change on this screen. Tab is a no-op (no focusZone switching).
 func (m InstallModel) updatePath(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c":
 		return m, tea.Quit
 
-	case "tab":
-		if m.focusZone == focusZoneList {
-			m.focusZone = focusZoneButtons
-			m.pathInput.Blur()
-		} else {
-			m.focusZone = focusZoneList
-			m.pathInput.Focus()
-		}
-		return m, nil
-
 	case "esc":
 		// Back shortcut (non-alphabetic so it never collides with path typing).
 		m.pathButtons.focus = 0
 		m.overwriteButtons.focus = 0
-		m.focusZone = focusZoneList
 		m.pathInput.Focus()
 		m.step = prevStep(stepPath)
 		return m, nil
 
 	case "enter":
-		if m.focusZone == focusZoneButtons {
-			activated := m.pathButtons.focused()
-			switch activated {
-			case "Continue":
-				path := strings.TrimSpace(m.pathInput.Value())
-				if path != "" {
-					m.pathButtons.focus = 0
-					m.overwriteButtons.focus = 0
-					m.focusZone = focusZoneList
-					m.step = m.nextStepAfterDocsOrPath()
-					if m.step == stepProgress {
-						return m, m.runInstall()
-					}
-				}
-				return m, nil
-			case "Back":
-				m.pathButtons.focus = 0
-				m.focusZone = focusZoneList
-				m.pathInput.Focus()
-				m.step = prevStep(stepPath)
-				return m, nil
+		// Enter = Continue when path is non-empty.
+		path := strings.TrimSpace(m.pathInput.Value())
+		if path != "" {
+			m.pathButtons.focus = 0
+			m.overwriteButtons.focus = 0
+			m.step = m.nextStepAfterDocsOrPath()
+			if m.step == stepProgress {
+				return m, m.runInstall()
 			}
-		} else {
-			// Enter in list zone: treat as Continue shortcut.
-			path := strings.TrimSpace(m.pathInput.Value())
-			if path != "" {
-				m.overwriteButtons.focus = 0
-				m.focusZone = focusZoneList
-				m.step = m.nextStepAfterDocsOrPath()
-				if m.step == stepProgress {
-					return m, m.runInstall()
-				}
-			}
-			return m, nil
-		}
-
-	case "left", "shift+tab":
-		if m.focusZone == focusZoneButtons {
-			m.pathButtons = m.pathButtons.move(-1)
-		}
-		return m, nil
-
-	case "right":
-		if m.focusZone == focusZoneButtons {
-			m.pathButtons = m.pathButtons.move(1)
 		}
 		return m, nil
 	}
 
-	// Forward to textinput when in list zone.
-	if m.focusZone == focusZoneList {
-		var cmd tea.Cmd
-		m.pathInput, cmd = m.pathInput.Update(msg)
-		return m, cmd
-	}
-
-	return m, nil
+	// All other keys (including ←/→) are forwarded to the textinput.
+	var cmd tea.Cmd
+	m.pathInput, cmd = m.pathInput.Update(msg)
+	return m, cmd
 }
 
 // updateOverwrite handles key input on the Consolidated Overwrite screen.
 //
-// focusZone determines key routing:
-//   - focusZoneList: up/down/j/k move overwriteChoice (0=Overwrite all, 1=Install only missing);
-//     Tab → focusZoneButtons.
-//   - focusZoneButtons: Tab/left/right move button focus; Enter activates:
+// Both navigation axes are always live (no Tab / focusZone switching):
+//   - ↑/↓ (k/j) move overwriteChoice (0=Overwrite all, 1=Install only missing).
+//   - ←/→ move button-row focus.
+//   - Enter activates the focused button:
 //     [Install] → commits choice, routes to stepProgress (or stepDone if all-already-present).
 //     [Back]    → prevStep(stepOverwrite). For vault mode prevStep=stepPath;
-//     for in-project mode the caller uses stepDocsMode directly.
+//     for in-project mode returns to stepDocsMode directly.
+//   - Tab is a no-op (ignored).
 //
 // All-already-present guard (install-only-missing with all selected platforms installed):
 // sets m.step=stepDone with a "nothing to do" summary — never calls runInstall.
@@ -1078,61 +948,41 @@ func (m InstallModel) updateOverwrite(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+c":
 		return m, tea.Quit
 
-	case "tab":
-		if m.focusZone == focusZoneList {
-			m.focusZone = focusZoneButtons
-		} else {
-			m.focusZone = focusZoneList
-		}
-		return m, nil
-
 	case "up", "k":
-		if m.focusZone == focusZoneList && m.overwriteChoice > 0 {
+		if m.overwriteChoice > 0 {
 			m.overwriteChoice--
 		}
 		return m, nil
 
 	case "down", "j":
-		if m.focusZone == focusZoneList && m.overwriteChoice < 1 {
+		if m.overwriteChoice < 1 {
 			m.overwriteChoice++
 		}
 		return m, nil
 
-	case "left", "shift+tab":
-		if m.focusZone == focusZoneButtons {
-			m.overwriteButtons = m.overwriteButtons.move(-1)
-		}
+	case "left":
+		m.overwriteButtons = m.overwriteButtons.move(-1)
 		return m, nil
 
 	case "right":
-		if m.focusZone == focusZoneButtons {
-			m.overwriteButtons = m.overwriteButtons.move(1)
-		}
+		m.overwriteButtons = m.overwriteButtons.move(1)
 		return m, nil
 
 	case "enter":
-		if m.focusZone == focusZoneButtons {
-			activated := m.overwriteButtons.focused()
-			switch activated {
-			case "Install":
-				m.overwriteButtons.focus = 0
-				m.focusZone = focusZoneList
-				return m.commitOverwriteAndInstall()
-			case "Back":
-				m.overwriteButtons.focus = 0
-				m.focusZone = focusZoneList
-				// Mode-aware BACK: in-project skipped path, so go back to DocsMode.
-				if m.mode == ModeInProject {
-					m.step = stepDocsMode
-				} else {
-					m.step = prevStep(stepOverwrite)
-				}
-				return m, nil
-			}
-		} else {
-			// List-zone Enter: treat as [Install] shortcut.
-			m.focusZone = focusZoneList
+		activated := m.overwriteButtons.focused()
+		switch activated {
+		case "Install":
+			m.overwriteButtons.focus = 0
 			return m.commitOverwriteAndInstall()
+		case "Back":
+			m.overwriteButtons.focus = 0
+			// Mode-aware BACK: in-project skipped path, so go back to DocsMode.
+			if m.mode == ModeInProject {
+				m.step = stepDocsMode
+			} else {
+				m.step = prevStep(stepOverwrite)
+			}
+			return m, nil
 		}
 	}
 
