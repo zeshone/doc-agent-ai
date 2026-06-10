@@ -13,7 +13,11 @@
     "doc-scope",
     "doc-rec-lite",
     "doc-prd-lite",
-    "doc-to-sdd"
+    "doc-to-sdd",
+    "doc-reader"
+  ],
+  "conditionalSkills": [
+    "doc-reader"
   ],
   "roles": [
     {

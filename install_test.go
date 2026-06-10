@@ -222,10 +222,21 @@ func TestInstallFileTree(t *testing.T) {
 
 	// ======== Verify opencode ========
 
-	// Skills
+	// Skills: conditional (in-project-only) skills are absent in vault mode.
+	conditionalSet := make(map[string]bool, len(manifest.ConditionalSkills))
+	for _, id := range manifest.ConditionalSkills {
+		conditionalSet[id] = true
+	}
 	for _, skill := range manifest.Skills {
 		skillDir := filepath.Join(opencode.SkillsDir(), skill)
 		entries, err := os.ReadDir(skillDir)
+		if conditionalSet[skill] {
+			// Conditional skills must NOT be present in vault mode.
+			if err == nil && len(entries) > 0 {
+				t.Errorf("opencode conditional skill %s should be absent in vault mode but found at %s", skill, skillDir)
+			}
+			continue
+		}
 		if err != nil || len(entries) == 0 {
 			t.Errorf("opencode skill %s: no files at %s (err=%v)", skill, skillDir, err)
 		}
@@ -292,10 +303,16 @@ func TestInstallFileTree(t *testing.T) {
 
 	// ======== Verify claude ========
 
-	// Skills
+	// Skills: conditional (in-project-only) skills are absent in vault mode.
 	for _, skill := range manifest.Skills {
 		skillDir := filepath.Join(claude.SkillsDir(), skill)
 		entries, err := os.ReadDir(skillDir)
+		if conditionalSet[skill] {
+			if err == nil && len(entries) > 0 {
+				t.Errorf("claude conditional skill %s should be absent in vault mode but found at %s", skill, skillDir)
+			}
+			continue
+		}
 		if err != nil || len(entries) == 0 {
 			t.Errorf("claude skill %s: no files at %s (err=%v)", skill, skillDir, err)
 		}

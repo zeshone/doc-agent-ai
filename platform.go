@@ -768,6 +768,7 @@ func registryTemplate(basePath, skillsDir, triggerStyle string) string {
 | Gathering requirements for a single legacy feature (Volere-lite) | doc-rec-lite | %s |
 | Generating a PRD for a single legacy feature | doc-prd-lite | %s |
 | Compacting documentation into LLM-optimized SDD context, /doc-to-sdd | doc-to-sdd | %s |
+| Reading in-project docs, understanding repo architecture in in-project mode | doc-reader | %s |
 
 ## Compact Rules
 
@@ -832,6 +833,12 @@ func registryTemplate(basePath, skillsDir, triggerStyle string) string {
 - Output: `+"`<BASE_PATH><system>/agent_sdd_context_project/`"+`
 - All output in English regardless of source language
 - Maximum token efficiency: every sentence must carry essential information
+
+### doc-reader
+- Installed ONLY in in-project docs mode; absent from vault installs
+- Read ONLY `+"`docs/doc-agent/agent_sdd_context_project/_sdd-context.md`"+` (business) and `+"`_sdd-tech-context.md`"+` (technical)
+- EXCLUDED from agent context: `+"`_prd.md`"+`, `+"`_tech-spec.md`"+`, and all other files under `+"`docs/doc-agent/`"+`
+- If context files absent, suggest running `+"`/doc-to-sdd`"+` once — do NOT fall back to the full docs tree
 `,
 		version,
 		basePath,
@@ -849,6 +856,7 @@ func registryTemplate(basePath, skillsDir, triggerStyle string) string {
 		filepath.Join(skillsDir, "doc-rec-lite", "SKILL.md"),
 		filepath.Join(skillsDir, "doc-prd-lite", "SKILL.md"),
 		filepath.Join(skillsDir, "doc-to-sdd", "SKILL.md"),
+		filepath.Join(skillsDir, "doc-reader", "SKILL.md"),
 		basePath,
 	)
 }

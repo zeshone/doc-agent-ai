@@ -403,6 +403,7 @@ func writeManifest(outputDir string, content ContentManifest, platforms Platform
 		GeneratedAt:         time.Now().UTC().Format(time.RFC3339Nano),
 		PlaceholderBasePath: content.PlaceholderBasePath,
 		Skills:              content.Skills,
+		ConditionalSkills:   content.ConditionalSkills,
 		Roles:               distRoles,
 		Commands:            distCommands,
 		LegacyCommandIds:    content.LegacyCommandIds,

@@ -4,6 +4,7 @@ package main
 type ContentManifest struct {
 	PlaceholderBasePath string          `json:"placeholderBasePath"`
 	Skills              []string        `json:"skills"`
+	ConditionalSkills   []string        `json:"conditionalSkills,omitempty"`
 	Roles               []RoleConfig    `json:"roles"`
 	Commands            []CommandConfig `json:"commands"`
 	LegacyCommandIds    []string        `json:"legacyCommandIds,omitempty"`
@@ -59,6 +60,7 @@ type DistManifest struct {
 	GeneratedAt         string           `json:"generatedAt"`
 	PlaceholderBasePath string           `json:"placeholderBasePath"`
 	Skills              []string         `json:"skills"`
+	ConditionalSkills   []string         `json:"conditionalSkills,omitempty"`
 	Roles               []DistRole       `json:"roles"`
 	Commands            []DistCommand    `json:"commands"`
 	LegacyCommandIds    []string         `json:"legacyCommandIds,omitempty"`
