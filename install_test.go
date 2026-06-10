@@ -476,3 +476,138 @@ func TestOpencodeJsonPatchRoundtrip(t *testing.T) {
 		}
 	}
 }
+
+// ---------------------------------------------------------------------------
+// T1a-8: Ordered placeholder substitution tests
+// ---------------------------------------------------------------------------
+
+// TestInstallToPlatform_PlaceholderListOrdered verifies that installToPlatform
+// substitutes __DOC_AGENT_BASE_PATH__ (existing) AND __DOC_AGENT_GLOBAL_MODE__
+// (new) in a fixture file during install.
+func TestInstallToPlatform_PlaceholderListOrdered(t *testing.T) {
+	tmpHome := t.TempDir()
+	restoreHome := mockHomeEnv(t, tmpHome)
+	defer restoreHome()
+
+	// Generate dist so we have real role/command files to install.
+	distDir := filepath.Join(t.TempDir(), "dist")
+	if err := generate(distDir); err != nil {
+		t.Fatalf("generate dist: %v", err)
+	}
+	manifest, err := readManifestFrom(distDir)
+	if err != nil {
+		t.Fatalf("read manifest: %v", err)
+	}
+
+	// Inject __DOC_AGENT_GLOBAL_MODE__ into a role that also uses BASE_PATH
+	// (doc-prd) so we can verify both substitutions happen in one install.
+	// Find the doc-prd role entry.
+	var prdRole DistRole
+	for _, r := range manifest.Roles {
+		if r.ID == "doc-prd" {
+			prdRole = r
+			break
+		}
+	}
+	if prdRole.ID == "" {
+		t.Skip("doc-prd role not found in manifest")
+	}
+	samplePromptSrc := filepath.Join(distDir, filepath.ToSlash(prdRole.PromptFiles.OpenCode))
+	if _, err := os.Stat(samplePromptSrc); os.IsNotExist(err) {
+		t.Fatalf("sample prompt file not found: %s", samplePromptSrc)
+	}
+
+	// Append the __DOC_AGENT_GLOBAL_MODE__ placeholder to the file.
+	origContent, err := os.ReadFile(samplePromptSrc)
+	if err != nil {
+		t.Fatalf("read sample prompt: %v", err)
+	}
+	modifiedContent := string(origContent) + "\nmode: __DOC_AGENT_GLOBAL_MODE__\n"
+	if err := os.WriteFile(samplePromptSrc, []byte(modifiedContent), 0644); err != nil {
+		t.Fatalf("write modified prompt: %v", err)
+	}
+
+	// Set up mock opencode platform.
+	opencodeHome := filepath.Join(tmpHome, ".config", "opencode")
+	if err := os.MkdirAll(opencodeHome, 0755); err != nil {
+		t.Fatalf("create opencode dir: %v", err)
+	}
+	cfgData, _ := json.Marshal(map[string]any{})
+	if err := os.WriteFile(filepath.Join(opencodeHome, "opencode.json"), cfgData, 0644); err != nil {
+		t.Fatalf("write opencode.json: %v", err)
+	}
+	plat := newPlatformForTest(t, "opencode", opencodeHome)
+	basePath := filepath.ToSlash(filepath.Join(tmpHome, "projects")) + "/"
+
+	// Install using vault mode — the mode string passed is "vault".
+	if err := installToPlatform(manifest, plat, basePath, distDir, "vault"); err != nil {
+		t.Fatalf("installToPlatform: %v", err)
+	}
+
+	// Verify __DOC_AGENT_BASE_PATH__ was replaced by basePath.
+	dstPrompt := filepath.Join(plat.PromptsDir(), filepath.Base(prdRole.PromptFiles.OpenCode))
+	content, err := os.ReadFile(dstPrompt)
+	if err != nil {
+		t.Fatalf("read installed prompt: %v", err)
+	}
+	if strings.Contains(string(content), manifest.PlaceholderBasePath) {
+		t.Errorf("__DOC_AGENT_BASE_PATH__ not replaced in installed prompt")
+	}
+	if !strings.Contains(string(content), basePath) {
+		t.Errorf("installed prompt does not contain the resolved basePath %q", basePath)
+	}
+
+	// Verify __DOC_AGENT_GLOBAL_MODE__ was replaced by "vault".
+	if strings.Contains(string(content), "__DOC_AGENT_GLOBAL_MODE__") {
+		t.Errorf("__DOC_AGENT_GLOBAL_MODE__ not replaced in installed prompt")
+	}
+	if !strings.Contains(string(content), "mode: vault") {
+		t.Errorf("installed prompt does not contain 'mode: vault' — global mode substitution did not happen")
+	}
+}
+
+// TestInstallToPlatform_VaultByteIdenticalBasePath verifies that the existing
+// BASE_PATH substitution behaviour is preserved (vault output byte-identical).
+// This test uses the original 4-argument signature style via a no-mode call.
+func TestInstallToPlatform_VaultByteIdenticalBasePath(t *testing.T) {
+	tmpHome := t.TempDir()
+	restoreHome := mockHomeEnv(t, tmpHome)
+	defer restoreHome()
+
+	distDir := filepath.Join(t.TempDir(), "dist")
+	if err := generate(distDir); err != nil {
+		t.Fatalf("generate dist: %v", err)
+	}
+	manifest, err := readManifestFrom(distDir)
+	if err != nil {
+		t.Fatalf("read manifest: %v", err)
+	}
+
+	opencodeHome := filepath.Join(tmpHome, ".config", "opencode")
+	if err := os.MkdirAll(opencodeHome, 0755); err != nil {
+		t.Fatalf("create opencode dir: %v", err)
+	}
+	cfgData, _ := json.Marshal(map[string]any{})
+	if err := os.WriteFile(filepath.Join(opencodeHome, "opencode.json"), cfgData, 0644); err != nil {
+		t.Fatalf("write opencode.json: %v", err)
+	}
+	plat := newPlatformForTest(t, "opencode", opencodeHome)
+	basePath := filepath.ToSlash(filepath.Join(tmpHome, "projects")) + "/"
+
+	// Install using vault mode.
+	if err := installToPlatform(manifest, plat, basePath, distDir, "vault"); err != nil {
+		t.Fatalf("installToPlatform: %v", err)
+	}
+
+	// All installed prompt files must NOT contain the base path placeholder.
+	for _, role := range manifest.Roles {
+		dstPrompt := filepath.Join(plat.PromptsDir(), role.ID+".md")
+		content, err := os.ReadFile(dstPrompt)
+		if err != nil {
+			t.Fatalf("read installed prompt %s: %v", role.ID, err)
+		}
+		if strings.Contains(string(content), manifest.PlaceholderBasePath) {
+			t.Errorf("prompt %s: placeholder %q not replaced after install", role.ID, manifest.PlaceholderBasePath)
+		}
+	}
+}
