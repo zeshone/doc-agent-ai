@@ -16,7 +16,7 @@ package main
 //     and the wizard routes to stepDone with a "nothing to do" summary.
 //   - [Back] from stepOverwrite → prevStep (stepPath for vault, stepDocsMode for in-project).
 //   - [Install] → stepProgress.
-//   - focusZone works: Tab cycles list↔buttons; left/right moves button focus.
+//   - Dual-axis nav: ↑/↓ move the overwrite choice; ←/→ move button focus.
 //   - prevStep(stepOverwrite) == stepPath when mode==ModeVault.
 //   - prevStep(stepOverwrite) == stepDocsMode when mode==ModeInProject (slice 5 uses this).
 
@@ -53,9 +53,10 @@ func newOverwriteModelWithInstalled(t *testing.T, allIDs []string, installedIDs 
 	m.alreadyInstalled = installed
 	// Start on stepOverwrite with all platforms selected.
 	m.step = stepOverwrite
-	m.focusZone = focusZoneList
 	// overwriteChoice=0 = overwrite-all (the default)
 	m.overwriteChoice = 0
+	// Default button focus=0 = [Install].
+	m.overwriteButtons.focus = 0
 	m.width = 80
 	m.height = 24
 	return m
@@ -77,17 +78,16 @@ func TestOverwrite_ScreenShown_WhenSomeInstalled(t *testing.T) {
 	m.alreadyInstalled = map[string]bool{"opencode": true}
 	// Go to docs-mode step with vault selected, then route Continue → overwrite.
 	m.step = stepDocsMode
-	m.modeCursor = 0 // vault
-	m.focusZone = focusZoneList
+	m.modeCursor = 0            // vault
+	m.docsModeButtons.focus = 0 // Continue (default)
 
-	// Tab to buttons, Enter = Continue → stepPath (vault).
-	m = sendKey(t, m, "tab")
+	// Enter = Continue → stepPath (vault).
 	m = sendSpecialKey(t, m, tea.KeyEnter)
 	if m.step != stepPath {
 		t.Fatalf("want stepPath after docs-mode Continue (vault), got %v", m.step)
 	}
 
-	// Path entry: type a path and list-zone Enter = Continue → should route to stepOverwrite.
+	// Path entry: type a path and Enter = Continue → should route to stepOverwrite.
 	for _, ch := range "/vault/docs/" {
 		m = sendKey(t, m, string(ch))
 	}
@@ -107,10 +107,9 @@ func TestOverwrite_ScreenSkipped_WhenNoInstalled(t *testing.T) {
 	m := newInstallModelForTest(AppConfig{}, false, []Platform{plat})
 	m.alreadyInstalled = map[string]bool{} // nothing installed
 	m.step = stepDocsMode
-	m.modeCursor = 0 // vault
-	m.focusZone = focusZoneList
+	m.modeCursor = 0            // vault
+	m.docsModeButtons.focus = 0 // Continue (default)
 
-	m = sendKey(t, m, "tab")
 	m = sendSpecialKey(t, m, tea.KeyEnter) // → stepPath
 	if m.step != stepPath {
 		t.Fatalf("want stepPath, got %v", m.step)
@@ -136,10 +135,9 @@ func TestOverwrite_ScreenSkipped_InProject_WhenNoInstalled(t *testing.T) {
 	m := newInstallModelForTest(AppConfig{}, false, []Platform{plat})
 	m.alreadyInstalled = map[string]bool{}
 	m.step = stepDocsMode
-	m.modeCursor = 1 // in-project
-	m.focusZone = focusZoneList
+	m.modeCursor = 1            // in-project
+	m.docsModeButtons.focus = 0 // Continue (default)
 
-	m = sendKey(t, m, "tab")
 	m = sendSpecialKey(t, m, tea.KeyEnter) // Continue in-project → should go to stepProgress
 
 	if m.step != stepProgress {
@@ -156,10 +154,9 @@ func TestOverwrite_ScreenShown_InProject_WhenInstalled(t *testing.T) {
 	m := newInstallModelForTest(AppConfig{}, false, []Platform{plat})
 	m.alreadyInstalled = map[string]bool{"opencode": true}
 	m.step = stepDocsMode
-	m.modeCursor = 1 // in-project
-	m.focusZone = focusZoneList
+	m.modeCursor = 1            // in-project
+	m.docsModeButtons.focus = 0 // Continue (default)
 
-	m = sendKey(t, m, "tab")
 	m = sendSpecialKey(t, m, tea.KeyEnter) // Continue in-project
 
 	if m.step != stepOverwrite {
@@ -177,9 +174,7 @@ func TestOverwrite_ScreenShown_InProject_WhenInstalled(t *testing.T) {
 func TestOverwrite_OverwriteAll_PopulatesOverwriteMap(t *testing.T) {
 	m := newOverwriteModelWithInstalled(t, []string{"opencode", "claude"}, []string{"opencode", "claude"})
 	m.overwriteChoice = 0 // overwrite-all
-
-	// Tab to button zone, Enter = [Install].
-	m = sendKey(t, m, "tab")
+	// [Install] is default focus (index 0) — Enter activates it.
 	m = sendSpecialKey(t, m, tea.KeyEnter)
 
 	if m.step != stepProgress {
@@ -201,8 +196,7 @@ func TestOverwrite_OverwriteAll_PartiallyInstalled(t *testing.T) {
 	// opencode installed, claude fresh
 	m := newOverwriteModelWithInstalled(t, []string{"opencode", "claude"}, []string{"opencode"})
 	m.overwriteChoice = 0
-
-	m = sendKey(t, m, "tab")
+	// [Install] is default focus — Enter activates it.
 	m = sendSpecialKey(t, m, tea.KeyEnter)
 
 	if m.step != stepProgress {
@@ -228,9 +222,9 @@ func TestOverwrite_OverwriteAll_PartiallyInstalled(t *testing.T) {
 func TestOverwrite_InstallOnlyMissing_ExcludesInstalled(t *testing.T) {
 	// opencode installed, claude fresh
 	m := newOverwriteModelWithInstalled(t, []string{"opencode", "claude"}, []string{"opencode"})
-	m.overwriteChoice = 1 // install-only-missing
-
-	m = sendKey(t, m, "tab")
+	m.overwriteChoice = 1        // install-only-missing
+	m.overwriteButtons.focus = 0 // [Install]
+	// Enter activates [Install].
 	m = sendSpecialKey(t, m, tea.KeyEnter)
 
 	if m.step != stepProgress {
@@ -270,9 +264,8 @@ func TestOverwrite_InstallOnlyMissing_ExcludesInstalled(t *testing.T) {
 func TestOverwrite_InstallOnlyMissing_AllPresent_EmptyPlatforms(t *testing.T) {
 	// Both platforms already installed.
 	m := newOverwriteModelWithInstalled(t, []string{"opencode", "claude"}, []string{"opencode", "claude"})
-	m.overwriteChoice = 1 // install-only-missing
-
-	m = sendKey(t, m, "tab")
+	m.overwriteChoice = 1        // install-only-missing
+	m.overwriteButtons.focus = 0 // [Install]
 	m = sendSpecialKey(t, m, tea.KeyEnter)
 
 	// Must route to stepDone (nothing to install), NOT stepProgress.
@@ -306,9 +299,8 @@ func TestOverwrite_Back_VaultMode_ReturnsToPrevStep(t *testing.T) {
 	m := newOverwriteModelWithInstalled(t, []string{"opencode"}, []string{"opencode"})
 	m.mode = ModeVault
 
-	// Focus button zone, move to Back (index 1), Enter.
-	m = sendKey(t, m, "tab")
-	m = sendKey(t, m, "right")
+	// → moves button focus to Back (index 1), Enter activates it.
+	m = sendSpecialKey(t, m, tea.KeyRight)
 	m = sendSpecialKey(t, m, tea.KeyEnter)
 
 	if m.step != prevStep(stepOverwrite) {
@@ -322,8 +314,7 @@ func TestOverwrite_Back_InProjectMode_ReturnsToDocsMode(t *testing.T) {
 	m := newOverwriteModelWithInstalled(t, []string{"opencode"}, []string{"opencode"})
 	m.mode = ModeInProject
 
-	m = sendKey(t, m, "tab")
-	m = sendKey(t, m, "right")
+	m = sendSpecialKey(t, m, tea.KeyRight)
 	m = sendSpecialKey(t, m, tea.KeyEnter)
 
 	if m.step != stepDocsMode {
@@ -332,38 +323,36 @@ func TestOverwrite_Back_InProjectMode_ReturnsToDocsMode(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// T4.6 — focusZone: Tab cycles list ↔ buttons; radio choice up/down
+// T4.6 — ←/→ move buttons; ↑/↓ move radio choice (both axes always live)
 // ---------------------------------------------------------------------------
 
-// TestOverwrite_Tab_CyclesToButtons verifies Tab moves focusZone from list to buttons.
-func TestOverwrite_Tab_CyclesToButtons(t *testing.T) {
+// TestOverwrite_RightArrow_MovesFocusToBack verifies → moves button focus to Back.
+func TestOverwrite_RightArrow_MovesFocusToBack(t *testing.T) {
 	m := newOverwriteModelWithInstalled(t, []string{"opencode"}, []string{"opencode"})
-	m.focusZone = focusZoneList
 
-	m = sendKey(t, m, "tab")
-	if m.focusZone != focusZoneButtons {
-		t.Errorf("after Tab, focusZone = %v, want focusZoneButtons", m.focusZone)
+	m = sendSpecialKey(t, m, tea.KeyRight)
+	if m.overwriteButtons.focus != 1 {
+		t.Errorf("→ should move overwriteButtons.focus to 1 (Back); got %d", m.overwriteButtons.focus)
 	}
 }
 
-// TestOverwrite_Tab_CyclesBackToList verifies a second Tab returns to list zone.
-func TestOverwrite_Tab_CyclesBackToList(t *testing.T) {
+// TestOverwrite_LeftArrow_MovesFocusToInstall verifies ← moves button focus back to Install.
+func TestOverwrite_LeftArrow_MovesFocusToInstall(t *testing.T) {
 	m := newOverwriteModelWithInstalled(t, []string{"opencode"}, []string{"opencode"})
-	m.focusZone = focusZoneList
+	m.overwriteButtons.focus = 1 // start at Back
 
-	m = sendKey(t, m, "tab")
-	m = sendKey(t, m, "tab")
-	if m.focusZone != focusZoneList {
-		t.Errorf("after double Tab, focusZone = %v, want focusZoneList", m.focusZone)
+	m = sendSpecialKey(t, m, tea.KeyLeft)
+	if m.overwriteButtons.focus != 0 {
+		t.Errorf("← should move overwriteButtons.focus to 0 (Install); got %d", m.overwriteButtons.focus)
 	}
 }
 
 // TestOverwrite_RadioChoice_DownMovesToInstallOnly verifies down/j moves
 // overwriteChoice from 0 (overwrite-all) to 1 (install-only-missing).
+// ↑/↓ always work regardless of button focus position.
 func TestOverwrite_RadioChoice_DownMovesToInstallOnly(t *testing.T) {
 	m := newOverwriteModelWithInstalled(t, []string{"opencode"}, []string{"opencode"})
 	m.overwriteChoice = 0
-	m.focusZone = focusZoneList
 
 	m = sendKey(t, m, "j")
 	if m.overwriteChoice != 1 {
@@ -375,7 +364,6 @@ func TestOverwrite_RadioChoice_DownMovesToInstallOnly(t *testing.T) {
 func TestOverwrite_RadioChoice_UpClampsAtZero(t *testing.T) {
 	m := newOverwriteModelWithInstalled(t, []string{"opencode"}, []string{"opencode"})
 	m.overwriteChoice = 0
-	m.focusZone = focusZoneList
 
 	m = sendKey(t, m, "k")
 	if m.overwriteChoice != 0 {
@@ -462,11 +450,10 @@ func TestOverwrite_View_ContainsInstallAndBackButtons(t *testing.T) {
 // running during teardown.
 func TestTUIFlow_Overwrite_InstallAdvancesToProgress(t *testing.T) {
 	m := newOverwriteModelWithInstalled(t, []string{"opencode"}, []string{"opencode"})
-	m.overwriteChoice = 0 // overwrite-all
-	m.focusZone = focusZoneButtons
-	m.overwriteButtons.focus = 0 // [Install]
+	m.overwriteChoice = 0        // overwrite-all
+	m.overwriteButtons.focus = 0 // [Install] is default focus
 
-	// Enter on button zone → [Install] → commitOverwriteAndInstall → stepProgress.
+	// Enter → [Install] → commitOverwriteAndInstall → stepProgress.
 	result, _ := m.Update(tea.KeyMsg(tea.Key{Type: tea.KeyEnter}))
 	final, ok := result.(InstallModel)
 	if !ok {
@@ -485,8 +472,7 @@ func TestTUIFlow_Overwrite_BackReturnsToPath(t *testing.T) {
 
 	tm := teatest.NewTestModel(t, m, teatest.WithInitialTermSize(80, 24))
 
-	// Tab → buttons, Right → Back, Enter.
-	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyTab}))
+	// → moves to Back (index 1), Enter activates it.
 	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyRight}))
 	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyEnter}))
 	// Ctrl+C to quit from stepPath.

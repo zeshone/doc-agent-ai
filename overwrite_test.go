@@ -44,9 +44,8 @@ func TestInstallModel_OverwriteStep_NotShownForFreshInstall(t *testing.T) {
 		t.Fatalf("expected stepDocsMode, got %v", m.step)
 	}
 
-	// DocsMode: in-project (modeCursor=1), Continue → should skip stepOverwrite → stepProgress.
+	// DocsMode: in-project (modeCursor=1), Enter (Continue is default focus=0) → stepProgress.
 	m.modeCursor = 1
-	m.focusZone = focusZoneButtons
 	m.docsModeButtons.focus = 0 // Continue
 	m = sendSpecialKey(t, m, tea.KeyEnter)
 

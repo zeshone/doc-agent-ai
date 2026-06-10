@@ -46,25 +46,6 @@ const (
 )
 
 // ---------------------------------------------------------------------------
-// focusZone — tracks which widget owns keyboard focus on a screen
-// ---------------------------------------------------------------------------
-
-// focusZone describes which UI region currently owns keyboard focus.
-// Screens with multiple interactive regions (e.g. platform-select has a
-// checkbox list and a button row) use this to determine how to route keys.
-type focusZone int
-
-const (
-	// focusZoneList means the content list (checkbox list, radio list, etc.)
-	// currently has focus. Up/down/j/k/space operate on the list.
-	focusZoneList focusZone = iota
-
-	// focusZoneButtons means the button row currently has focus.
-	// Tab/left/right/enter operate on the buttonRow.
-	focusZoneButtons
-)
-
-// ---------------------------------------------------------------------------
 // Navigation helpers — pure step transition functions
 // ---------------------------------------------------------------------------
 
@@ -218,15 +199,16 @@ func (b buttonRow) focused() string {
 }
 
 // handle processes a key string and updates focus or activates the focused button.
-//   - Tab / right  → move focus +1; returns ("", false)
-//   - shift+tab / left → move focus -1; returns ("", false)
-//   - enter         → returns (labels[focus], true)
-//   - unknown        → returns ("", false)
+// Tab and shift+tab are NOT handled here; button focus is moved by ←/→ only.
+//   - right  → move focus +1; returns ("", false)
+//   - left   → move focus -1; returns ("", false)
+//   - enter  → returns (labels[focus], true)
+//   - unknown → returns ("", false)
 func (b *buttonRow) handle(key string) (activated string, handled bool) {
 	switch strings.ToLower(key) {
-	case "tab", "right":
+	case "right":
 		*b = b.move(1)
-	case "shift+tab", "left":
+	case "left":
 		*b = b.move(-1)
 	case "enter":
 		return b.focused(), true

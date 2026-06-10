@@ -6,12 +6,11 @@ package main
 //
 // Tests for:
 //   - prevStep / nextStep pure helpers (Step transition table).
-//   - focusZone: Tab cycles content ↔ buttons; Enter on list vs buttons.
+//   - Dual-axis nav: ↑/↓ move the platform cursor; ←/→ move button focus.
 //   - Platform list: already-installed marks render; checkbox toggle.
 //   - Zero-selected guard: [Continue] blocked.
 //   - [Back] → Welcome (prevStep) with state preserved.
 //   - [Continue] → stepDocsMode (nextStep).
-//   - focusZone movement: Tab on list zone → button zone, Tab on buttons → list.
 
 import (
 	"os"
@@ -61,39 +60,31 @@ func TestNextStep_Welcome_ReturnsPlatformSelect(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// focusZone cycling
+// Button focus movement via ←/→ (no Tab)
 // ---------------------------------------------------------------------------
 
-// TestFocusZone_Tab_CyclesContentToButtons verifies that Tab on the platform
-// list zone (focusZoneList) moves focus to the button zone (focusZoneButtons).
-func TestFocusZone_Tab_CyclesContentToButtons(t *testing.T) {
+// TestPlatformSelect_RightArrow_MovesFocusToBack verifies that → moves button
+// focus from Continue (0) to Back (1) on the platform-select screen.
+func TestPlatformSelect_RightArrow_MovesFocusToBack(t *testing.T) {
 	plats := testPlatformsFromTempDir(t)
 	m := newInstallModelForTest(AppConfig{}, false, plats)
-	// Must be at stepPlatformSelect with list zone.
-	if m.step != stepPlatformSelect {
-		t.Fatalf("expected stepPlatformSelect, got %v", m.step)
-	}
-	if m.focusZone != focusZoneList {
-		t.Fatalf("initial focusZone = %v, want focusZoneList", m.focusZone)
-	}
 
-	// Send Tab → should move to button zone.
-	m = sendKey(t, m, "tab")
-	if m.focusZone != focusZoneButtons {
-		t.Fatalf("after tab, focusZone = %v, want focusZoneButtons", m.focusZone)
+	m = sendSpecialKey(t, m, tea.KeyRight)
+	if m.platformSelectButtons.focus != 1 {
+		t.Fatalf("→ should move button focus to 1 (Back); got %d", m.platformSelectButtons.focus)
 	}
 }
 
-// TestFocusZone_Tab_CyclesButtonsToContent verifies that Tab on the button
-// zone (focusZoneButtons) moves focus back to the list zone (focusZoneList).
-func TestFocusZone_Tab_CyclesButtonsToContent(t *testing.T) {
+// TestPlatformSelect_LeftArrow_MovesFocusToContinue verifies that ← moves button
+// focus from Back (1) back to Continue (0).
+func TestPlatformSelect_LeftArrow_MovesFocusToContinue(t *testing.T) {
 	plats := testPlatformsFromTempDir(t)
 	m := newInstallModelForTest(AppConfig{}, false, plats)
-	m.focusZone = focusZoneButtons
+	m.platformSelectButtons.focus = 1 // start at Back
 
-	m = sendKey(t, m, "tab")
-	if m.focusZone != focusZoneList {
-		t.Fatalf("after tab from buttons, focusZone = %v, want focusZoneList", m.focusZone)
+	m = sendSpecialKey(t, m, tea.KeyLeft)
+	if m.platformSelectButtons.focus != 0 {
+		t.Fatalf("← should move button focus to 0 (Continue); got %d", m.platformSelectButtons.focus)
 	}
 }
 
@@ -151,12 +142,10 @@ func TestPlatformSelect_FreshInstall_NoInstalledMark(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // TestPlatformSelect_SpaceTogglesCheckbox verifies that Space toggles the
-// selected state of the focused item when the list zone is active.
+// selected state of the focused item (always active, no zone gating).
 func TestPlatformSelect_SpaceTogglesCheckbox(t *testing.T) {
 	plats := testPlatformsFromTempDir(t)
 	m := newInstallModelForTest(AppConfig{}, false, plats)
-	// Ensure list zone is active.
-	m.focusZone = focusZoneList
 	initial := m.platforms[0].selected
 
 	m = sendKey(t, m, " ")
@@ -165,18 +154,18 @@ func TestPlatformSelect_SpaceTogglesCheckbox(t *testing.T) {
 	}
 }
 
-// TestPlatformSelect_SpaceIgnoredInButtonZone verifies that Space does NOT
-// toggle checkboxes when the button zone is focused.
-func TestPlatformSelect_SpaceIgnoredInButtonZone(t *testing.T) {
+// TestPlatformSelect_SpaceTogglesEvenAfterButtonMove verifies that Space toggles
+// the checkbox even after ←/→ have moved button focus.
+func TestPlatformSelect_SpaceTogglesEvenAfterButtonMove(t *testing.T) {
 	plats := testPlatformsFromTempDir(t)
 	m := newInstallModelForTest(AppConfig{}, false, plats)
-	m.focusZone = focusZoneButtons
+	// Move button focus to Back.
+	m = sendSpecialKey(t, m, tea.KeyRight)
 	initial := m.platforms[0].selected
 
 	m = sendKey(t, m, " ")
-	if m.platforms[0].selected != initial {
-		t.Fatalf("Space in button zone should NOT toggle checkbox; selected changed from %v to %v",
-			initial, m.platforms[0].selected)
+	if m.platforms[0].selected == initial {
+		t.Fatalf("Space should toggle checkbox even after button move; selected unchanged (was %v)", initial)
 	}
 }
 
@@ -185,8 +174,7 @@ func TestPlatformSelect_SpaceIgnoredInButtonZone(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // TestPlatformSelect_Continue_BlockedWhenNoneSelected verifies that Enter with
-// the button zone focused on [Continue] does NOT advance when zero platforms
-// are selected.
+// Continue focused does NOT advance when zero platforms are selected.
 func TestPlatformSelect_Continue_BlockedWhenNoneSelected(t *testing.T) {
 	plats := testPlatformsFromTempDir(t)
 	m := newInstallModelForTest(AppConfig{}, false, plats)
@@ -196,9 +184,7 @@ func TestPlatformSelect_Continue_BlockedWhenNoneSelected(t *testing.T) {
 		m.platforms[i].selected = false
 	}
 
-	// Focus the button zone and focus Continue.
-	m.focusZone = focusZoneButtons
-	m.platformSelectButtons.focus = 0 // Continue
+	m.platformSelectButtons.focus = 0 // Continue (default)
 
 	// Send Enter — should be blocked.
 	m = sendSpecialKey(t, m, tea.KeyEnter)
@@ -220,10 +206,8 @@ func TestPlatformSelect_Continue_BlockedWhenNoneSelected(t *testing.T) {
 func TestPlatformSelect_Back_ReturnsToWelcome(t *testing.T) {
 	plats := testPlatformsFromTempDir(t)
 	m := newInstallModelForTest(AppConfig{}, false, plats)
-	// m.step is already stepPlatformSelect from the helper.
 
-	// Focus buttons and move to Back (index 1).
-	m.focusZone = focusZoneButtons
+	// Move to Back button (index 1) via →, then Enter.
 	m.platformSelectButtons.focus = 1 // Back
 
 	m = sendSpecialKey(t, m, tea.KeyEnter)
@@ -242,7 +226,6 @@ func TestPlatformSelect_Back_PreservesSelections(t *testing.T) {
 	m.platforms[0].selected = false
 
 	// Go Back to Welcome.
-	m.focusZone = focusZoneButtons
 	m.platformSelectButtons.focus = 1 // Back
 	m = sendSpecialKey(t, m, tea.KeyEnter)
 	if m.step != stepWelcome {
@@ -265,9 +248,7 @@ func TestPlatformSelect_Continue_AdvancesToDocsMode(t *testing.T) {
 	plats := testPlatformsFromTempDir(t)
 	m := newInstallModelForTest(AppConfig{}, false, plats)
 	// At least one platform is selected by default.
-
-	m.focusZone = focusZoneButtons
-	m.platformSelectButtons.focus = 0 // Continue
+	// Continue is default focus (index 0).
 
 	m = sendSpecialKey(t, m, tea.KeyEnter)
 	if m.step != stepDocsMode {

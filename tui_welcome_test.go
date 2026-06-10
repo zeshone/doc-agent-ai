@@ -5,7 +5,7 @@ package main
 // ---------------------------------------------------------------------------
 //
 // Tests T1.7 (all sub-tests) for:
-//   - buttonRow: Tab/Shift+Tab focus, Enter activation, render with Plain styles.
+//   - buttonRow: left/right focus, Enter activation, render with Plain styles.
 //   - renderBanner: Plain mode byte-stability, no ANSI escape sequences.
 //   - bannerPalette: correct mapping for indices 0/1/2.
 //   - Welcome screen: Quit quits, Continue advances to stepPlatformSelect.
@@ -20,40 +20,54 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// TestButtonRow_Handle_TabMovesFocus
+// buttonRow focus movement
 // ---------------------------------------------------------------------------
 
-// TestButtonRow_Handle_TabMovesFocus verifies that Tab cycles focus forward and
-// Shift+Tab cycles it backward, with wrapping.
-func TestButtonRow_Handle_TabMovesFocus(t *testing.T) {
+// TestButtonRow_Handle_LeftRightMovesFocusOnly verifies that ← and → cycle
+// focus without Tab (Tab is no longer bound in the new nav model).
+func TestButtonRow_Handle_LeftRightMovesFocusOnly(t *testing.T) {
 	b := buttonRow{labels: []string{"A", "B", "C"}, focus: 0}
 
-	// Tab moves focus forward.
-	_, _ = b.handle("tab")
+	// Right moves focus forward.
+	_, _ = b.handle("right")
 	if b.focus != 1 {
-		t.Fatalf("after tab, focus = %d, want 1", b.focus)
+		t.Fatalf("after right, focus = %d, want 1", b.focus)
 	}
 
-	_, _ = b.handle("tab")
+	_, _ = b.handle("right")
 	if b.focus != 2 {
-		t.Fatalf("after second tab, focus = %d, want 2", b.focus)
+		t.Fatalf("after second right, focus = %d, want 2", b.focus)
 	}
 
 	// Wraps back to 0.
-	_, _ = b.handle("tab")
+	_, _ = b.handle("right")
 	if b.focus != 0 {
-		t.Fatalf("tab should wrap focus to 0, got %d", b.focus)
+		t.Fatalf("right should wrap focus to 0, got %d", b.focus)
 	}
 
-	// Shift+Tab goes backward.
-	_, _ = b.handle("shift+tab")
+	// Left goes backward.
+	_, _ = b.handle("left")
 	if b.focus != 2 {
-		t.Fatalf("shift+tab from 0 should wrap to 2, got %d", b.focus)
+		t.Fatalf("left from 0 should wrap to 2, got %d", b.focus)
 	}
 
-	_, _ = b.handle("shift+tab")
+	_, _ = b.handle("left")
 	if b.focus != 1 {
-		t.Fatalf("shift+tab from 2 should go to 1, got %d", b.focus)
+		t.Fatalf("left from 2 should go to 1, got %d", b.focus)
+	}
+}
+
+// TestButtonRow_Handle_TabIsNoOp verifies that Tab no longer moves button focus
+// (Tab is unbound in the new navigation model — no focusZone switching).
+func TestButtonRow_Handle_TabIsNoOp(t *testing.T) {
+	b := buttonRow{labels: []string{"A", "B"}, focus: 0}
+
+	_, handled := b.handle("tab")
+	if handled {
+		t.Error("Tab should not be handled by buttonRow.handle in the new nav model")
+	}
+	if b.focus != 0 {
+		t.Errorf("Tab changed focus from 0 to %d; should be a no-op", b.focus)
 	}
 }
 
@@ -88,8 +102,8 @@ func TestButtonRow_Handle_EnterActivates(t *testing.T) {
 		t.Fatalf("expected activated label 'Continue', got %q", label)
 	}
 
-	// Move to second button.
-	_, _ = b.handle("tab")
+	// Move to second button via right (Tab is no longer bound).
+	_, _ = b.handle("right")
 	label, handled = b.handle("enter")
 	if !handled {
 		t.Fatal("handle('enter') returned handled=false on second button")

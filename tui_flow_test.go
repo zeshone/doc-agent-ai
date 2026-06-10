@@ -83,8 +83,8 @@ func TestGolden_OverwriteConsolidated(t *testing.T) {
 	// Mark the first platform as already installed.
 	m.alreadyInstalled = map[string]bool{plats[0].ID(): true}
 	m.step = stepOverwrite
-	m.overwriteChoice = 0 // overwrite-all (default)
-	m.focusZone = focusZoneList
+	m.overwriteChoice = 0        // overwrite-all (default)
+	m.overwriteButtons.focus = 0 // [Install] focused
 	view := m.View()
 	assertGolden(t, view)
 }
@@ -204,11 +204,11 @@ func TestTUIFlow_InProject(t *testing.T) {
 		teatest.WithInitialTermSize(80, 24),
 	)
 
-	// Enter on platform select (all selected by default).
+	// Enter on platform select: Continue is default focus → stepDocsMode.
 	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyEnter}))
 	// Navigate to in-project (j = down) in docs-mode.
 	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyRunes, Runes: []rune("j")}))
-	// Enter → in-project Continue → stepOverwrite (platform already installed).
+	// Enter → in-project Continue (default focus=0) → stepOverwrite (platform already installed).
 	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyEnter}))
 
 	// Ctrl+C to quit from overwrite screen.
@@ -242,17 +242,16 @@ func TestTUIFlow_Vault(t *testing.T) {
 		teatest.WithInitialTermSize(80, 24),
 	)
 
-	// Platform step → Enter.
+	// Platform step → Enter (Continue is default focus=0) → stepDocsMode.
 	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyEnter}))
-	// DocsMode: vault is default (modeCursor=0) → Enter.
+	// DocsMode: vault is default (modeCursor=0), Enter (Continue default) → stepPath.
 	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyEnter}))
 
-	// Should now be at stepPath.
-	// Type a vault path.
+	// Now at stepPath — type a vault path.
 	for _, ch := range "/my/vault/" {
 		tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyRunes, Runes: []rune{ch}}))
 	}
-	// Enter to confirm path → some platforms installed → stepOverwrite (not stepProgress).
+	// Enter → Continue (path non-empty) → some platforms installed → stepOverwrite.
 	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyEnter}))
 
 	// Ctrl+C to quit from overwrite screen.
@@ -327,18 +326,14 @@ func TestTUIFlow_UninstallCancel(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // TestTUIFlow_PlatformSelect_BackReturnsToWelcome exercises the BACK path using
-// teatest: from platform-select, navigate to buttons, focus Back, press Enter →
-// must return to stepWelcome.
+// teatest: from platform-select, → to focus Back, Enter → must return to stepWelcome.
 func TestTUIFlow_PlatformSelect_BackReturnsToWelcome(t *testing.T) {
 	plats := testPlatformsFromTempDir(t)
 	m := newInstallModelForTest(AppConfig{}, false, plats)
-	// newInstallModelForTest sets step=stepPlatformSelect and focusZone=focusZoneList.
 
 	tm := teatest.NewTestModel(t, m, teatest.WithInitialTermSize(80, 24))
 
-	// Tab → focus button zone.
-	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyTab}))
-	// Right arrow → move to Back button (index 1).
+	// → moves to Back button (index 1) — no Tab needed.
 	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyRight}))
 	// Enter → activate Back → stepWelcome.
 	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyEnter}))
@@ -348,8 +343,6 @@ func TestTUIFlow_PlatformSelect_BackReturnsToWelcome(t *testing.T) {
 	tm.WaitFinished(t, teatest.WithFinalTimeout(3*time.Second))
 	final := tm.FinalModel(t).(InstallModel)
 
-	// After Back the model should be at stepWelcome.
-	// (ctrl+c will have quit before any further navigation)
 	if final.step != stepWelcome {
 		t.Fatalf("expected stepWelcome after Back, got %v", final.step)
 	}
@@ -389,13 +382,10 @@ func TestTUIFlow_DocsMode_BackReturnsToPlatformSelect(t *testing.T) {
 	plats := testPlatformsFromTempDir(t)
 	m := newInstallModelForTest(AppConfig{}, false, plats)
 	m.step = stepDocsMode
-	m.focusZone = focusZoneList
 
 	tm := teatest.NewTestModel(t, m, teatest.WithInitialTermSize(80, 24))
 
-	// Tab → focus button zone.
-	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyTab}))
-	// Right → move to Back button (index 1).
+	// → moves to Back button (index 1).
 	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyRight}))
 	// Enter → activate Back → stepPlatformSelect.
 	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyEnter}))
@@ -417,13 +407,10 @@ func TestTUIFlow_DocsMode_VaultGoesToPath(t *testing.T) {
 	m := newInstallModelForTest(AppConfig{}, false, plats)
 	m.step = stepDocsMode
 	m.modeCursor = 0 // vault
-	m.focusZone = focusZoneList
 
 	tm := teatest.NewTestModel(t, m, teatest.WithInitialTermSize(80, 24))
 
-	// Tab → button zone.
-	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyTab}))
-	// Enter → Continue (index 0, default) → stepPath.
+	// Enter → Continue (default focus=0) → stepPath.
 	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyEnter}))
 	// Ctrl+C to quit from path.
 	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyCtrlC}))
@@ -451,15 +438,11 @@ func TestTUIFlow_DocsMode_InProjectSkipsPath(t *testing.T) {
 	m.alreadyInstalled = map[string]bool{plats[0].ID(): true}
 	m.step = stepDocsMode
 	m.modeCursor = 0 // start at vault
-	m.focusZone = focusZoneList
 
 	tm := teatest.NewTestModel(t, m, teatest.WithInitialTermSize(80, 24))
 
-	// Move to in-project.
+	// j moves to in-project, Enter → Continue (default focus=0) → stepOverwrite.
 	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyRunes, Runes: []rune("j")}))
-	// Tab → button zone.
-	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyTab}))
-	// Enter → Continue (in-project with installed platform) → stepOverwrite (not stepPath).
 	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyEnter}))
 	// Ctrl+C to quit from overwrite screen.
 	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyCtrlC}))
@@ -479,22 +462,17 @@ func TestTUIFlow_DocsMode_InProjectSkipsPath(t *testing.T) {
 	}
 }
 
-// TestTUIFlow_Path_BackReturnsToDocsMode exercises the Back path from stepPath
-// back to stepDocsMode via teatest.
+// TestTUIFlow_Path_BackReturnsToDocsMode exercises the Esc (Back) path from
+// stepPath back to stepDocsMode via teatest.
 func TestTUIFlow_Path_BackReturnsToDocsMode(t *testing.T) {
 	plats := testPlatformsFromTempDir(t)
 	m := newInstallModelForTest(AppConfig{}, false, plats)
 	m.step = stepPath
-	m.focusZone = focusZoneList
 
 	tm := teatest.NewTestModel(t, m, teatest.WithInitialTermSize(80, 24))
 
-	// Tab → button zone.
-	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyTab}))
-	// Right → Back button (index 1).
-	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyRight}))
-	// Enter → activate Back → stepDocsMode.
-	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyEnter}))
+	// Esc = Back on path screen (textinput-owned; no button focus).
+	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyEsc}))
 	// Ctrl+C to quit.
 	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyCtrlC}))
 
@@ -502,7 +480,7 @@ func TestTUIFlow_Path_BackReturnsToDocsMode(t *testing.T) {
 	final := tm.FinalModel(t).(InstallModel)
 
 	if final.step != stepDocsMode {
-		t.Fatalf("expected stepDocsMode after Back from path, got %v", final.step)
+		t.Fatalf("expected stepDocsMode after Esc from path, got %v", final.step)
 	}
 }
 
