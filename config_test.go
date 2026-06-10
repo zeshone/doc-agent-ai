@@ -183,8 +183,8 @@ func TestSaveConfig_FilePermissions(t *testing.T) {
 	mode := info.Mode().Perm()
 	// Accept 0644 exactly on POSIX; on Windows mode checks are best-effort.
 	if mode != 0644 {
-		// Windows reports 0666 regardless; do not fail on Windows.
-		// We use filepath.IsAbs to detect a Windows-style absolute path as a proxy.
+		// Windows reports 0666 regardless; the os.PathSeparator check below is
+		// what actually skips the assertion there.
 		if !filepath.IsAbs(tmpHome) || os.PathSeparator != '\\' {
 			t.Errorf("file permissions = %o, want 0644", mode)
 		}
