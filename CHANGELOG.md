@@ -8,6 +8,14 @@ For older releases without a section here, the GitHub Release notes have the det
 
 ## v4.0.0 — Unreleased
 
+### Resolution engine (PR 1a)
+
+- `feat(config)`: add `~/.doc-agent-ai.json` persistent config (mode, path, platforms)
+- `feat(resolve)`: add dual-mode path resolution engine (vault / in-project) with `.doc-agent.json` per-project marker support
+- `feat(plan)`: add `InstallPlan` value object decoupling TUI from engine; headless `parsePlanFromFlags` for `--platforms`, `--docs-mode`, `--path`, `--yes`
+- `feat(generate)`: inject `{{PATH_RESOLUTION}}` token into `buildBodyVars` and commands render loop (opt-in per content file; vault output byte-identical when token absent)
+- `feat(install)`: extend `installToPlatform` placeholder substitution to ordered multi-token list adding `__DOC_AGENT_GLOBAL_MODE__`
+
 ### BREAKING CHANGE — opencode command rename
 
 All 11 opencode commands now carry the `doc-` prefix. If you are using opencode and have customized any command triggers or keybindings pointing to the old bare names, update them to the new names below.
