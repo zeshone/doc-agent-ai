@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -370,4 +371,53 @@ func containsAny(s string, subs ...string) bool {
 		}
 	}
 	return false
+}
+
+// TestOverwriteQueue_AllDeclined_ReturnsToPlatformSelect guards the
+// all-platforms-declined edge: when every selected platform is declined for
+// overwrite, the wizard must NOT continue to stepDocsMode with zero selected
+// platforms (a nil Platforms plan means "all" to the engine — the exact
+// opposite of what the user chose). It must return to platform selection.
+func TestOverwriteQueue_AllDeclined_ReturnsToPlatformSelect(t *testing.T) {
+	m := InstallModel{
+		step:              stepOverwriteConfirm,
+		platforms:         []platformItem{{id: "opencode", label: "opencode", selected: true}},
+		overwriteQueue:    []string{"opencode"},
+		overwriteQueueIdx: 0,
+		overwriteConsent:  map[string]bool{},
+		styles:            NoColor(),
+	}
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+	im, ok := updated.(InstallModel)
+	if !ok {
+		t.Fatalf("Update returned %T, want InstallModel", updated)
+	}
+	if im.step == stepDocsMode {
+		t.Fatal("wizard advanced to stepDocsMode with zero selected platforms — all-declined edge not guarded")
+	}
+	if im.step != stepPlatformSelect {
+		t.Errorf("step = %v, want stepPlatformSelect after declining all platforms", im.step)
+	}
+}
+
+// TestRunInstall_NoPlatformsSelected_Errors is the defense-in-depth guard:
+// runInstall must never hand executeInstall a nil Platforms list (which the
+// engine interprets as "install to all detected").
+func TestRunInstall_NoPlatformsSelected_Errors(t *testing.T) {
+	m := InstallModel{
+		platforms: []platformItem{{id: "opencode", label: "opencode", selected: false}},
+		mode:      ModeVault,
+		styles:    NoColor(),
+	}
+
+	cmd := m.runInstall()
+	msg := cmd()
+	rm, ok := msg.(installResultMsg)
+	if !ok {
+		t.Fatalf("cmd returned %T, want installResultMsg", msg)
+	}
+	if rm.err == nil || !strings.Contains(rm.err.Error(), "no platforms selected") {
+		t.Errorf("err = %v, want 'no platforms selected' guard error", rm.err)
+	}
 }
