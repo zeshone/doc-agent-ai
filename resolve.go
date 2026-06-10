@@ -69,10 +69,20 @@ func readMarker(dir string) (ProjectMarker, bool, error) {
 // resolveMode — deterministic precedence rule (pure function)
 // ---------------------------------------------------------------------------
 
+// isValidMode reports whether m is one of the supported documentation modes.
+// Marker and config files are hand-edited JSON, so unknown values are expected
+// input, not programming errors.
+func isValidMode(m DocsMode) bool {
+	return m == ModeVault || m == ModeInProject
+}
+
 // resolveMode applies the resolution precedence rule and returns the effective
 // DocsMode for the current context:
 //
 //	marker.mode (cwd) > global config.mode > built-in default "vault"
+//
+// A level with an unknown mode value is skipped as if it were absent, so a
+// hand-edited marker or config can never propagate an invalid mode downstream.
 //
 // Parameters:
 //   - markerMode: the mode declared in the per-project marker (empty if absent)
@@ -81,13 +91,13 @@ func readMarker(dir string) (ProjectMarker, bool, error) {
 //
 // This is a pure function with no I/O; testable without filesystem fixtures.
 func resolveMode(markerMode DocsMode, markerFound bool, globalMode DocsMode) DocsMode {
-	// Highest priority: per-project marker (when present)
-	if markerFound && markerMode != "" {
+	// Highest priority: per-project marker (when present and valid)
+	if markerFound && isValidMode(markerMode) {
 		return markerMode
 	}
 
-	// Mid priority: global config mode (when set)
-	if globalMode != "" {
+	// Mid priority: global config mode (when set and valid)
+	if isValidMode(globalMode) {
 		return globalMode
 	}
 
