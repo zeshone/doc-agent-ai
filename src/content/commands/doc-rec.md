@@ -1,6 +1,6 @@
 Execute Step 2 (requirements elicitation) for the specified system or module.
 
-The user invoked: `/rec $ARGUMENTS`
+The user invoked: `/doc-rec $ARGUMENTS`
 
 Delegate to the doc-rec sub-agent with the argument: $ARGUMENTS
 

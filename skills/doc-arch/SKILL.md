@@ -98,7 +98,7 @@ Always: idea → rec → prd → refine → tech → [ddd] → pti
 
 | Signal | Response |
 |--------|----------|
-| User explicitly invokes `/ddd` | Launch directly |
+| User explicitly invokes `/doc-ddd` | Launch directly |
 | `tech` mentions entities, tables, relationships, migrations, or DBMS | Prompt: "Found data layer in tech spec — include DB design doc?" |
 | Project contains persistence artifacts: `*.sql`, `migrations/`, `schema.prisma`, `models/` | Auto-suggest with brief explanation |
 | User mentions explicit intent: "documentar la base de datos", "db design", "diseño de BD" | Launch directly |

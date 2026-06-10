@@ -27,12 +27,12 @@ Parse the argument to determine the node type and resolve all paths:
 **Check 1 — System exists (always):**
 Verify `{{BASE_PATH}}<sistema>/` exists.
 If NOT → STOP. Respond:
-> "The system `<sistema>` does not exist. Start from the beginning with `/rec <sistema>`."
+> "The system `<sistema>` does not exist. Start from the beginning with `/doc-rec <sistema>`."
 
 **Check 2 — Parent module exists (only for modulo/submodulo):**
 Verify the module directory exists.
 If NOT → STOP. Respond:
-> "The module `<modulo>` is not initialized. Use `/mod <sistema> <modulo>` first."
+> "The module `<modulo>` is not initialized. Use `/doc-mod <sistema> <modulo>` first."
 
 **Check 3 — System supports modules (only for modulo/submodulo):**
 Read `<sistema>.md` and verify `Arquetipo: Producto evolutivo`.
@@ -42,10 +42,10 @@ If NOT → STOP. Respond:
 **Check 4 — Prerequisite file exists:**
 Verify `<nodo>_requirements.md` exists in the node's directory.
 If NOT → STOP. Respond:
-> "The requirements file for `<nodo>` is missing. Run `/rec <argumento>` first."
+> "The requirements file for `<nodo>` is missing. Run `/doc-rec <argumento>` first."
 >
 > Current node status:
-> - `_requirements.md` — ❌ missing (run `/rec <argumento>`)
+> - `_requirements.md` — ❌ missing (run `/doc-rec <argumento>`)
 > - `_prd.md` — ⏳ pending
 
 If ALL checks pass → proceed with the prd protocol below.

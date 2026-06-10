@@ -1,6 +1,6 @@
 Initialize a new module and run its complete documentation workflow (idea → rec → prd → refine → tech → [ddd] → pti, ddd optional).
 
-The user invoked: `/mod $ARGUMENTS`
+The user invoked: `/doc-mod $ARGUMENTS`
 
 The argument has two forms:
 - `<system> <module>` → create `modules/<module>/` inside the system

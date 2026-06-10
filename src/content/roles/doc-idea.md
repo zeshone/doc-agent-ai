@@ -27,12 +27,12 @@ Parse the argument to determine the node type and resolve all paths:
 **Check 1 — System exists (for module/submodule):**
 If node type is `module` or `submodule`, verify `{{BASE_PATH}}<system>/` exists.
 If NOT → STOP. Respond:
-> "The system `<system>` does not exist yet. To start documentation, run `/arch <system>`."
+> "The system `<system>` does not exist yet. To start documentation, run `/doc-arch <system>`."
 
 **Check 2 — Parent module exists (only for submodule):**
 If node type is `submodule`, verify the parent module directory exists.
 If NOT → STOP. Respond:
-> "The module `<module>` is not initialized within `<system>`. Use `/mod <system> <module>` to create it first."
+> "The module `<module>` is not initialized within `<system>`. Use `/doc-mod <system> <module>` to create it first."
 
 If ALL checks pass → proceed with the idea protocol below.
 

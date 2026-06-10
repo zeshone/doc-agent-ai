@@ -27,12 +27,12 @@ Parse the argument to determine the node type and resolve all paths:
 **Check 1 — System exists (always):**
 Verify `{{BASE_PATH}}<sistema>/` exists.
 If NOT → STOP. Respond:
-> "The system `<sistema>` does not exist. Start from the beginning with `/rec <sistema>`."
+> "The system `<sistema>` does not exist. Start from the beginning with `/doc-rec <sistema>`."
 
 **Check 2 — Parent module exists (only for modulo/submodulo):**
 Verify the module directory exists.
 If NOT → STOP. Respond:
-> "The module `<modulo>` is not initialized. Use `/mod <sistema> <modulo>` first."
+> "The module `<modulo>` is not initialized. Use `/doc-mod <sistema> <modulo>` first."
 
 **Check 3 — System supports modules (only for modulo/submodulo):**
 Read `<sistema>.md` and verify `Arquetipo: Producto evolutivo`.
@@ -50,13 +50,13 @@ If ANY is missing → STOP. Show the full status and the exact command to run ne
 > - `_requirements.md` — ✅ / ❌
 > - `_prd.md` — ✅ / ❌
 >
-> Run first: `/rec <argumento>`" (if requirements are missing)
-> OR: `/prd <argumento>`" (if the PRD is missing)
+> Run first: `/doc-rec <argumento>`" (if requirements are missing)
+> OR: `/doc-prd <argumento>`" (if the PRD is missing)
 
 **Check 5 — Parent tech-spec exists (only for modulo/submodulo):**
 Verify `{{BASE_PATH}}<sistema>/<sistema>_tech-spec.md` exists.
 If NOT → warn (do not stop):
-> "⚠️ The parent system tech spec `<sistema>` does not exist yet. A true delta cannot be produced. You can continue by generating a full tech spec for this module, or run `/tech <sistema>` first to establish the base architecture."
+> "⚠️ The parent system tech spec `<sistema>` does not exist yet. A true delta cannot be produced. You can continue by generating a full tech spec for this module, or run `/doc-tech <sistema>` first to establish the base architecture."
 > How do you want to proceed?
 
 If ALL checks pass → proceed with the tech protocol below.

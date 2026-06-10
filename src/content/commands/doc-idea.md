@@ -1,6 +1,6 @@
 Execute Step 1 (idea refinement) for the specified system or module.
 
-The user invoked: `/idea $ARGUMENTS`
+The user invoked: `/doc-idea $ARGUMENTS`
 
 Delegate to the doc-idea sub-agent with the argument: $ARGUMENTS
 

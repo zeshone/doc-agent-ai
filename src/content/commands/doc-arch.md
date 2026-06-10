@@ -1,6 +1,6 @@
 Execute the complete documentation workflow for the specified system.
 
-The user invoked: `/arch $ARGUMENTS`
+The user invoked: `/doc-arch $ARGUMENTS`
 
 Follow the `arch <system>` protocol defined in your skill:
 1. Verify or create the `{{BASE_PATH}}$ARGUMENTS/` directory

@@ -25,14 +25,14 @@ Parse the argument to determine the node type:
 > Path column shows vault layout. In in-project mode apply the docs root resolved per the preamble above (no `<sistema>` folder, no `modules/` nesting).
 
 **Check 1 — System exists:**
-Verify `{{BASE_PATH}}<sistema>/` exists.
+Verify `{{BASE_PATH}}<sistema>/` exists (in-project mode: verify `docs/doc-agent/` instead).
 If NOT → STOP. Respond:
-> "The system `<sistema>` does not exist. Start with `/rec <sistema>` to init the system first."
+> "The system `<sistema>` does not exist. Start with `/doc-rec <sistema>` to init the system first."
 
 **Check 2 — Parent module exists (only for modulo/submodulo):**
 Verify the module directory exists.
 If NOT → STOP. Respond:
-> "The module `<modulo>` is not initialized. Use `/mod <sistema> <modulo>` first."
+> "The module `<modulo>` is not initialized. Use `/doc-mod <sistema> <modulo>` first."
 
 **Check 3 — System supports modules (only for modulo/submodulo):**
 Read `<sistema>.md` and verify `Archetype: Evolving product` or `Arquetipo: Producto evolutivo`.

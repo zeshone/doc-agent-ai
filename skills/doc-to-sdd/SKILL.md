@@ -9,17 +9,17 @@ license: MIT
 
 ## Trigger / Positioning
 
-**Triggers:** `/to-sdd`, `doc-to-sdd`, `sdd context`, `compact docs`, `to-sdd <system>`
+**Triggers:** `/doc-to-sdd`, `doc-to-sdd`, `sdd context`, `compact docs`, `to-sdd <system>`
 
-**Position:** Standalone command — NOT part of the `/arch` flow sequence. Can run after any combination of `idea`, `rec`, `prd`, `tech`, `ddd` phases have completed.
+**Position:** Standalone command — NOT part of the `/doc-arch` flow sequence. Can run after any combination of `idea`, `rec`, `prd`, `tech`, `ddd` phases have completed.
 
-**Direct routing:** `/to-sdd` invokes the `doc-to-sdd` sub-agent directly. No orchestrator intermediary.
+**Direct routing:** `/doc-to-sdd` invokes the `doc-to-sdd` sub-agent directly. No orchestrator intermediary.
 
 ## Activation Contract
 
 | Input | Required | Source |
 |-------|----------|--------|
-| `<system>` | Yes | User invocation: `/to-sdd <system>` |
+| `<system>` | Yes | User invocation: `/doc-to-sdd <system>` |
 | `<system>_idea-brief.md` | No (fallback: `<system>.md` first paragraph) | `doc-idea` output |
 | `<system>_requirements.md` | No (minimum: one of rec/prd for business layer) | `doc-rec` output |
 | `<system>_prd.md` | No (minimum: one of rec/prd for business layer) | `doc-prd` output |
@@ -180,7 +180,7 @@ When the same topic appears in multiple source artifacts (e.g., decisions in bot
 
 | Condition | Action |
 |-----------|--------|
-| System directory does not exist | STOP: "System `<system>` does not exist. Start with `/rec <system>` first." |
+| System directory does not exist | STOP: "System `<system>` does not exist. Start with `/doc-rec <system>` first." |
 | Source artifact file is empty (0 bytes) | Treat as missing; emit warning: "`<artifact>` is empty — skipped." |
 | Source artifact unreadable (permissions) | STOP: "Cannot read `<artifact>`. Check file permissions." |
 | Source artifact has no recognizable markdown headers | Warn: "`<artifact>` has no parseable structure — extracting raw content." Attempt best-effort extraction. |

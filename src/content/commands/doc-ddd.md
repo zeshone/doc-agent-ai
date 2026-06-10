@@ -1,11 +1,11 @@
 Execute the Database Design Documentation step.
 
-The user invoked: `/ddd $ARGUMENTS`
+The user invoked: `/doc-ddd $ARGUMENTS`
 
 Delegate to the `doc-ddd` sub-agent with the argument: `$ARGUMENTS`.
 
 **This is an optional step.** It is triggered when:
-1. User explicitly invokes `/ddd`
+1. User explicitly invokes `/doc-ddd`
 2. Project contains persistence artifacts (`.sql`, `migrations/`, `schema.prisma`, `models/`)
 3. The orchestrator asks "Include database design documentation?" and the user confirms
 

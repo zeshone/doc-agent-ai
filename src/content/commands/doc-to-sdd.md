@@ -1,10 +1,10 @@
 Execute the SDD Context Compaction step.
 
-The user invoked: `/to-sdd $ARGUMENTS`
+The user invoked: `/doc-to-sdd $ARGUMENTS`
 
 Delegate to the `doc-to-sdd` sub-agent with the argument: `$ARGUMENTS`.
 
-**This is a standalone command.** It is NOT part of the `/arch` full-flow sequence. It can run independently after any combination of documentation phases.
+**This is a standalone command.** It is NOT part of the `/doc-arch` full-flow sequence. It can run independently after any combination of documentation phases.
 
 **Prerequisites:** At least one business-layer artifact (`_requirements.md` or `_prd.md`) OR at least one technical-layer artifact (`_tech-spec.md` or `_db-design.md`) must exist under the docs root resolved per the preamble below.
 

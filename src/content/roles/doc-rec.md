@@ -28,13 +28,13 @@ Parse the argument to determine the node type and resolve all paths:
 If node type is `system`, check whether `{{BASE_PATH}}<system>/` already exists and carry that result into the rec protocol.
 If node type is `module` or `submodule`, verify `{{BASE_PATH}}<system>/` exists.
 If NOT → STOP. Respond:
-> "The system `<system>` does not exist yet. To start the documentation, run `/arch <system>` (full workflow) or simply `/rec <system>` to begin from scratch."
+> "The system `<system>` does not exist yet. To start the documentation, run `/doc-arch <system>` (full workflow) or simply `/doc-rec <system>` to begin from scratch."
 
 **Check 2 — Parent module exists (only for module/submodule):**
 If node type is `module`: verify `{{BASE_PATH}}<system>/modules/<module>/` exists.
 If node type is `submodule`: verify both the module dir and `modules/<submodule>/` exist.
 If NOT → STOP. Respond:
-> "The module `<module>` is not initialized inside `<system>`. Use `/mod <system> <module>` to create it first."
+> "The module `<module>` is not initialized inside `<system>`. Use `/doc-mod <system> <module>` to create it first."
 
 **Check 3 — System supports modules (only for module/submodule):**
 Read `{{BASE_PATH}}<system>/<system>.md` and verify it records the evolutionary product archetype in that documentation's language.

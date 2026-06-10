@@ -42,17 +42,17 @@ Parse the argument to determine the node type and resolve all paths:
 **Check 1 — System exists (always):**
 Verify `{{BASE_PATH}}<system>/` exists.
 If NOT → STOP. Respond:
-> "The system `<system>` does not exist. Start from the beginning with `/rec <system>`."
+> "The system `<system>` does not exist. Start from the beginning with `/doc-rec <system>`."
 
 **Check 2 — Parent module exists (only for module/submodule):**
 Verify the module directory exists.
 If NOT → STOP. Respond:
-> "The module `<module>` is not initialized. Use `/mod <system> <module>` first."
+> "The module `<module>` is not initialized. Use `/doc-mod <system> <module>` first."
 
 **Check 3 — PRD file exists:**
 Verify `<node>_prd.md` exists in the node's directory.
 If NOT → STOP. Respond:
-> "The PRD for `<node>` does not exist yet. Run `/prd <argument>` first."
+> "The PRD for `<node>` does not exist yet. Run `/doc-prd <argument>` first."
 
 If ALL checks pass → proceed with the audit protocol.
 

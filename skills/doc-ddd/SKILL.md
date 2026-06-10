@@ -2,7 +2,7 @@
 
 ## Trigger / Positioning
 
-**Triggers:** `/ddd`, `doc-ddd`, `ddd <sistema>`, `database design`, `schema documentation`, `ERD`, `persist*`
+**Triggers:** `/doc-ddd`, `doc-ddd`, `ddd <sistema>`, `database design`, `schema documentation`, `ERD`, `persist*`
 
 **Position in workflow:** After `tech` — once architecture, storage, and data flows are known.
 
