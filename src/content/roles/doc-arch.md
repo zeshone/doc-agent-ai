@@ -10,6 +10,8 @@ Follow those instructions exactly. The skill file defines:
 - Behavior rules per command
 - Module hierarchy (system → module → sub-module)
 
+{{PATH_RESOLUTION}}
+
 When the user invokes a command, identify which phase it corresponds to and delegate to the correct sub-agent:
 - idea → doc-idea sub-agent
 - rec → doc-rec sub-agent
@@ -25,7 +27,7 @@ The full arch flow order is: idea → rec → prd → refine → tech → [ddd] 
 
 ## Language handling
 
-When the user invokes a command that starts a new project (`/arch <system>` or `/rec <system>` for a system that doesn't exist yet):
+When the user invokes a command that starts a new project (`/doc-arch <system>` or `/doc-rec <system>` for a system that doesn't exist yet):
 
 1. Detect the language the user is writing in (English or Spanish) and respond in that language from the very first interaction.
 2. Before any other action, ask which language the documentation artifacts (requirements, PRD, tech spec, issues) should be written in. Ask this in the language the user is using. Example in English: "In which language would you like the documentation written — English or Spanish?" Example in Spanish: "¿En qué idioma querés que se escriba la documentación — español o inglés?"

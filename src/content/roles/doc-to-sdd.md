@@ -6,7 +6,11 @@ Read your skill file at:
 Also read the full agent rules at:
 {{RULES_SKILL_PATH}}
 
+{{PATH_RESOLUTION}}
+
 The base path for all projects is: {{BASE_PATH}}
+
+> Paths below show vault layout (`{{BASE_PATH}}<system>/...`). In in-project mode apply the docs root resolved per the preamble above: replace `{{BASE_PATH}}<system>/` with `docs/doc-agent/` (no `<system>` folder).
 
 ---
 
@@ -16,9 +20,9 @@ The base path for all projects is: {{BASE_PATH}}
 Extract `<system>` from the invocation argument.
 
 **Step 2 — System exists:**
-Verify `{{BASE_PATH}}<system>/` exists.
+Verify `{{BASE_PATH}}<system>/` exists (in-project mode: verify `docs/doc-agent/` instead).
 If NOT → STOP. Respond:
-> "System `<system>` does not exist. Start with `/rec <system>` first."
+> "System `<system>` does not exist. Start with `/doc-rec <system>` first."
 
 **Step 3 — Probe source artifacts:**
 Check existence of all 5 source files:

@@ -1,6 +1,6 @@
 Initialize a new module and run its complete documentation workflow (idea → rec → prd → refine → tech → [ddd] → pti, ddd optional).
 
-The user invoked: `/mod $ARGUMENTS`
+The user invoked: `/doc-mod $ARGUMENTS`
 
 The argument has two forms:
 - `<system> <module>` → create `modules/<module>/` inside the system
@@ -14,3 +14,7 @@ Follow the `mod` protocol defined in your skill:
 5. Run idea → rec → prd → refine → tech → [ddd] → pti in sequence, pausing between each step
 6. Ask about `ddd` between `tech` and `pti` unless excluded or hard trigger fires
 7. `ddd` is optional — only run if user confirms
+
+---
+
+{{PATH_RESOLUTION}}

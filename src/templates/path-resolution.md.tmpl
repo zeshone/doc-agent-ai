@@ -1,5 +1,5 @@
-Before writing any documentation file, resolve the docs mode:
-1. Look for a marker file `.doc-agent.json` at the current project root (cwd). If present, read its `mode` field.
+**Resolve docs mode before writing any file:**
+1. Check for `.doc-agent.json` at the current project root. If present, read its `mode` field.
 2. If no marker, use the global mode: `__DOC_AGENT_GLOBAL_MODE__`.
-3. If mode = `vault`: write under `__DOC_AGENT_BASE_PATH__<system>/...` using the system/modules layout.
-4. If mode = `in-project`: write under `docs/doc-agent/...` using the simplified layout (no `<system>` folder, no `modules/` nesting beyond `<module>/`).
+3. **vault** → write under `__DOC_AGENT_GLOBAL_BASE__/<system>/` using the system/modules layout.
+4. **in-project** → write under `docs/doc-agent/` (no `<system>` folder): `docs/doc-agent/_prd.md`, `docs/doc-agent/<module>/`, `docs/doc-agent/features/<slug>/`, `docs/doc-agent/agent_sdd_context_project/`.

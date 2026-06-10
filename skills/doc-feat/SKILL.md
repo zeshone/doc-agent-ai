@@ -7,11 +7,11 @@ license: MIT
 
 # Legacy Feature Documentation Orchestrator
 
-Activated by `/feat`. Never invoked standalone by the user.
+Activated by `/doc-feat`. Never invoked standalone by the user.
 
 ## Activation Contract
 
-Triggered only when the user invokes `/feat <ruta-legacy> <descripcion> [--scope ...]`.
+Triggered only when the user invokes `/doc-feat <ruta-legacy> <descripcion> [--scope ...]`.
 Not a subagent — this skill IS the orchestrator for the entire mini-flow.
 
 ## Argument Parsing
@@ -38,7 +38,7 @@ ELSE:
 
 **Step C — Validate positional**
 
-- `len(positional) < 2` → emit: `/feat <ruta-legacy> <descripcion> [--scope local <path> | cross <pattern> | none]`. STOP.
+- `len(positional) < 2` → emit: `/doc-feat <ruta-legacy> <descripcion> [--scope local <path> | cross <pattern> | none]`. STOP.
 - `ruta-legacy = positional[0]`
 - `descripcion = join(positional[1..], " ")`
 
@@ -50,7 +50,7 @@ ELSE:
 
 | Condition | Message |
 |-----------|---------|
-| `< 2` positional args | Usage: `/feat <ruta-legacy> <descripcion> [--scope ...]` |
+| `< 2` positional args | Usage: `/doc-feat <ruta-legacy> <descripcion> [--scope ...]` |
 | Path not found / not a dir | `<path> does not exist or is not a directory` |
 | Unknown `--scope` mode | `Unknown mode '<x>'. Valid modes: local, cross, none` |
 | `--scope local/cross` without arg | `--scope <mode> requires a following argument` |

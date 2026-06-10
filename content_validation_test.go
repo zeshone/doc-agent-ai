@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"io/fs"
 	"strings"
 	"testing"
 )
@@ -402,5 +403,45 @@ func TestDocToSddRegistration_RegistryRow(t *testing.T) {
 	}
 	if !strings.Contains(output, "/doc-to-sdd") {
 		t.Error("registryTemplate User Skills row missing /doc-to-sdd trigger")
+	}
+}
+
+// TestContentNoBareCommandReferences verifies that no agent-facing content file
+// (src/content and skills) references the pre-v4 bare command names (/rec,
+// /prd, ...) in prose or error messages. Commands were renamed to doc-* in
+// v4.0.0; user-facing instructions must only mention the doc-* forms.
+func TestContentNoBareCommandReferences(t *testing.T) {
+	bareNames := []string{
+		"arch", "idea", "rec", "prd", "refine",
+		"tech", "pti", "mod", "feat", "ddd", "to-sdd",
+	}
+
+	for _, root := range []string{"src/content", "skills"} {
+		err := fs.WalkDir(embedded, root, func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if d.IsDir() || !strings.HasSuffix(path, ".md") {
+				return nil
+			}
+			data, err := embedded.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			content := string(data)
+			for _, name := range bareNames {
+				// Backtick-anchored command tokens: `/rec`, `/rec <args>`, `/rec<...
+				for _, suffix := range []string{"`", " ", "<"} {
+					token := "`/" + name + suffix
+					if strings.Contains(content, token) {
+						t.Errorf("%s contains bare command token %q — use `/doc-%s instead", path, token, name)
+					}
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatalf("walk %s: %v", root, err)
+		}
 	}
 }
