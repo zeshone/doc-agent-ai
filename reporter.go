@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"io"
+	"os"
 )
 
 // ---------------------------------------------------------------------------
@@ -40,33 +42,43 @@ type Reporter interface {
 // stdoutReporter is the default Reporter. Its output is identical to the
 // former package-level ok/warn/info/dim/head/errOut helpers so that headless
 // and interactive-without-TUI installs produce the same output as before.
-type stdoutReporter struct{}
+//
+// w is the output destination; production code uses os.Stdout (via
+// newStdoutReporter). Tests inject a bytes.Buffer to assert exact format.
+type stdoutReporter struct {
+	w io.Writer
+}
+
+// newStdoutReporter returns a stdoutReporter that writes to os.Stdout.
+func newStdoutReporter() *stdoutReporter {
+	return &stdoutReporter{w: os.Stdout}
+}
 
 // defaultReporter is the shared stdout reporter used by the backward-compat wrappers.
-var defaultReporter Reporter = &stdoutReporter{}
+var defaultReporter Reporter = newStdoutReporter()
 
 func (s *stdoutReporter) Ok(msg string) {
-	fmt.Printf("  %s✔%s %s\n", ansiGreen, ansiReset, msg)
+	fmt.Fprintf(s.w, "  %s✔%s %s\n", ansiGreen, ansiReset, msg)
 }
 
 func (s *stdoutReporter) Warn(msg string) {
-	fmt.Printf("  %s⚠%s  %s\n", ansiYellow, ansiReset, msg)
+	fmt.Fprintf(s.w, "  %s⚠%s  %s\n", ansiYellow, ansiReset, msg)
 }
 
 func (s *stdoutReporter) ErrOut(msg string) {
-	fmt.Printf("  %s✖%s %s\n", ansiRed, ansiReset, msg)
+	fmt.Fprintf(s.w, "  %s✖%s %s\n", ansiRed, ansiReset, msg)
 }
 
 func (s *stdoutReporter) Info(msg string) {
-	fmt.Printf("  %s→%s %s\n", ansiBlue, ansiReset, msg)
+	fmt.Fprintf(s.w, "  %s→%s %s\n", ansiBlue, ansiReset, msg)
 }
 
 func (s *stdoutReporter) Dim(msg string) {
-	fmt.Printf("%s  %s%s\n", ansiGray, msg, ansiReset)
+	fmt.Fprintf(s.w, "%s  %s%s\n", ansiGray, msg, ansiReset)
 }
 
 func (s *stdoutReporter) Head(msg string) {
-	fmt.Printf("\n%s  %s%s\n", ansiBold, msg, ansiReset)
+	fmt.Fprintf(s.w, "\n%s  %s%s\n", ansiBold, msg, ansiReset)
 }
 
 // ---------------------------------------------------------------------------
