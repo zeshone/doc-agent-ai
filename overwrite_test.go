@@ -26,9 +26,14 @@ import (
 // ---------------------------------------------------------------------------
 
 // TestInstallModel_OverwriteStep_AppearsAfterPlatformSelectWhenAlreadyInstalled
-// verifies that when a selected platform has an existing install, the wizard
-// transitions to a stepOverwriteConfirm step instead of directly to stepDocsMode.
+// tests the old per-platform queue-based overwrite flow. This test is superseded
+// by the consolidated overwrite screen introduced in slice 4 (ADR-5).
+// It is skipped in slice 2 because the platform-select step now navigates
+// directly to stepDocsMode; the overwrite screen is handled in slice 4.
+// TODO(slice-4): rewrite to assert transition to consolidated stepOverwrite.
 func TestInstallModel_OverwriteStep_AppearsAfterPlatformSelectWhenAlreadyInstalled(t *testing.T) {
+	t.Skip("superseded by slice-4 consolidated overwrite screen (ADR-5)")
+
 	dir := t.TempDir()
 	plat := newPlatformForTest(t, "claude", dir+"/claude")
 
@@ -56,9 +61,13 @@ func TestInstallModel_OverwriteStep_AppearsAfterPlatformSelectWhenAlreadyInstall
 	}
 }
 
-// TestInstallModel_OverwriteStep_SkipsPlatformOnNo verifies that pressing 'n'
-// in the overwrite step deselects the platform and does not include it in BuildPlan.
+// TestInstallModel_OverwriteStep_SkipsPlatformOnNo verifies the old per-platform
+// queue skip behaviour. Superseded by slice-4 consolidated overwrite screen.
+// TODO(slice-4): rewrite as install-only-missing test (already-installed platform
+// excluded from plan.Platforms when install-only-missing is chosen).
 func TestInstallModel_OverwriteStep_SkipsPlatformOnNo(t *testing.T) {
+	t.Skip("superseded by slice-4 consolidated overwrite screen (ADR-5)")
+
 	dir := t.TempDir()
 	plat := newPlatformForTest(t, "claude", dir+"/claude")
 
@@ -95,9 +104,12 @@ func TestInstallModel_OverwriteStep_SkipsPlatformOnNo(t *testing.T) {
 	}
 }
 
-// TestInstallModel_OverwriteStep_ProceedsOnYes verifies that pressing 'y'
-// in the overwrite step keeps the platform selected and records it in Overwrite map.
+// TestInstallModel_OverwriteStep_ProceedsOnYes tests the old per-platform 'y'
+// consent path. Superseded by slice-4 consolidated overwrite screen.
+// TODO(slice-4): rewrite as overwrite-all test (Overwrite[id]=true for all selected).
 func TestInstallModel_OverwriteStep_ProceedsOnYes(t *testing.T) {
+	t.Skip("superseded by slice-4 consolidated overwrite screen (ADR-5)")
+
 	dir := t.TempDir()
 	plat := newPlatformForTest(t, "claude", dir+"/claude")
 
@@ -149,9 +161,14 @@ func TestInstallModel_OverwriteStep_NotShownForFreshInstall(t *testing.T) {
 	}
 }
 
-// TestInstallModel_BuildPlan_PopulatesOverwriteMap verifies that BuildPlan sets
-// Overwrite map entries for platforms that got overwrite consent.
+// TestInstallModel_BuildPlan_PopulatesOverwriteMap tests the old per-platform
+// consent-based overwrite map population. Superseded by slice-4 consolidated
+// overwrite screen which sets Overwrite[id]=true for all selected when "overwrite-all"
+// is chosen.
+// TODO(slice-4): rewrite to assert overwrite-all sets Overwrite[id]=true.
 func TestInstallModel_BuildPlan_PopulatesOverwriteMap(t *testing.T) {
+	t.Skip("superseded by slice-4 consolidated overwrite screen (ADR-5)")
+
 	dir := t.TempDir()
 	plat := newPlatformForTest(t, "claude", dir+"/claude")
 

@@ -13,7 +13,7 @@ import (
 // ---------------------------------------------------------------------------
 
 // InstallModel is the Bubbletea model for the install wizard.
-// Steps: welcome → platformSelect → (overwriteConfirm?) → docsMode → path? → confirm → progress → done
+// Steps: welcome → platformSelect → docsMode → path? → confirm → progress → done
 type InstallModel struct {
 	// step is the currently active wizard step.
 	step Step
@@ -22,11 +22,25 @@ type InstallModel struct {
 	// Initialized with ["Continue", "Quit"].
 	welcomeButtons buttonRow
 
+	// platformSelectButtons is the footer button row on the Platform Selection screen.
+	// Initialized with ["Continue", "Back"].
+	platformSelectButtons buttonRow
+
+	// focusZone tracks which UI region owns keyboard focus on the current screen.
+	// On screens with a list + button row (e.g. stepPlatformSelect), Tab cycles
+	// between focusZoneList and focusZoneButtons.
+	focusZone focusZone
+
 	// platforms is the checkbox list for platform selection.
 	platforms []platformItem
 
 	// cursor is the focused index in the platforms list.
 	cursor int
+
+	// alreadyInstalled is a map of platform ID → true for platforms that have
+	// existing agent files detected by checkAlreadyInstalled at startup.
+	// Read-only after construction; the slice-4 overwrite screen consults it.
+	alreadyInstalled map[string]bool
 
 	// mode is the chosen documentation mode.
 	mode DocsMode
@@ -70,8 +84,8 @@ type InstallModel struct {
 	// err is set when the install engine returns an error (displayed in stepDone).
 	err error
 
-	// notice is a transient warning shown in stepPlatformSelect (e.g. after the
-	// user declines overwrite for every selected platform). Cleared on toggle.
+	// notice is a transient warning shown in stepPlatformSelect when the user
+	// tries to continue with zero selections.
 	notice string
 
 	// styles holds the lipgloss styles for this session.
@@ -91,14 +105,20 @@ func newInstallModel(cfg AppConfig, cfgExisted bool, manifest DistManifest, dist
 		cfgPlatSet[id] = true
 	}
 
+	// Compute already-installed set once at startup using the engine helper.
+	// This map is read-only after construction; it drives the already-installed
+	// tag in viewPlatformSelect and will drive the overwrite screen in slice 4.
+	alreadyInstalled := buildAlreadyInstalledMap(manifest, allPlatforms)
+
 	items := make([]platformItem, 0, len(allPlatforms))
 	for _, p := range allPlatforms {
 		sel := len(cfg.Platforms) == 0 || cfgPlatSet[p.ID()] // all if no saved prefs
 		items = append(items, platformItem{
-			id:       p.ID(),
-			label:    platformDisplayName(p.ID()),
-			detected: true,
-			selected: sel,
+			id:               p.ID(),
+			label:            platformDisplayName(p.ID()),
+			detected:         true,
+			selected:         sel,
+			alreadyInstalled: alreadyInstalled[p.ID()],
 		})
 	}
 
@@ -125,23 +145,44 @@ func newInstallModel(cfg AppConfig, cfgExisted bool, manifest DistManifest, dist
 	}
 
 	return InstallModel{
-		step:             stepWelcome, // wizard starts at the Welcome screen
-		welcomeButtons:   buttonRow{labels: []string{"Continue", "Quit"}, focus: 0},
-		platforms:        items,
-		cursor:           0,
-		mode:             mode,
-		modeCursor:       modeCursor,
-		pathInput:        pi,
-		cfg:              cfg,
-		cfgExisted:       cfgExisted,
-		manifest:         manifest,
-		distDir:          distDir,
-		allPlatforms:     allPlatforms,
-		overwriteConsent: make(map[string]bool),
-		styles:           styles,
-		width:            80,
-		height:           24,
+		step:                  stepWelcome, // wizard starts at the Welcome screen
+		welcomeButtons:        buttonRow{labels: []string{"Continue", "Quit"}, focus: 0},
+		platformSelectButtons: buttonRow{labels: []string{"Continue", "Back"}, focus: 0},
+		focusZone:             focusZoneList,
+		platforms:             items,
+		cursor:                0,
+		alreadyInstalled:      alreadyInstalled,
+		mode:                  mode,
+		modeCursor:            modeCursor,
+		pathInput:             pi,
+		cfg:                   cfg,
+		cfgExisted:            cfgExisted,
+		manifest:              manifest,
+		distDir:               distDir,
+		allPlatforms:          allPlatforms,
+		overwriteConsent:      make(map[string]bool),
+		styles:                styles,
+		width:                 80,
+		height:                24,
 	}
+}
+
+// ---------------------------------------------------------------------------
+// buildAlreadyInstalledMap — startup helper
+// ---------------------------------------------------------------------------
+
+// buildAlreadyInstalledMap calls checkAlreadyInstalled once per platform and
+// returns a map of platformID → true for every platform that has existing agents.
+// It is a pure read from the filesystem; it does NOT modify the manifest or
+// any engine state. Call once at newInstallModel time.
+func buildAlreadyInstalledMap(manifest DistManifest, allPlatforms []Platform) map[string]bool {
+	result := make(map[string]bool, len(allPlatforms))
+	for _, plat := range allPlatforms {
+		if len(checkAlreadyInstalled(manifest, plat)) > 0 {
+			result[plat.ID()] = true
+		}
+	}
+	return result
 }
 
 // ---------------------------------------------------------------------------
@@ -163,7 +204,9 @@ func (m InstallModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.err = msg.err
 		m.progressLines = msg.progressLines
 		m.step = stepDone
-		return m, tea.Quit
+		// Do NOT quit here — stay on the done screen so the user can read the
+		// summary. Any key (handled in the stepDone case of handleKey) exits.
+		return m, nil
 
 	case tea.KeyMsg:
 		return m.handleKey(msg)
@@ -187,29 +230,7 @@ func (m InstallModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.updateWelcome(msg)
 
 	case stepPlatformSelect:
-		switch msg.String() {
-		case "ctrl+c", "q":
-			return m, tea.Quit
-		case "up", "k":
-			if m.cursor > 0 {
-				m.cursor--
-			}
-		case "down", "j":
-			if m.cursor < len(m.platforms)-1 {
-				m.cursor++
-			}
-		case " ":
-			if len(m.platforms) > 0 {
-				m.platforms[m.cursor].selected = !m.platforms[m.cursor].selected
-				m.notice = ""
-			}
-		case "enter":
-			// At least one must be selected.
-			if m.anySelected() {
-				m.notice = ""
-				m.step, m.overwriteQueue, m.overwriteQueueIdx = m.buildOverwriteQueue()
-			}
-		}
+		return m.updatePlatformSelect(msg)
 
 	case stepOverwriteConfirm:
 		switch msg.String() {
@@ -456,9 +477,7 @@ func (m InstallModel) View() string {
 		return sb.String()
 	}
 
-	sb.WriteString("\n")
-	sb.WriteString(m.styles.Banner.Render("  doc-agent-ai") + "  " +
-		m.styles.Dim.Render("v"+version+" — installer") + "\n\n")
+	sb.WriteString(renderCompactHeader(m.styles))
 
 	switch m.step {
 	case stepPlatformSelect:
@@ -482,7 +501,13 @@ func (m InstallModel) View() string {
 
 func (m InstallModel) viewPlatformSelect(sb *strings.Builder) {
 	sb.WriteString(m.styles.Title.Render("  Select platforms") + "\n")
-	sb.WriteString(m.styles.Subtitle.Render("  Space to toggle · Enter to continue") + "\n\n")
+
+	// Hint line changes based on active zone.
+	if m.focusZone == focusZoneList {
+		sb.WriteString(m.styles.Subtitle.Render("  ↑/↓ to move · Space to toggle · Tab for buttons") + "\n\n")
+	} else {
+		sb.WriteString(m.styles.Subtitle.Render("  ←/→ to move buttons · Enter to activate · Tab back to list") + "\n\n")
+	}
 
 	if m.notice != "" {
 		sb.WriteString(m.styles.Warning.Render("  ! "+m.notice) + "\n\n")
@@ -504,8 +529,19 @@ func (m InstallModel) viewPlatformSelect(sb *strings.Builder) {
 			label = m.styles.SelectedItem.Render(p.label)
 		}
 
-		sb.WriteString(cursor + checkbox + " " + label + "\n")
+		// Already-installed tag: shown as a dim suffix on the label line.
+		// Consult the model-level map (injected at startup via buildAlreadyInstalledMap)
+		// rather than the per-item bool so tests can override it directly.
+		installedTag := ""
+		if m.alreadyInstalled[p.id] {
+			installedTag = m.styles.Dim.Render("  (already installed)")
+		}
+
+		sb.WriteString(cursor + checkbox + " " + label + installedTag + "\n")
 	}
+
+	sb.WriteString("\n")
+	sb.WriteString("  " + m.platformSelectButtons.render(m.styles) + "\n")
 }
 
 func (m InstallModel) viewOverwriteConfirm(sb *strings.Builder) {
@@ -620,7 +656,8 @@ func (m InstallModel) viewDone(sb *strings.Builder) {
 	if m.err != nil {
 		sb.WriteString(m.styles.ErrStyle.Render("  ✖ Install failed") + "\n\n")
 		sb.WriteString(m.styles.ErrStyle.Render("  "+m.err.Error()) + "\n\n")
-		sb.WriteString(m.styles.Dim.Render("  Run with --help for headless flag usage.") + "\n")
+		sb.WriteString(m.styles.Dim.Render("  Run with --help for headless flag usage.") + "\n\n")
+		sb.WriteString(m.styles.Dim.Render("  Press any key to exit.") + "\n")
 		return
 	}
 
@@ -632,7 +669,8 @@ func (m InstallModel) viewDone(sb *strings.Builder) {
 	}
 
 	sb.WriteString("\n")
-	sb.WriteString(m.styles.Dim.Render("  Restart your AI tool if it is currently running.") + "\n")
+	sb.WriteString(m.styles.Dim.Render("  Restart your AI tool if it is currently running.") + "\n\n")
+	sb.WriteString(m.styles.Dim.Render("  Press any key to exit.") + "\n")
 }
 
 // ---------------------------------------------------------------------------
@@ -682,6 +720,99 @@ func (m InstallModel) updateWelcome(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 	}
+	return m, nil
+}
+
+// updatePlatformSelect handles key input on the Platform Selection screen.
+//
+// focusZone determines key routing:
+//   - focusZoneList: up/down/j/k move cursor; Space toggles checkbox; Tab → focusZoneButtons.
+//   - focusZoneButtons: Tab/left/right move button focus; Enter activates;
+//     up/down pass-through to the list (ergonomic: user may expect list navigation from buttons).
+//
+// Enter with focusZoneButtons:
+//   - "Continue" → nextStep (stepDocsMode); blocked if zero selected (shows notice).
+//   - "Back"     → prevStep (stepWelcome); state is preserved.
+func (m InstallModel) updatePlatformSelect(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "ctrl+c":
+		return m, tea.Quit
+
+	case "tab":
+		// Cycle focus between list and button row.
+		if m.focusZone == focusZoneList {
+			m.focusZone = focusZoneButtons
+		} else {
+			m.focusZone = focusZoneList
+		}
+		return m, nil
+
+	case "up", "k":
+		if m.cursor > 0 {
+			m.cursor--
+		}
+		return m, nil
+
+	case "down", "j":
+		if m.cursor < len(m.platforms)-1 {
+			m.cursor++
+		}
+		return m, nil
+
+	case " ":
+		// Space toggles the checkbox only when the list zone is focused.
+		if m.focusZone == focusZoneList && len(m.platforms) > 0 {
+			m.platforms[m.cursor].selected = !m.platforms[m.cursor].selected
+			m.notice = ""
+		}
+		return m, nil
+
+	case "left", "shift+tab":
+		if m.focusZone == focusZoneButtons {
+			m.platformSelectButtons = m.platformSelectButtons.move(-1)
+		}
+		return m, nil
+
+	case "right":
+		if m.focusZone == focusZoneButtons {
+			m.platformSelectButtons = m.platformSelectButtons.move(1)
+		}
+		return m, nil
+
+	case "enter":
+		if m.focusZone == focusZoneButtons {
+			// Activate the focused button.
+			activated := m.platformSelectButtons.focused()
+			switch activated {
+			case "Continue":
+				if !m.anySelected() {
+					m.notice = "Select at least one platform to continue."
+					return m, nil
+				}
+				m.notice = ""
+				m.step = nextStep(stepPlatformSelect)
+				// Reset button focus and zone for the next screen.
+				m.platformSelectButtons.focus = 0
+				m.focusZone = focusZoneList
+				return m, nil
+			case "Back":
+				m.step = prevStep(stepPlatformSelect)
+				m.platformSelectButtons.focus = 0
+				m.focusZone = focusZoneList
+				return m, nil
+			}
+		} else {
+			// Enter in list zone: same as Continue button shortcut.
+			if m.anySelected() {
+				m.notice = ""
+				m.step = nextStep(stepPlatformSelect)
+				m.focusZone = focusZoneList
+				return m, nil
+			}
+		}
+		return m, nil
+	}
+
 	return m, nil
 }
 

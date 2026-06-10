@@ -301,15 +301,74 @@ func TestTUIFlow_UninstallCancel(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// Slice 2 teatest: Back navigation
+// ---------------------------------------------------------------------------
+
+// TestTUIFlow_PlatformSelect_BackReturnsToWelcome exercises the BACK path using
+// teatest: from platform-select, navigate to buttons, focus Back, press Enter →
+// must return to stepWelcome.
+func TestTUIFlow_PlatformSelect_BackReturnsToWelcome(t *testing.T) {
+	plats := testPlatformsFromTempDir(t)
+	m := newInstallModelForTest(AppConfig{}, false, plats)
+	// newInstallModelForTest sets step=stepPlatformSelect and focusZone=focusZoneList.
+
+	tm := teatest.NewTestModel(t, m, teatest.WithInitialTermSize(80, 24))
+
+	// Tab → focus button zone.
+	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyTab}))
+	// Right arrow → move to Back button (index 1).
+	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyRight}))
+	// Enter → activate Back → stepWelcome.
+	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyEnter}))
+	// Ctrl+C to quit from Welcome.
+	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyCtrlC}))
+
+	tm.WaitFinished(t, teatest.WithFinalTimeout(3*time.Second))
+	final := tm.FinalModel(t).(InstallModel)
+
+	// After Back the model should be at stepWelcome.
+	// (ctrl+c will have quit before any further navigation)
+	if final.step != stepWelcome {
+		t.Fatalf("expected stepWelcome after Back, got %v", final.step)
+	}
+}
+
+// TestTUIFlow_Welcome_Continue_ToPlatformSelect exercises the Welcome Continue
+// button advancing to stepPlatformSelect.
+func TestTUIFlow_Welcome_Continue_ToPlatformSelect(t *testing.T) {
+	plats := testPlatformsFromTempDir(t)
+	m := newInstallModel(AppConfig{}, false, testManifest(), "dist", plats, NoColor())
+	m.width = 80
+	m.height = 24
+	// Start at Welcome (production default).
+
+	tm := teatest.NewTestModel(t, m, teatest.WithInitialTermSize(80, 24))
+
+	// Enter on Welcome → Continue (index 0, already focused) → stepPlatformSelect.
+	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyEnter}))
+	// Ctrl+C to quit from platform select.
+	tm.Send(tea.KeyMsg(tea.Key{Type: tea.KeyCtrlC}))
+
+	tm.WaitFinished(t, teatest.WithFinalTimeout(3*time.Second))
+	final := tm.FinalModel(t).(InstallModel)
+
+	if final.step != stepPlatformSelect {
+		t.Fatalf("expected stepPlatformSelect after Welcome Continue, got %v", final.step)
+	}
+}
+
+// ---------------------------------------------------------------------------
 // View output content tests (not golden, just key string assertions)
 // ---------------------------------------------------------------------------
 
-// TestViewContainsVersionString verifies the banner shows a version string.
-func TestViewContainsVersionString(t *testing.T) {
+// TestViewContainsZeenHeader verifies the compact header is present on inner screens.
+// The Welcome screen has its own branded lockup; inner screens use renderCompactHeader
+// which renders "Zeen" (not the legacy "doc-agent-ai" banner).
+func TestViewContainsZeenHeader(t *testing.T) {
 	plats := testPlatformsFromTempDir(t)
 	m := newInstallModelForTest(AppConfig{}, false, plats)
 	view := m.View()
-	if !strings.Contains(view, "doc-agent-ai") {
-		t.Errorf("banner missing 'doc-agent-ai'")
+	if !strings.Contains(view, "Zeen") {
+		t.Errorf("inner screen header missing 'Zeen'; got:\n%s", view)
 	}
 }

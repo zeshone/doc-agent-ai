@@ -44,6 +44,59 @@ const (
 )
 
 // ---------------------------------------------------------------------------
+// focusZone — tracks which widget owns keyboard focus on a screen
+// ---------------------------------------------------------------------------
+
+// focusZone describes which UI region currently owns keyboard focus.
+// Screens with multiple interactive regions (e.g. platform-select has a
+// checkbox list and a button row) use this to determine how to route keys.
+type focusZone int
+
+const (
+	// focusZoneList means the content list (checkbox list, radio list, etc.)
+	// currently has focus. Up/down/j/k/space operate on the list.
+	focusZoneList focusZone = iota
+
+	// focusZoneButtons means the button row currently has focus.
+	// Tab/left/right/enter operate on the buttonRow.
+	focusZoneButtons
+)
+
+// ---------------------------------------------------------------------------
+// Navigation helpers — pure step transition functions
+// ---------------------------------------------------------------------------
+
+// nextStep returns the forward transition from the given step.
+// Welcome → PlatformSelect → DocsMode → … (slices 3-5 extend this table).
+func nextStep(s Step) Step {
+	switch s {
+	case stepWelcome:
+		return stepPlatformSelect
+	case stepPlatformSelect:
+		return stepDocsMode
+	default:
+		return s + 1
+	}
+}
+
+// prevStep returns the backward (BACK) transition from the given step.
+// BACK from PlatformSelect → Welcome; BACK from DocsMode → PlatformSelect;
+// slices 3-5 extend this table as each screen is implemented.
+func prevStep(s Step) Step {
+	switch s {
+	case stepPlatformSelect:
+		return stepWelcome
+	case stepDocsMode:
+		return stepPlatformSelect
+	default:
+		if s > stepWelcome {
+			return s - 1
+		}
+		return stepWelcome
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Platform checkbox item
 // ---------------------------------------------------------------------------
 
@@ -60,6 +113,10 @@ type platformItem struct {
 
 	// selected is true if the user has toggled this platform on.
 	selected bool
+
+	// alreadyInstalled is true when checkAlreadyInstalled found existing agents
+	// for this platform. Used to render the "already installed" tag.
+	alreadyInstalled bool
 }
 
 // ---------------------------------------------------------------------------
