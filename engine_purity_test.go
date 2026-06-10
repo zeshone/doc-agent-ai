@@ -29,6 +29,10 @@ var engineFiles = []string{
 	"reporter.go",
 	"headless.go",
 	"execute_install.go",
+	// main.go is the CLI router; in slice 2b it must delegate to charm-free tui.go
+	// wrapper functions only. Adding it here ensures any direct charm import in
+	// main.go is caught immediately by this guard.
+	"main.go",
 }
 
 // TestEnginePurity_NoCharmImports asserts that none of the engine-layer Go
