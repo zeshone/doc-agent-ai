@@ -53,6 +53,8 @@ A new `TestEnginePurity_NoCharmImports` test uses `go/parser` to assert that the
 active and will fail immediately if charm code leaks into the engine. Charm imports
 are allowed only in `tui_*.go` files (introduced in slice 2b).
 
+`--yes` used alone (without other flags) runs a fully headless install using saved config defaults (vault mode and last-used path/platforms); it does not launch the interactive flow.
+
 - `feat(install)`: add Reporter seam (`Reporter` interface, `stdoutReporter`, `bufferReporter`, `installToPlatformWithReporter`)
 - `feat(install)`: add `executeInstall` orchestrator (platform resolution, mode wiring, config persistence, mode-switch hook seam)
 - `feat(main)`: wire `--platforms`, `--docs-mode`, `--path`, `--yes` flags; route headless vs interactive by `hasInstallFlags`
