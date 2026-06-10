@@ -8,7 +8,7 @@ package main
 //   - buttonRow: Tab/Shift+Tab focus, Enter activation, render with Plain styles.
 //   - renderBanner: Plain mode byte-stability, no ANSI escape sequences.
 //   - bannerPalette: correct mapping for indices 0/1/2.
-//   - Welcome screen: Salir quits, Continuar advances to stepPlatformSelect.
+//   - Welcome screen: Quit quits, Continue advances to stepPlatformSelect.
 //
 // These tests must compile and run GREEN after T1.3–T1.6 are complete.
 
@@ -78,14 +78,14 @@ func TestButtonRow_Handle_LeftRightMovesFocus(t *testing.T) {
 
 // TestButtonRow_Handle_EnterActivates verifies that Enter returns the focused label.
 func TestButtonRow_Handle_EnterActivates(t *testing.T) {
-	b := buttonRow{labels: []string{"Continuar", "Salir"}, focus: 0}
+	b := buttonRow{labels: []string{"Continue", "Quit"}, focus: 0}
 
 	label, handled := b.handle("enter")
 	if !handled {
 		t.Fatal("handle('enter') returned handled=false")
 	}
-	if label != "Continuar" {
-		t.Fatalf("expected activated label 'Continuar', got %q", label)
+	if label != "Continue" {
+		t.Fatalf("expected activated label 'Continue', got %q", label)
 	}
 
 	// Move to second button.
@@ -94,8 +94,8 @@ func TestButtonRow_Handle_EnterActivates(t *testing.T) {
 	if !handled {
 		t.Fatal("handle('enter') returned handled=false on second button")
 	}
-	if label != "Salir" {
-		t.Fatalf("expected activated label 'Salir', got %q", label)
+	if label != "Quit" {
+		t.Fatalf("expected activated label 'Quit', got %q", label)
 	}
 }
 
@@ -162,40 +162,40 @@ func TestBannerPalette_Mapping(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// TestWelcomeScreen_Salir_Quits
+// TestWelcomeScreen_Quit_Quits
 // ---------------------------------------------------------------------------
 
-// TestWelcomeScreen_Salir_Quits verifies that activating Salir returns tea.Quit.
-func TestWelcomeScreen_Salir_Quits(t *testing.T) {
+// TestWelcomeScreen_Quit_Quits verifies that activating Quit returns tea.Quit.
+func TestWelcomeScreen_Quit_Quits(t *testing.T) {
 	plats := testPlatformsFromTempDir(t)
 	m := newInstallModelForTest(AppConfig{}, false, plats)
 	// Ensure we are on the welcome step.
 	m.step = stepWelcome
-	// Focus the Salir button (index 1).
+	// Focus the Quit button (index 1).
 	m.welcomeButtons.focus = 1
 
 	_, cmd := m.Update(tea.KeyMsg(tea.Key{Type: tea.KeyEnter}))
 	if cmd == nil {
-		t.Fatal("expected a tea.Cmd (tea.Quit) when Salir is activated, got nil")
+		t.Fatal("expected a tea.Cmd (tea.Quit) when Quit is activated, got nil")
 	}
 	// Execute the command to check it produces a quit message.
 	msg := cmd()
 	if _, ok := msg.(tea.QuitMsg); !ok {
-		t.Fatalf("Salir should produce tea.QuitMsg, got %T", msg)
+		t.Fatalf("Quit should produce tea.QuitMsg, got %T", msg)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// TestWelcomeScreen_Continuar_AdvancesToPlatformSelect
+// TestWelcomeScreen_Continue_AdvancesToPlatformSelect
 // ---------------------------------------------------------------------------
 
-// TestWelcomeScreen_Continuar_AdvancesToPlatformSelect verifies that activating
-// Continuar from the welcome step moves to stepPlatformSelect.
-func TestWelcomeScreen_Continuar_AdvancesToPlatformSelect(t *testing.T) {
+// TestWelcomeScreen_Continue_AdvancesToPlatformSelect verifies that activating
+// Continue from the welcome step moves to stepPlatformSelect.
+func TestWelcomeScreen_Continue_AdvancesToPlatformSelect(t *testing.T) {
 	plats := testPlatformsFromTempDir(t)
 	m := newInstallModelForTest(AppConfig{}, false, plats)
 	m.step = stepWelcome
-	// Ensure Continuar is focused (index 0).
+	// Ensure Continue is focused (index 0).
 	m.welcomeButtons.focus = 0
 
 	next, _ := m.Update(tea.KeyMsg(tea.Key{Type: tea.KeyEnter}))
@@ -204,6 +204,6 @@ func TestWelcomeScreen_Continuar_AdvancesToPlatformSelect(t *testing.T) {
 		t.Fatalf("Update returned %T, want InstallModel", next)
 	}
 	if im.step != stepPlatformSelect {
-		t.Fatalf("after Continuar, step = %v, want stepPlatformSelect", im.step)
+		t.Fatalf("after Continue, step = %v, want stepPlatformSelect", im.step)
 	}
 }

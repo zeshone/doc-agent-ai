@@ -14,8 +14,8 @@ import (
 type Step int
 
 const (
-	// stepWelcome is the new first step: Zeen brand logo + agent description +
-	// [Continuar][Salir] buttons. Added in slice 1; all subsequent step values
+	// stepWelcome is the new first step: Zeen block-art lockup + agent description +
+	// [Continue][Quit] buttons. Added in slice 1; all subsequent step values
 	// shift by 1 — there are NO raw integer comparisons against Step values.
 	stepWelcome Step = iota
 
