@@ -1,8 +1,10 @@
 ▀▀▀▀▀▀  Zeen
   Documentation mode
-  ↑/↓ to move · Enter to select
+  ↑/↓ to move · Tab for buttons
 
 ▶ (●) vault
   Save docs to a central vault path (e.g. ~/docs/)
   ( ) in-project
   Save docs under docs/doc-agent/ in each project
+
+  [Continue]   Back 
