@@ -105,21 +105,6 @@ func copyDir(src, dst string) error {
 	return nil
 }
 
-// replaceInFile replaces all occurrences of search with replace in file.
-// If search is not found, the file is left unchanged.
-func replaceInFile(path, search, replace string) error {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return err
-	}
-	content := string(data)
-	if !strings.Contains(content, search) {
-		return nil
-	}
-	content = strings.ReplaceAll(content, search, replace)
-	return os.WriteFile(path, []byte(content), 0644)
-}
-
 // placeholderPair is a (placeholder, value) pair for ordered multi-token
 // substitution. Order matters: each substitution runs in sequence on the
 // result of the previous one.
@@ -404,7 +389,7 @@ func installToPlatform(manifest DistManifest, plat Platform, basePath, distDir s
 	installPlaceholders := []placeholderPair{
 		{manifest.PlaceholderBasePath, basePath},                         // __DOC_AGENT_BASE_PATH__/
 		{"__DOC_AGENT_GLOBAL_MODE__", resolvedGlobalMode},                // vault | in-project
-		{"__DOC_AGENT_GLOBAL_BASE__", strings.TrimSuffix(basePath, "/")}, // vault base without trailing slash (preamble prose)
+		{"__DOC_AGENT_GLOBAL_BASE__", strings.TrimSuffix(basePath, "/")}, // vault base without trailing slash; reserved for the PR 1b path-resolution preamble, no consumer yet
 	}
 
 	// --- Copy skills ---
@@ -509,6 +494,7 @@ func installToPlatform(manifest DistManifest, plat Platform, basePath, distDir s
 func installPlatforms(manifest DistManifest, platforms []Platform, basePath, distDir string) error {
 	for _, plat := range platforms {
 		head("Installing for " + platformDisplayName(plat.ID()) + "...")
+		// TODO(2a): pass the resolved plan.Mode here once executeInstall wires InstallPlan through.
 		if err := installToPlatform(manifest, plat, basePath, distDir); err != nil {
 			return fmt.Errorf("install to %s: %w", plat.ID(), err)
 		}
@@ -694,6 +680,7 @@ func installInteractive() error {
 	// Step 7: Install to each selected platform
 	for _, plat := range finalPlatforms {
 		head("Installing for " + platformDisplayName(plat.ID()) + "...")
+		// TODO(2a): pass the resolved plan.Mode here once executeInstall wires InstallPlan through.
 		if err := installToPlatform(manifest, plat, basePath, distDir); err != nil {
 			errOut("Failed to install to " + plat.ID() + ": " + err.Error())
 			continue
