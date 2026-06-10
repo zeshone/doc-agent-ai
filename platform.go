@@ -417,6 +417,14 @@ type piPlatform struct {
 // role definitions live in the prompts directory.
 func (p *piPlatform) AgentsDir() string { return "" }
 
+// PromptsDir returns the flat prompts directory for Pi.
+// Pi discovers prompt templates non-recursively from <home>/prompts/*.md;
+// the filename becomes the command name (doc-arch.md → /doc-arch).
+// basePlatform.PromptsDir() returns <home>/prompts/doc — a subdirectory that
+// Pi never scans — so this override returns the flat <home>/prompts instead.
+// Only piPlatform overrides this; all other platforms retain prompts/doc.
+func (p *piPlatform) PromptsDir() string { return filepath.Join(p.homeDir, "prompts") }
+
 // Detect returns true when ~/.pi/agent exists OR when the `pi` binary is on
 // PATH.  The binary fallback lets a fresh install (no home dir yet) still be
 // detected; the installer then creates the directory.

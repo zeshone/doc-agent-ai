@@ -87,6 +87,10 @@ doc-agent-ai now requires **Go 1.25+** to build from source (a transitive depend
 
 Downgrading to v3.x after a v4 install leaves `doc-*.md` command files orphaned in your opencode commands directory (v3.x doesn't know the new names). To avoid this, run `doc-agent-ai uninstall` under v4 before downgrading.
 
+### Fixed
+
+- **Pi prompt discovery**: Pi prompt templates now install to the flat `~/.pi/agent/prompts/` directory that Pi scans non-recursively, instead of the `prompts/doc/` subdirectory Pi never discovers. `/doc-*` commands now register correctly on Pi after install.
+
 ---
 
 ## v3.6.0 — 2026-06-03
