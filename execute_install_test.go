@@ -230,6 +230,61 @@ func TestExecuteInstall_ModeSwitchHook_NoticeWhenModeChanges(t *testing.T) {
 	}
 }
 
+// TestExecuteInstall_FailurePath_NoConfigWritten verifies that when a platform
+// install fails, executeInstall returns an error and does NOT write AppConfig.
+//
+// Guard for execute_install.go:41-43: the early return on install error must
+// fire BEFORE the saveConfig call at execute_install.go:58.
+func TestExecuteInstall_FailurePath_NoConfigWritten(t *testing.T) {
+	tmpHome := t.TempDir()
+	restoreHome := mockHomeEnv(t, tmpHome)
+	t.Cleanup(restoreHome)
+
+	distDir := filepath.Join(t.TempDir(), "dist")
+	if err := generate(distDir); err != nil {
+		t.Fatalf("generate dist: %v", err)
+	}
+	manifest, err := readManifestFrom(distDir)
+	if err != nil {
+		t.Fatalf("read manifest: %v", err)
+	}
+
+	// Create a platform whose SkillsDir() path is blocked by a file so that
+	// copyDir → ensureDir → os.MkdirAll fails with "not a directory".
+	opencodeHome := filepath.Join(tmpHome, ".config", "opencode")
+	if err := os.MkdirAll(opencodeHome, 0755); err != nil {
+		t.Fatalf("create opencode home: %v", err)
+	}
+	// Write a regular FILE at the path where the skills dir would be created.
+	// os.MkdirAll cannot create a directory when a path component is a file.
+	skillsBlocker := filepath.Join(opencodeHome, "skills")
+	if err := os.WriteFile(skillsBlocker, []byte("blocker"), 0644); err != nil {
+		t.Fatalf("write skills blocker file: %v", err)
+	}
+
+	plat := newPlatformForTest(t, "opencode", opencodeHome)
+
+	basePath := filepath.ToSlash(filepath.Join(tmpHome, "projects")) + "/"
+	plan := InstallPlan{
+		Platforms: []string{"opencode"},
+		Mode:      ModeVault,
+		BasePath:  basePath,
+		PrevMode:  ModeVault,
+	}
+
+	r := newBufferReporter()
+	installErr := executeInstall(manifest, plan, distDir, []Platform{plat}, r)
+	if installErr == nil {
+		t.Fatal("expected executeInstall to fail when platform install is blocked; got nil error")
+	}
+
+	// Config MUST NOT have been written.
+	cfgPath, _ := configPath()
+	if _, statErr := os.Stat(cfgPath); !os.IsNotExist(statErr) {
+		t.Errorf("AppConfig must not be written after a failed install; file exists at %s", cfgPath)
+	}
+}
+
 // TestExecuteInstall_ConfigPersistsSelectedPlatforms verifies that the
 // platforms list from the plan is saved in AppConfig after a successful install.
 func TestExecuteInstall_ConfigPersistsSelectedPlatforms(t *testing.T) {
