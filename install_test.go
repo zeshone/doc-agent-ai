@@ -611,3 +611,82 @@ func TestInstallToPlatform_VaultByteIdenticalBasePath(t *testing.T) {
 		}
 	}
 }
+
+// ---------------------------------------------------------------------------
+// S2 / CRITICAL-1 regression guard: post-install no-leak test
+// ---------------------------------------------------------------------------
+
+// TestInstallNoRawTokenLeak is the permanent regression guard that asserts NO
+// installed file contains the bare __DOC_AGENT_ prefix after installToPlatform.
+// This test was introduced RED (failing on 12 files) and turned GREEN by the
+// CRITICAL-1 fix that changed the preamble template to use __DOC_AGENT_GLOBAL_BASE__
+// instead of the bare token form __DOC_AGENT_BASE_PATH__ (without trailing slash).
+func TestInstallNoRawTokenLeak(t *testing.T) {
+	tmpHome := t.TempDir()
+	restoreHome := mockHomeEnv(t, tmpHome)
+	defer restoreHome()
+
+	distDir := filepath.Join(t.TempDir(), "dist")
+	if err := generate(distDir); err != nil {
+		t.Fatalf("generate dist: %v", err)
+	}
+	manifest, err := readManifestFrom(distDir)
+	if err != nil {
+		t.Fatalf("read manifest: %v", err)
+	}
+
+	opencodeHome := filepath.Join(tmpHome, ".config", "opencode")
+	if err := os.MkdirAll(opencodeHome, 0755); err != nil {
+		t.Fatalf("create opencode dir: %v", err)
+	}
+	cfgData, _ := json.Marshal(map[string]any{})
+	if err := os.WriteFile(filepath.Join(opencodeHome, "opencode.json"), cfgData, 0644); err != nil {
+		t.Fatalf("write opencode.json: %v", err)
+	}
+	plat := newPlatformForTest(t, "opencode", opencodeHome)
+	basePath := filepath.ToSlash(filepath.Join(tmpHome, "projects")) + "/"
+
+	if err := installToPlatform(manifest, plat, basePath, distDir, "vault"); err != nil {
+		t.Fatalf("installToPlatform: %v", err)
+	}
+
+	// Walk every installed file and assert the bare __DOC_AGENT_ prefix is absent.
+	// A remaining token means the substitution step did not cover that placeholder form.
+	const barePrefix = "__DOC_AGENT_"
+	var leaks []string
+
+	var walkDir func(dir string)
+	walkDir = func(dir string) {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			return
+		}
+		for _, e := range entries {
+			if e.IsDir() {
+				walkDir(filepath.Join(dir, e.Name()))
+				continue
+			}
+			path := filepath.Join(dir, e.Name())
+			content, err := os.ReadFile(path)
+			if err != nil {
+				continue
+			}
+			if strings.Contains(string(content), barePrefix) {
+				leaks = append(leaks, path)
+			}
+		}
+	}
+
+	// Check prompts dir and commands dir (the two install targets for roles/commands).
+	walkDir(plat.PromptsDir())
+	if oc, ok := plat.(*opencodePlatform); ok {
+		walkDir(filepath.Join(oc.HomeDir(), "commands"))
+	}
+
+	if len(leaks) > 0 {
+		for _, f := range leaks {
+			t.Errorf("installed file contains bare __DOC_AGENT_ token (unresolved placeholder): %s", f)
+		}
+		t.Fatalf("no-leak guard: %d installed file(s) leaked raw __DOC_AGENT_ tokens — see above", len(leaks))
+	}
+}
