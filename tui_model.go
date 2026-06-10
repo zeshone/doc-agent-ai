@@ -13,7 +13,7 @@ import (
 // ---------------------------------------------------------------------------
 
 // InstallModel is the Bubbletea model for the install wizard.
-// Steps: welcome → platformSelect → docsMode → path? → confirm → progress → done
+// Final chain: Welcome → PlatformSelect → DocsMode → Path(vault) → Overwrite(conditional) → Progress → Done.
 type InstallModel struct {
 	// step is the currently active wizard step.
 	step Step
@@ -34,9 +34,13 @@ type InstallModel struct {
 	// Initialized with ["Continue", "Back"].
 	pathButtons buttonRow
 
+	// overwriteButtons is the footer button row on the Consolidated Overwrite screen.
+	// Initialized with ["Install", "Back"].
+	overwriteButtons buttonRow
+
 	// focusZone tracks which UI region owns keyboard focus on the current screen.
-	// On screens with a list + button row (e.g. stepPlatformSelect), Tab cycles
-	// between focusZoneList and focusZoneButtons.
+	// On screens with a list + button row, Tab cycles between focusZoneList and
+	// focusZoneButtons.
 	focusZone focusZone
 
 	// platforms is the checkbox list for platform selection.
@@ -47,7 +51,7 @@ type InstallModel struct {
 
 	// alreadyInstalled is a map of platform ID → true for platforms that have
 	// existing agent files detected by checkAlreadyInstalled at startup.
-	// Read-only after construction; the slice-4 overwrite screen consults it.
+	// Read-only after construction.
 	alreadyInstalled map[string]bool
 
 	// mode is the chosen documentation mode.
@@ -58,6 +62,11 @@ type InstallModel struct {
 
 	// pathInput is the textinput for vault base path entry.
 	pathInput textinput.Model
+
+	// overwriteChoice is the selected option on the Consolidated Overwrite screen.
+	// 0 = "Overwrite all" (set Overwrite[id]=true for all selected platforms).
+	// 1 = "Install only missing" (exclude already-installed platforms from plan.Platforms).
+	overwriteChoice int
 
 	// cfg is the AppConfig loaded at startup; used for pre-fill defaults.
 	cfg AppConfig
@@ -74,19 +83,8 @@ type InstallModel struct {
 	// allPlatforms is the full detected platform list (passed to executeInstall).
 	allPlatforms []Platform
 
-	// overwriteQueue is the ordered list of platform IDs that have existing
-	// installs and are awaiting overwrite confirmation (stepOverwriteConfirm).
-	overwriteQueue []string
-
-	// overwriteQueueIdx is the index into overwriteQueue of the platform
-	// currently being shown in the overwrite confirmation step.
-	overwriteQueueIdx int
-
-	// overwriteConsent records the user's per-platform overwrite decision.
-	// true = user consented to overwrite; false / missing = skip that platform.
-	overwriteConsent map[string]bool
-
-	// progressLines collects Reporter output during stepProgress.
+	// progressLines collects Reporter output during stepProgress, or the
+	// "nothing to install" summary when all selected platforms were already present.
 	progressLines []string
 
 	// err is set when the install engine returns an error (displayed in stepDone).
@@ -158,6 +156,7 @@ func newInstallModel(cfg AppConfig, cfgExisted bool, manifest DistManifest, dist
 		platformSelectButtons: buttonRow{labels: []string{"Continue", "Back"}, focus: 0},
 		docsModeButtons:       buttonRow{labels: []string{"Continue", "Back"}, focus: 0},
 		pathButtons:           buttonRow{labels: []string{"Continue", "Back"}, focus: 0},
+		overwriteButtons:      buttonRow{labels: []string{"Install", "Back"}, focus: 0},
 		focusZone:             focusZoneList,
 		platforms:             items,
 		cursor:                0,
@@ -165,12 +164,12 @@ func newInstallModel(cfg AppConfig, cfgExisted bool, manifest DistManifest, dist
 		mode:                  mode,
 		modeCursor:            modeCursor,
 		pathInput:             pi,
+		overwriteChoice:       0,
 		cfg:                   cfg,
 		cfgExisted:            cfgExisted,
 		manifest:              manifest,
 		distDir:               distDir,
 		allPlatforms:          allPlatforms,
-		overwriteConsent:      make(map[string]bool),
 		styles:                styles,
 		width:                 80,
 		height:                24,
@@ -242,50 +241,14 @@ func (m InstallModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case stepPlatformSelect:
 		return m.updatePlatformSelect(msg)
 
-	case stepOverwriteConfirm:
-		switch msg.String() {
-		case "ctrl+c", "q":
-			return m, tea.Quit
-		case "y", "Y":
-			platID := m.overwriteQueue[m.overwriteQueueIdx]
-			m.overwriteConsent[platID] = true
-			m = m.advanceOverwriteQueue()
-		case "n", "N", "enter":
-			// Default is skip (no overwrite). The platform remains selected in the
-			// checkbox list but will be excluded from the plan via BuildPlan (overwriteConsent
-			// is absent for it). Deselect it now to keep the UI consistent.
-			platID := m.overwriteQueue[m.overwriteQueueIdx]
-			for i := range m.platforms {
-				if m.platforms[i].id == platID {
-					m.platforms[i].selected = false
-					break
-				}
-			}
-			m = m.advanceOverwriteQueue()
-		}
-		return m, nil
-
 	case stepDocsMode:
 		return m.updateDocsMode(msg)
 
 	case stepPath:
 		return m.updatePath(msg)
 
-	case stepConfirm:
-		switch msg.String() {
-		case "ctrl+c":
-			return m, tea.Quit
-		case "y", "Y":
-			m.step = stepProgress
-			return m, m.runInstall()
-		case "n", "N":
-			return m, tea.Quit
-		case "enter":
-			// Default confirm = yes.
-			m.step = stepProgress
-			return m, m.runInstall()
-		}
-		return m, nil
+	case stepOverwrite:
+		return m.updateOverwrite(msg)
 
 	case stepProgress:
 		// Wait for installResultMsg; ignore other keys.
@@ -301,33 +264,6 @@ func (m InstallModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// buildOverwriteQueue checks which selected platforms already have agents
-// installed. Returns the next step (stepOverwriteConfirm or stepDocsMode),
-// the queue of platform IDs needing confirmation, and starting index 0.
-// For platforms with no existing install, no confirmation is needed.
-func (m InstallModel) buildOverwriteQueue() (Step, []string, int) {
-	var queue []string
-	for _, p := range m.platforms {
-		if !p.selected {
-			continue
-		}
-		// Find the matching Platform from allPlatforms.
-		for _, plat := range m.allPlatforms {
-			if plat.ID() == p.id {
-				existing := checkAlreadyInstalled(m.manifest, plat)
-				if len(existing) > 0 {
-					queue = append(queue, p.id)
-				}
-				break
-			}
-		}
-	}
-	if len(queue) > 0 {
-		return stepOverwriteConfirm, queue, 0
-	}
-	return stepDocsMode, nil, 0
-}
-
 // anySelected reports whether at least one platform checkbox is selected.
 func (m InstallModel) anySelected() bool {
 	for _, p := range m.platforms {
@@ -338,28 +274,38 @@ func (m InstallModel) anySelected() bool {
 	return false
 }
 
-// advanceOverwriteQueue moves to the next platform in the overwrite queue.
-// When the queue is exhausted it transitions to stepDocsMode — unless declining
-// overwrites deselected every platform, in which case continuing would hand the
-// engine an empty plan (nil Platforms = "all detected", the opposite of what
-// the user chose). In that case return to platform selection with a notice.
-func (m InstallModel) advanceOverwriteQueue() InstallModel {
-	m.overwriteQueueIdx++
-	if m.overwriteQueueIdx >= len(m.overwriteQueue) {
-		if !m.anySelected() {
-			m.step = stepPlatformSelect
-			m.notice = "All platforms were declined for overwrite. Reselect platforms or quit (q)."
-			return m
+// anySelectedInstalled reports whether any of the currently selected platforms
+// are in the alreadyInstalled map.
+func (m InstallModel) anySelectedInstalled() bool {
+	for _, p := range m.platforms {
+		if p.selected && m.alreadyInstalled[p.id] {
+			return true
 		}
-		m.step = stepDocsMode
 	}
-	return m
+	return false
+}
+
+// nextStepAfterDocsOrPath returns the next step after docs-mode or path entry,
+// skipping stepOverwrite when no selected platform is already installed.
+func (m InstallModel) nextStepAfterDocsOrPath() Step {
+	if m.anySelectedInstalled() {
+		return stepOverwrite
+	}
+	return stepProgress
 }
 
 // runInstall builds an InstallPlan from the current model state and
 // executes the install engine as a Bubbletea Cmd (runs off the UI goroutine).
 // Progress lines are collected inside the Cmd closure and returned via
 // installResultMsg so the Bubbletea event loop can apply them to the model.
+//
+// Overwrite semantics (ADR-5):
+//   - overwrite-all (overwriteChoice=0): Overwrite[id]=true for every selected platform.
+//   - install-only-missing (overwriteChoice=1): already-installed platforms are excluded
+//     from plan.Platforms. CRITICAL: plan.Platforms is always []string{} (non-nil) when
+//     the exclusion leaves nothing, so the engine never receives nil (which means "all").
+//     The all-already-installed case bypasses the engine entirely and sends a synthetic
+//     installResultMsg directly (handled by the caller before runInstall is called).
 func (m InstallModel) runInstall() tea.Cmd {
 	// Collect selected platform IDs.
 	var selectedIDs []string
@@ -380,18 +326,42 @@ func (m InstallModel) runInstall() tea.Cmd {
 	// Determine prev mode (from config, zero-value = no prior install).
 	prevMode := DocsMode(m.cfg.Mode)
 
-	// Copy overwrite consent map into the plan so executeInstall can check it.
-	overwrite := make(map[string]bool, len(m.overwriteConsent))
-	for k, v := range m.overwriteConsent {
-		overwrite[k] = v
+	// Build the overwrite map and effective platform list based on overwriteChoice.
+	overwrite := make(map[string]bool)
+	effectiveIDs := make([]string, 0, len(selectedIDs))
+
+	if m.overwriteChoice == 0 {
+		// Overwrite all: set Overwrite[id]=true for all selected.
+		for _, id := range selectedIDs {
+			overwrite[id] = true
+			effectiveIDs = append(effectiveIDs, id)
+		}
+	} else {
+		// Install only missing: exclude already-installed platforms.
+		for _, id := range selectedIDs {
+			if m.alreadyInstalled[id] {
+				// Skip — already present, user chose not to overwrite.
+				continue
+			}
+			effectiveIDs = append(effectiveIDs, id)
+		}
+		// effectiveIDs is already []string{} (non-nil) if nothing remains
+		// because we used make([]string, 0, ...) above. The all-already-present
+		// case is handled in updateOverwrite BEFORE calling runInstall, so we
+		// should never reach here with a zero effectiveIDs list. Guard anyway.
+		if len(effectiveIDs) == 0 {
+			return func() tea.Msg {
+				return installResultMsg{err: fmt.Errorf("no platforms selected — nothing to install")}
+			}
+		}
 	}
 
 	plan := InstallPlan{
-		Platforms: selectedIDs,
+		Platforms: effectiveIDs,
 		Mode:      m.mode,
 		BasePath:  strings.TrimSpace(m.pathInput.Value()),
 		PrevMode:  prevMode,
-		Yes:       true, // user confirmed in stepConfirm
+		Yes:       true, // user confirmed via [Install] button
 		Overwrite: overwrite,
 	}
 
@@ -455,14 +425,12 @@ func (m InstallModel) View() string {
 	switch m.step {
 	case stepPlatformSelect:
 		m.viewPlatformSelect(&sb)
-	case stepOverwriteConfirm:
-		m.viewOverwriteConfirm(&sb)
 	case stepDocsMode:
 		m.viewDocsMode(&sb)
 	case stepPath:
 		m.viewPath(&sb)
-	case stepConfirm:
-		m.viewConfirm(&sb)
+	case stepOverwrite:
+		m.viewOverwrite(&sb)
 	case stepProgress:
 		m.viewProgress(&sb)
 	case stepDone:
@@ -517,31 +485,56 @@ func (m InstallModel) viewPlatformSelect(sb *strings.Builder) {
 	sb.WriteString("  " + m.platformSelectButtons.render(m.styles) + "\n")
 }
 
-func (m InstallModel) viewOverwriteConfirm(sb *strings.Builder) {
-	if m.overwriteQueueIdx >= len(m.overwriteQueue) {
-		return
-	}
-	platID := m.overwriteQueue[m.overwriteQueueIdx]
-	platLabel := platformDisplayName(platID)
-
-	// Find which agents are already installed for this platform.
-	var existing []string
-	for _, plat := range m.allPlatforms {
-		if plat.ID() == platID {
-			existing = checkAlreadyInstalled(m.manifest, plat)
-			break
+// viewOverwrite renders the consolidated overwrite screen (ADR-5).
+// Shown when at least one selected platform is already installed.
+// The user picks one of two radio options and activates [Install] or [Back].
+func (m InstallModel) viewOverwrite(sb *strings.Builder) {
+	// Count and list already-installed platforms among the selected set.
+	var installedNames []string
+	for _, p := range m.platforms {
+		if p.selected && m.alreadyInstalled[p.id] {
+			installedNames = append(installedNames, platformDisplayName(p.id))
 		}
 	}
 
-	sb.WriteString(m.styles.Title.Render("  Overwrite existing installation?") + "\n\n")
-	sb.WriteString(m.styles.Subtitle.Render("  "+platLabel+" already has agents installed:") + "\n")
-	for _, id := range existing {
-		sb.WriteString(m.styles.Dim.Render("    - "+id) + "\n")
+	n := len(installedNames)
+	if n == 1 {
+		sb.WriteString(m.styles.Title.Render(fmt.Sprintf("  1 of your selected platforms already has Zeen installed:")) + "\n")
+	} else {
+		sb.WriteString(m.styles.Title.Render(fmt.Sprintf("  %d of your selected platforms already have Zeen installed:", n)) + "\n")
+	}
+
+	for _, name := range installedNames {
+		sb.WriteString(m.styles.Dim.Render("    - "+name) + "\n")
 	}
 	sb.WriteString("\n")
-	total := len(m.overwriteQueue)
-	sb.WriteString(m.styles.Dim.Render(fmt.Sprintf("  Platform %d of %d", m.overwriteQueueIdx+1, total)) + "\n\n")
-	sb.WriteString(m.styles.Confirm.Render("  Overwrite " + platLabel + "? (y/N) "))
+
+	// Hint line.
+	if m.focusZone == focusZoneList {
+		sb.WriteString(m.styles.Subtitle.Render("  ↑/↓ to choose · Tab for buttons") + "\n\n")
+	} else {
+		sb.WriteString(m.styles.Subtitle.Render("  ←/→ to move buttons · Enter to activate · Tab back to list") + "\n\n")
+	}
+
+	choices := []string{"Overwrite all", "Install only missing"}
+	for i, label := range choices {
+		cursor := "  "
+		if i == m.overwriteChoice {
+			cursor = m.styles.SelectedItem.Render("▶ ")
+		}
+		radio := "( )"
+		if i == m.overwriteChoice {
+			radio = m.styles.CheckedItem.Render("(●)")
+		}
+		lbl := label
+		if i == m.overwriteChoice {
+			lbl = m.styles.SelectedItem.Render(label)
+		}
+		sb.WriteString(cursor + radio + " " + lbl + "\n")
+	}
+
+	sb.WriteString("\n")
+	sb.WriteString("  " + m.overwriteButtons.render(m.styles) + "\n")
 }
 
 func (m InstallModel) viewDocsMode(sb *strings.Builder) {
@@ -555,9 +548,8 @@ func (m InstallModel) viewDocsMode(sb *strings.Builder) {
 	}
 
 	// Mode-switch notice: shown when there is a prior config and the currently
-	// selected mode differs from the saved mode. Relocated here from stepConfirm
-	// (slice 3 — the stepConfirm notice is kept on confirm; this is an additional
-	// early signal on the docs-mode screen itself).
+	// selected mode differs from the saved mode. Rendered here (docs-mode screen)
+	// as an early signal. stepConfirm has been removed in slice 4.
 	selectedMode := ModeVault
 	if m.modeCursor == 1 {
 		selectedMode = ModeInProject
@@ -605,37 +597,6 @@ func (m InstallModel) viewPath(sb *strings.Builder) {
 	sb.WriteString(m.styles.Subtitle.Render("  Enter the root folder for all your doc-agent-ai documentation") + "\n\n")
 	sb.WriteString("  " + m.pathInput.View() + "\n\n")
 	sb.WriteString("  " + m.pathButtons.render(m.styles) + "\n")
-}
-
-func (m InstallModel) viewConfirm(sb *strings.Builder) {
-	sb.WriteString(m.styles.Title.Render("  Confirm installation") + "\n\n")
-
-	// List selected platforms.
-	sb.WriteString(m.styles.Subtitle.Render("  Platforms:") + "\n")
-	for _, p := range m.platforms {
-		if p.selected {
-			sb.WriteString(m.styles.Ok.Render("    ✔ "+p.label) + "\n")
-		}
-	}
-
-	// Mode.
-	sb.WriteString("\n")
-	sb.WriteString(m.styles.Subtitle.Render("  Mode: ") + string(m.mode) + "\n")
-
-	// Path (vault only).
-	if m.mode == ModeVault {
-		sb.WriteString(m.styles.Subtitle.Render("  Path: ") + m.pathInput.Value() + "\n")
-	}
-
-	// Mode-switch notice when switching modes.
-	if m.cfgExisted && m.cfg.Mode != "" && m.cfg.Mode != string(m.mode) {
-		sb.WriteString("\n")
-		sb.WriteString(m.styles.Notice.Render("  ! Mode change detected.") + "\n")
-		sb.WriteString(m.styles.Dim.Render("    Existing documentation files are not automatically migrated.") + "\n")
-	}
-
-	sb.WriteString("\n")
-	sb.WriteString(m.styles.Confirm.Render("  Install? (Y/n) "))
 }
 
 func (m InstallModel) viewProgress(sb *strings.Builder) {
@@ -816,7 +777,8 @@ func (m InstallModel) updatePlatformSelect(msg tea.KeyMsg) (tea.Model, tea.Cmd) 
 // focusZone determines key routing:
 //   - focusZoneList: up/down/j/k move modeCursor; Tab → focusZoneButtons.
 //   - focusZoneButtons: Tab/left/right move button focus; Enter activates:
-//     Continue (sets mode from modeCursor, advances to stepPath or stepConfirm),
+//     Continue (sets mode from modeCursor; vault → stepPath; in-project →
+//     stepOverwrite if any selected platform is already installed, else stepProgress),
 //     Back (prevStep = stepPlatformSelect).
 //
 // The mode-switch notice (non-migration warning) is rendered in viewDocsMode
@@ -873,12 +835,17 @@ func (m InstallModel) updateDocsMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				// Reset button focus and zone for the next screen.
 				m.docsModeButtons.focus = 0
 				m.pathButtons.focus = 0
+				m.overwriteButtons.focus = 0
 				m.focusZone = focusZoneList
 				if m.mode == ModeVault {
 					m.pathInput.Focus()
 					m.step = stepPath
 				} else {
-					m.step = stepConfirm
+					// In-project: skip path step; go to overwrite if needed, else progress.
+					m.step = m.nextStepAfterDocsOrPath()
+					if m.step == stepProgress {
+						return m, m.runInstall()
+					}
 				}
 				return m, nil
 			case "Back":
@@ -894,12 +861,16 @@ func (m InstallModel) updateDocsMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			} else {
 				m.mode = ModeInProject
 			}
+			m.overwriteButtons.focus = 0
 			m.focusZone = focusZoneList
 			if m.mode == ModeVault {
 				m.pathInput.Focus()
 				m.step = stepPath
 			} else {
-				m.step = stepConfirm
+				m.step = m.nextStepAfterDocsOrPath()
+				if m.step == stepProgress {
+					return m, m.runInstall()
+				}
 			}
 			return m, nil
 		}
@@ -912,10 +883,11 @@ func (m InstallModel) updateDocsMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 //
 // focusZone determines key routing:
 //   - focusZoneList: characters are forwarded to pathInput (so any path
-//     character, including 'b', types normally); Tab → focusZoneButtons;
+//     character types normally); Tab → focusZoneButtons;
 //     Esc is a Back shortcut (navigates to stepDocsMode).
 //   - focusZoneButtons: Tab/left/right move button focus; Enter activates:
-//     Continue (if path is non-empty, advances to stepConfirm),
+//     Continue (if path is non-empty, advances to stepOverwrite when any selected
+//     platform is already installed, else stepProgress),
 //     Back (prevStep = stepDocsMode).
 //
 // Back uses Esc (not a letter) because this screen is a free-text input —
@@ -939,6 +911,7 @@ func (m InstallModel) updatePath(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "esc":
 		// Back shortcut (non-alphabetic so it never collides with path typing).
 		m.pathButtons.focus = 0
+		m.overwriteButtons.focus = 0
 		m.focusZone = focusZoneList
 		m.pathInput.Focus()
 		m.step = prevStep(stepPath)
@@ -952,8 +925,12 @@ func (m InstallModel) updatePath(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				path := strings.TrimSpace(m.pathInput.Value())
 				if path != "" {
 					m.pathButtons.focus = 0
+					m.overwriteButtons.focus = 0
 					m.focusZone = focusZoneList
-					m.step = stepConfirm
+					m.step = m.nextStepAfterDocsOrPath()
+					if m.step == stepProgress {
+						return m, m.runInstall()
+					}
 				}
 				return m, nil
 			case "Back":
@@ -967,8 +944,12 @@ func (m InstallModel) updatePath(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			// Enter in list zone: treat as Continue shortcut.
 			path := strings.TrimSpace(m.pathInput.Value())
 			if path != "" {
+				m.overwriteButtons.focus = 0
 				m.focusZone = focusZoneList
-				m.step = stepConfirm
+				m.step = m.nextStepAfterDocsOrPath()
+				if m.step == stepProgress {
+					return m, m.runInstall()
+				}
 			}
 			return m, nil
 		}
@@ -996,8 +977,115 @@ func (m InstallModel) updatePath(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// BuildPlan returns the InstallPlan the user confirmed. Call this after the
-// wizard exits to extract the final plan for display or logging.
+// updateOverwrite handles key input on the Consolidated Overwrite screen.
+//
+// focusZone determines key routing:
+//   - focusZoneList: up/down/j/k move overwriteChoice (0=Overwrite all, 1=Install only missing);
+//     Tab → focusZoneButtons.
+//   - focusZoneButtons: Tab/left/right move button focus; Enter activates:
+//     [Install] → commits choice, routes to stepProgress (or stepDone if all-already-present).
+//     [Back]    → prevStep(stepOverwrite). For vault mode prevStep=stepPath;
+//     for in-project mode the caller uses stepDocsMode directly.
+//
+// All-already-present guard (install-only-missing with all selected platforms installed):
+// sets m.step=stepDone with a "nothing to do" summary — never calls runInstall.
+func (m InstallModel) updateOverwrite(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "ctrl+c":
+		return m, tea.Quit
+
+	case "tab":
+		if m.focusZone == focusZoneList {
+			m.focusZone = focusZoneButtons
+		} else {
+			m.focusZone = focusZoneList
+		}
+		return m, nil
+
+	case "up", "k":
+		if m.focusZone == focusZoneList && m.overwriteChoice > 0 {
+			m.overwriteChoice--
+		}
+		return m, nil
+
+	case "down", "j":
+		if m.focusZone == focusZoneList && m.overwriteChoice < 1 {
+			m.overwriteChoice++
+		}
+		return m, nil
+
+	case "left", "shift+tab":
+		if m.focusZone == focusZoneButtons {
+			m.overwriteButtons = m.overwriteButtons.move(-1)
+		}
+		return m, nil
+
+	case "right":
+		if m.focusZone == focusZoneButtons {
+			m.overwriteButtons = m.overwriteButtons.move(1)
+		}
+		return m, nil
+
+	case "enter":
+		if m.focusZone == focusZoneButtons {
+			activated := m.overwriteButtons.focused()
+			switch activated {
+			case "Install":
+				m.overwriteButtons.focus = 0
+				m.focusZone = focusZoneList
+				return m.commitOverwriteAndInstall()
+			case "Back":
+				m.overwriteButtons.focus = 0
+				m.focusZone = focusZoneList
+				// Mode-aware BACK: in-project skipped path, so go back to DocsMode.
+				if m.mode == ModeInProject {
+					m.step = stepDocsMode
+				} else {
+					m.step = prevStep(stepOverwrite)
+				}
+				return m, nil
+			}
+		} else {
+			// List-zone Enter: treat as [Install] shortcut.
+			m.focusZone = focusZoneList
+			return m.commitOverwriteAndInstall()
+		}
+	}
+
+	return m, nil
+}
+
+// commitOverwriteAndInstall commits the overwrite choice and either starts the
+// engine (stepProgress) or routes to a "nothing to do" done screen.
+func (m InstallModel) commitOverwriteAndInstall() (tea.Model, tea.Cmd) {
+	if m.overwriteChoice == 1 {
+		// Install only missing: check if everything is already installed.
+		noneLeft := true
+		for _, p := range m.platforms {
+			if p.selected && !m.alreadyInstalled[p.id] {
+				noneLeft = false
+				break
+			}
+		}
+		if noneLeft {
+			// All selected platforms already present — nothing to install.
+			// Route to stepDone with a "nothing to do" summary. NEVER call
+			// runInstall: plan.Platforms would be []string{} (non-nil empty)
+			// and we bypass the engine entirely.
+			m.step = stepDone
+			m.progressLines = []string{"  — Nothing to install — all selected platforms already have Zeen present."}
+			return m, nil
+		}
+	}
+
+	m.step = stepProgress
+	return m, m.runInstall()
+}
+
+// BuildPlan returns the InstallPlan reflecting the current model state.
+// This mirrors the plan that runInstall would send to the engine.
+// For install-only-missing, plan.Platforms excludes already-installed platforms;
+// it is always non-nil ([]string{} when empty, never nil).
 func (m InstallModel) BuildPlan() InstallPlan {
 	var selectedIDs []string
 	for _, p := range m.platforms {
@@ -1006,13 +1094,26 @@ func (m InstallModel) BuildPlan() InstallPlan {
 		}
 	}
 
-	overwrite := make(map[string]bool, len(m.overwriteConsent))
-	for k, v := range m.overwriteConsent {
-		overwrite[k] = v
+	overwrite := make(map[string]bool)
+	effectiveIDs := make([]string, 0, len(selectedIDs)) // non-nil empty by default
+
+	if m.overwriteChoice == 0 {
+		// Overwrite all.
+		for _, id := range selectedIDs {
+			overwrite[id] = true
+			effectiveIDs = append(effectiveIDs, id)
+		}
+	} else {
+		// Install only missing: exclude already-installed.
+		for _, id := range selectedIDs {
+			if !m.alreadyInstalled[id] {
+				effectiveIDs = append(effectiveIDs, id)
+			}
+		}
 	}
 
 	return InstallPlan{
-		Platforms: selectedIDs,
+		Platforms: effectiveIDs,
 		Mode:      m.mode,
 		BasePath:  strings.TrimSpace(m.pathInput.Value()),
 		PrevMode:  DocsMode(m.cfg.Mode),

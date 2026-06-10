@@ -150,10 +150,13 @@ func TestInstallModel_EnterBlockedWhenNoneSelected(t *testing.T) {
 }
 
 // TestInstallModel_InProjectModeSkipsPathStep verifies that choosing in-project
-// mode advances directly to stepConfirm (skipping stepPath).
+// mode with no already-installed platforms skips both stepPath and stepOverwrite,
+// going directly to stepProgress.
 func TestInstallModel_InProjectModeSkipsPathStep(t *testing.T) {
 	plats := testPlatformsFromTempDir(t)
 	m := newInstallModelForTest(AppConfig{}, false, plats)
+	// Ensure no platforms are already installed.
+	m.alreadyInstalled = map[string]bool{}
 
 	// Advance through platform step.
 	m = sendSpecialKey(t, m, tea.KeyEnter)
@@ -168,8 +171,9 @@ func TestInstallModel_InProjectModeSkipsPathStep(t *testing.T) {
 	if m.mode != ModeInProject {
 		t.Fatalf("mode = %v, want ModeInProject", m.mode)
 	}
-	if m.step != stepConfirm {
-		t.Fatalf("step = %v, want stepConfirm (path step skipped for in-project)", m.step)
+	// No already-installed platforms → skip stepOverwrite → go directly to stepProgress.
+	if m.step != stepProgress {
+		t.Fatalf("step = %v, want stepProgress (path + overwrite skipped for in-project fresh install)", m.step)
 	}
 }
 
@@ -234,8 +238,8 @@ func TestInstallModel_ConfirmBuildsCorrectPlan(t *testing.T) {
 	m = typeIntoInput(t, m, "/vault/docs/")
 	m = sendSpecialKey(t, m, tea.KeyEnter)
 
-	if m.step != stepConfirm {
-		t.Fatalf("expected stepConfirm, got %v", m.step)
+	if m.step != stepOverwrite && m.step != stepProgress {
+		t.Fatalf("expected stepOverwrite or stepProgress after vault path entry, got %v", m.step)
 	}
 
 	plan := m.BuildPlan()
@@ -316,33 +320,34 @@ func TestInstallModel_ViewDocsModeContainsBothModes(t *testing.T) {
 	}
 }
 
-// TestInstallModel_ViewConfirmShowsModeSwitch checks that the confirm step
-// shows the mode-switch notice when mode changes from config.
-func TestInstallModel_ViewConfirmShowsModeSwitch(t *testing.T) {
+// TestInstallModel_ViewDocsModeShowsModeSwitch checks that the docs-mode step
+// shows the mode-switch notice when the user changes mode from their saved config.
+// (The notice was relocated from the removed stepConfirm to viewDocsMode in slice 3.)
+func TestInstallModel_ViewDocsModeShowsModeSwitch(t *testing.T) {
 	plats := testPlatformsFromTempDir(t)
 	cfg := AppConfig{Mode: string(ModeVault), Path: "/old/docs/"}
 	m := newInstallModelForTest(cfg, true, plats)
-	m.mode = ModeInProject // simulate user switching to in-project
-	m.step = stepConfirm
+	m.modeCursor = 1 // user moved to in-project (different from saved vault)
+	m.step = stepDocsMode
 
 	view := m.View()
 	if !strings.Contains(view, "Mode change detected") {
-		t.Errorf("confirm view missing mode-switch notice; got:\n%s", view)
+		t.Errorf("docs-mode view missing mode-switch notice when mode changed; got:\n%s", view)
 	}
 }
 
-// TestInstallModel_ViewConfirmNoSwitchNotice checks that the confirm step does
-// NOT show the mode-switch notice when mode is unchanged.
-func TestInstallModel_ViewConfirmNoSwitchNotice(t *testing.T) {
+// TestInstallModel_ViewDocsModeNoSwitchNotice checks that the docs-mode step does
+// NOT show the mode-switch notice when mode is unchanged from config.
+func TestInstallModel_ViewDocsModeNoSwitchNotice(t *testing.T) {
 	plats := testPlatformsFromTempDir(t)
 	cfg := AppConfig{Mode: string(ModeVault), Path: "/docs/"}
 	m := newInstallModelForTest(cfg, true, plats)
-	m.mode = ModeVault // same mode
-	m.step = stepConfirm
+	m.modeCursor = 0 // same as saved vault
+	m.step = stepDocsMode
 
 	view := m.View()
 	if strings.Contains(view, "Mode change detected") {
-		t.Errorf("confirm view should not show mode-switch notice when mode unchanged")
+		t.Errorf("docs-mode view should not show mode-switch notice when mode unchanged")
 	}
 }
 

@@ -6,13 +6,13 @@ package main
 //
 // Tests for:
 //   - Docs-mode screen: radio-style selection toggles; Tab cycles list ↔ buttons.
-//   - In-project mode: skips stepPath and goes directly to stepConfirm.
-//   - Vault mode: includes stepPath before stepConfirm.
+//   - In-project mode: skips stepPath and goes directly to install (or stepOverwrite).
+//   - Vault mode: includes stepPath before install (or stepOverwrite).
 //   - Config pre-fill: mode and vault path pre-filled from AppConfig.
 //   - [Back] from docs-mode → stepPlatformSelect (prevStep).
-//   - [Back] from stepPath → stepDocsMode.
+//   - [Back] from stepPath → stepDocsMode (Esc).
 //   - [Continue] from docs-mode with vault → stepPath.
-//   - [Continue] from docs-mode with in-project → stepConfirm.
+//   - [Continue] from docs-mode with in-project → install or stepOverwrite.
 //   - Mode-switch notice: shown on docs-mode screen when PrevMode != selected mode
 //     (cfgExisted=true, cfg.Mode != selected mode); NOT shown on fresh install.
 //   - focusZone movement on docs-mode screen.
@@ -133,18 +133,21 @@ func TestDocsMode_Continue_Vault_GoesToPath(t *testing.T) {
 }
 
 // TestDocsMode_Continue_InProject_SkipsPath verifies that Continue from docs-mode
-// with in-project selected skips stepPath and goes to stepConfirm.
+// with in-project selected and no already-installed platforms skips both stepPath
+// and stepOverwrite, going directly to stepProgress.
 func TestDocsMode_Continue_InProject_SkipsPath(t *testing.T) {
 	plats := testPlatformsFromTempDir(t)
 	m := newInstallModelForTest(AppConfig{}, false, plats)
 	m.step = stepDocsMode
-	m.modeCursor = 1 // in-project
+	m.modeCursor = 1                       // in-project
+	m.alreadyInstalled = map[string]bool{} // fresh install
 	m.focusZone = focusZoneButtons
 	m.docsModeButtons.focus = 0 // Continue
 
 	m = sendSpecialKey(t, m, tea.KeyEnter)
-	if m.step != stepConfirm {
-		t.Fatalf("Continue (in-project) should skip stepPath and go to stepConfirm, got %v", m.step)
+	// Fresh install, in-project: skip path and overwrite → go straight to progress.
+	if m.step != stepProgress {
+		t.Fatalf("Continue (in-project, fresh) should skip path+overwrite and go to stepProgress, got %v", m.step)
 	}
 	if m.mode != ModeInProject {
 		t.Fatalf("mode should be ModeInProject, got %v", m.mode)
