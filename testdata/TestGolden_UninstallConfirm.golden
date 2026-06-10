@@ -1,0 +1,13 @@
+
+  doc-agent-ai  vdev — uninstaller
+
+  The following will be removed:
+  ─────────────────────────────────
+
+  opencode:
+    → Skills: doc-prd, doc-arch
+    → Prompts: prompts/doc/
+
+  ! Your documentation files are NOT affected.
+
+  Uninstall from all detected platforms? (y/N) 

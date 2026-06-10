@@ -54,27 +54,45 @@ func main() {
 		fmt.Println("dist generated from src canonical content")
 
 	case "install":
-		// Decision order: explicit install flags > TTY-interactive > error (no TTY, no flags).
-		// --yes alone also triggers the headless path (spec F1: --yes skips confirmations).
+		// Decision order (spec F1): explicit install flags > TTY-interactive > error.
+		// --yes alone also triggers the headless path (skips confirmation).
 		if hasInstallFlags(installFlags) {
 			if err := runHeadlessInstall(installFlags, ""); err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 				os.Exit(1)
 			}
-		} else {
-			// No install flags: fall through to interactive flow.
-			// Slice 2b replaces installInteractive with the Bubbletea TUI;
-			// for now the existing hand-rolled bufio flow handles this path.
-			if err := installInteractive(); err != nil {
+		} else if isTerminal() {
+			// No flags, TTY present: launch the Bubbletea install wizard.
+			if err := runInstallTUI(); err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 				os.Exit(1)
 			}
+		} else {
+			// No flags, no TTY: non-interactive context; guide the user.
+			fmt.Fprintln(os.Stderr, "Error: no TTY detected and no install flags provided.")
+			fmt.Fprintln(os.Stderr, "Use flags for non-interactive install, e.g.:")
+			fmt.Fprintln(os.Stderr, "  doc-agent-ai install --platforms opencode --docs-mode vault --path /docs --yes")
+			fmt.Fprintln(os.Stderr, "Run --help for all available flags.")
+			os.Exit(1)
 		}
 
 	case "uninstall":
-		if err := uninstallInteractive(); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
+		// Decision order: TTY present → Bubbletea TUI; no TTY → bufio fallback.
+		//
+		// Asymmetry with install: install errors on no-TTY + no-flags because it
+		// needs user input (mode, path) that cannot be reasonably defaulted.
+		// Uninstall only needs a yes/no confirmation, so the bufio fallback is safe
+		// and avoids breaking automated environments that call uninstall directly.
+		if isTerminal() {
+			if err := runUninstallTUI(); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
+		} else {
+			if err := uninstallInteractive(); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
 		}
 
 	case "--version":

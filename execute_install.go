@@ -37,12 +37,28 @@ func executeInstall(manifest DistManifest, plan InstallPlan, distDir string, all
 		return fmt.Errorf("no platforms detected on this system")
 	}
 
-	// --- Step 2: Install to each target platform ---
+	// --- Step 2: Install to each target platform (with overwrite gate) ---
+	// When a platform already has agents installed, it requires explicit overwrite
+	// consent. Consent is given either via plan.Overwrite[platID]=true (TUI/wizard)
+	// or via plan.Yes=true (headless --yes flag). Absent consent causes an error
+	// so the user is informed to either re-run with --yes or use the TUI.
 	globalMode := string(plan.Mode)
 	for _, plat := range targets {
-		r.Head("Installing for " + platformDisplayName(plat.ID()) + "...")
+		platID := plat.ID()
+		existing := checkAlreadyInstalled(manifest, plat)
+		if len(existing) > 0 {
+			// Check consent: plan.Yes (headless --yes) overrides everything.
+			if !plan.Yes && !plan.Overwrite[platID] {
+				return fmt.Errorf("%s already has agents installed — pass --yes to overwrite, or use the TUI to confirm per-platform", platformDisplayName(platID))
+			}
+			if plan.Yes {
+				r.Info("Overwriting existing installation for " + platformDisplayName(platID) + " (--yes provided).")
+			}
+		}
+
+		r.Head("Installing for " + platformDisplayName(platID) + "...")
 		if err := installToPlatformWithReporter(manifest, plat, plan.BasePath, distDir, r, globalMode); err != nil {
-			return fmt.Errorf("install to %s: %w", plat.ID(), err)
+			return fmt.Errorf("install to %s: %w", platID, err)
 		}
 	}
 

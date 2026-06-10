@@ -1,0 +1,643 @@
+package main
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/charmbracelet/bubbles/textinput"
+	tea "github.com/charmbracelet/bubbletea"
+)
+
+// ---------------------------------------------------------------------------
+// Install wizard Model
+// ---------------------------------------------------------------------------
+
+// InstallModel is the Bubbletea model for the install wizard.
+// Steps: platformSelect → docsMode → path (vault only) → confirm → progress → done
+type InstallModel struct {
+	// step is the currently active wizard step.
+	step Step
+
+	// platforms is the checkbox list for platform selection.
+	platforms []platformItem
+
+	// cursor is the focused index in the platforms list.
+	cursor int
+
+	// mode is the chosen documentation mode.
+	mode DocsMode
+
+	// modeCursor is the focused index in the mode selection list (0=vault, 1=in-project).
+	modeCursor int
+
+	// pathInput is the textinput for vault base path entry.
+	pathInput textinput.Model
+
+	// cfg is the AppConfig loaded at startup; used for pre-fill defaults.
+	cfg AppConfig
+
+	// cfgExisted is true when a config file was found (enables PrevMode tracking).
+	cfgExisted bool
+
+	// manifest is the DistManifest loaded from dist/.
+	manifest DistManifest
+
+	// distDir is the path to the dist/ directory.
+	distDir string
+
+	// allPlatforms is the full detected platform list (passed to executeInstall).
+	allPlatforms []Platform
+
+	// overwriteQueue is the ordered list of platform IDs that have existing
+	// installs and are awaiting overwrite confirmation (stepOverwriteConfirm).
+	overwriteQueue []string
+
+	// overwriteQueueIdx is the index into overwriteQueue of the platform
+	// currently being shown in the overwrite confirmation step.
+	overwriteQueueIdx int
+
+	// overwriteConsent records the user's per-platform overwrite decision.
+	// true = user consented to overwrite; false / missing = skip that platform.
+	overwriteConsent map[string]bool
+
+	// progressLines collects Reporter output during stepProgress.
+	progressLines []string
+
+	// err is set when the install engine returns an error (displayed in stepDone).
+	err error
+
+	// notice is a transient warning shown in stepPlatformSelect (e.g. after the
+	// user declines overwrite for every selected platform). Cleared on toggle.
+	notice string
+
+	// styles holds the lipgloss styles for this session.
+	styles Styles
+
+	// width / height are the terminal dimensions (used for layout).
+	width  int
+	height int
+}
+
+// newInstallModel constructs an InstallModel with defaults pre-filled from cfg.
+// allPlatforms is the detected platform list; it is passed through to executeInstall.
+func newInstallModel(cfg AppConfig, cfgExisted bool, manifest DistManifest, distDir string, allPlatforms []Platform, styles Styles) InstallModel {
+	// Build checkbox list: all detected platforms, pre-select from config if any.
+	cfgPlatSet := make(map[string]bool, len(cfg.Platforms))
+	for _, id := range cfg.Platforms {
+		cfgPlatSet[id] = true
+	}
+
+	items := make([]platformItem, 0, len(allPlatforms))
+	for _, p := range allPlatforms {
+		sel := len(cfg.Platforms) == 0 || cfgPlatSet[p.ID()] // all if no saved prefs
+		items = append(items, platformItem{
+			id:       p.ID(),
+			label:    platformDisplayName(p.ID()),
+			detected: true,
+			selected: sel,
+		})
+	}
+
+	// Pre-fill mode from config (default vault if no prior config).
+	mode := ModeVault
+	if cfgExisted && cfg.Mode == string(ModeInProject) {
+		mode = ModeInProject
+	}
+
+	modeCursor := 0
+	if mode == ModeInProject {
+		modeCursor = 1
+	}
+
+	// Build path textinput pre-filled from config.
+	pi := textinput.New()
+	pi.Placeholder = "/home/you/docs/"
+	pi.CharLimit = 256
+	if cfg.Path != "" {
+		pi.SetValue(cfg.Path)
+	}
+	if mode == ModeVault {
+		pi.Focus()
+	}
+
+	return InstallModel{
+		step:             stepPlatformSelect,
+		platforms:        items,
+		cursor:           0,
+		mode:             mode,
+		modeCursor:       modeCursor,
+		pathInput:        pi,
+		cfg:              cfg,
+		cfgExisted:       cfgExisted,
+		manifest:         manifest,
+		distDir:          distDir,
+		allPlatforms:     allPlatforms,
+		overwriteConsent: make(map[string]bool),
+		styles:           styles,
+		width:            80,
+		height:           24,
+	}
+}
+
+// ---------------------------------------------------------------------------
+// tea.Model interface
+// ---------------------------------------------------------------------------
+
+func (m InstallModel) Init() tea.Cmd {
+	return textinput.Blink
+}
+
+func (m InstallModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		return m, nil
+
+	case installResultMsg:
+		m.err = msg.err
+		m.progressLines = msg.progressLines
+		m.step = stepDone
+		return m, tea.Quit
+
+	case tea.KeyMsg:
+		return m.handleKey(msg)
+	}
+
+	// Forward messages to the active text input when on the path step.
+	if m.step == stepPath {
+		var cmd tea.Cmd
+		m.pathInput, cmd = m.pathInput.Update(msg)
+		return m, cmd
+	}
+
+	return m, nil
+}
+
+// handleKey processes keyboard input for each wizard step.
+func (m InstallModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch m.step {
+
+	case stepPlatformSelect:
+		switch msg.String() {
+		case "ctrl+c", "q":
+			return m, tea.Quit
+		case "up", "k":
+			if m.cursor > 0 {
+				m.cursor--
+			}
+		case "down", "j":
+			if m.cursor < len(m.platforms)-1 {
+				m.cursor++
+			}
+		case " ":
+			if len(m.platforms) > 0 {
+				m.platforms[m.cursor].selected = !m.platforms[m.cursor].selected
+				m.notice = ""
+			}
+		case "enter":
+			// At least one must be selected.
+			if m.anySelected() {
+				m.notice = ""
+				m.step, m.overwriteQueue, m.overwriteQueueIdx = m.buildOverwriteQueue()
+			}
+		}
+
+	case stepOverwriteConfirm:
+		switch msg.String() {
+		case "ctrl+c", "q":
+			return m, tea.Quit
+		case "y", "Y":
+			platID := m.overwriteQueue[m.overwriteQueueIdx]
+			m.overwriteConsent[platID] = true
+			m = m.advanceOverwriteQueue()
+		case "n", "N", "enter":
+			// Default is skip (no overwrite). The platform remains selected in the
+			// checkbox list but will be excluded from the plan via BuildPlan (overwriteConsent
+			// is absent for it). Deselect it now to keep the UI consistent.
+			platID := m.overwriteQueue[m.overwriteQueueIdx]
+			for i := range m.platforms {
+				if m.platforms[i].id == platID {
+					m.platforms[i].selected = false
+					break
+				}
+			}
+			m = m.advanceOverwriteQueue()
+		}
+		return m, nil
+
+	case stepDocsMode:
+		switch msg.String() {
+		case "ctrl+c", "q":
+			return m, tea.Quit
+		case "up", "k":
+			if m.modeCursor > 0 {
+				m.modeCursor--
+			}
+		case "down", "j":
+			if m.modeCursor < 1 {
+				m.modeCursor++
+			}
+		case "enter":
+			if m.modeCursor == 0 {
+				m.mode = ModeVault
+			} else {
+				m.mode = ModeInProject
+			}
+			if m.mode == ModeVault {
+				m.pathInput.Focus()
+				m.step = stepPath
+			} else {
+				m.step = stepConfirm
+			}
+		}
+		return m, nil
+
+	case stepPath:
+		switch msg.String() {
+		case "ctrl+c":
+			return m, tea.Quit
+		case "enter":
+			path := strings.TrimSpace(m.pathInput.Value())
+			if path != "" {
+				m.step = stepConfirm
+			}
+			return m, nil
+		}
+		// Forward to textinput.
+		var cmd tea.Cmd
+		m.pathInput, cmd = m.pathInput.Update(msg)
+		return m, cmd
+
+	case stepConfirm:
+		switch msg.String() {
+		case "ctrl+c":
+			return m, tea.Quit
+		case "y", "Y":
+			m.step = stepProgress
+			return m, m.runInstall()
+		case "n", "N":
+			return m, tea.Quit
+		case "enter":
+			// Default confirm = yes.
+			m.step = stepProgress
+			return m, m.runInstall()
+		}
+		return m, nil
+
+	case stepProgress:
+		// Wait for installResultMsg; ignore other keys.
+		if msg.String() == "ctrl+c" {
+			return m, tea.Quit
+		}
+		return m, nil
+
+	case stepDone:
+		return m, tea.Quit
+	}
+
+	return m, nil
+}
+
+// buildOverwriteQueue checks which selected platforms already have agents
+// installed. Returns the next step (stepOverwriteConfirm or stepDocsMode),
+// the queue of platform IDs needing confirmation, and starting index 0.
+// For platforms with no existing install, no confirmation is needed.
+func (m InstallModel) buildOverwriteQueue() (Step, []string, int) {
+	var queue []string
+	for _, p := range m.platforms {
+		if !p.selected {
+			continue
+		}
+		// Find the matching Platform from allPlatforms.
+		for _, plat := range m.allPlatforms {
+			if plat.ID() == p.id {
+				existing := checkAlreadyInstalled(m.manifest, plat)
+				if len(existing) > 0 {
+					queue = append(queue, p.id)
+				}
+				break
+			}
+		}
+	}
+	if len(queue) > 0 {
+		return stepOverwriteConfirm, queue, 0
+	}
+	return stepDocsMode, nil, 0
+}
+
+// anySelected reports whether at least one platform checkbox is selected.
+func (m InstallModel) anySelected() bool {
+	for _, p := range m.platforms {
+		if p.selected {
+			return true
+		}
+	}
+	return false
+}
+
+// advanceOverwriteQueue moves to the next platform in the overwrite queue.
+// When the queue is exhausted it transitions to stepDocsMode — unless declining
+// overwrites deselected every platform, in which case continuing would hand the
+// engine an empty plan (nil Platforms = "all detected", the opposite of what
+// the user chose). In that case return to platform selection with a notice.
+func (m InstallModel) advanceOverwriteQueue() InstallModel {
+	m.overwriteQueueIdx++
+	if m.overwriteQueueIdx >= len(m.overwriteQueue) {
+		if !m.anySelected() {
+			m.step = stepPlatformSelect
+			m.notice = "All platforms were declined for overwrite. Reselect platforms or quit (q)."
+			return m
+		}
+		m.step = stepDocsMode
+	}
+	return m
+}
+
+// runInstall builds an InstallPlan from the current model state and
+// executes the install engine as a Bubbletea Cmd (runs off the UI goroutine).
+// Progress lines are collected inside the Cmd closure and returned via
+// installResultMsg so the Bubbletea event loop can apply them to the model.
+func (m InstallModel) runInstall() tea.Cmd {
+	// Collect selected platform IDs.
+	var selectedIDs []string
+	for _, p := range m.platforms {
+		if p.selected {
+			selectedIDs = append(selectedIDs, p.id)
+		}
+	}
+
+	// Defense in depth: an empty selection must never reach the engine — a nil
+	// Platforms list means "install to all detected", the opposite intent.
+	if len(selectedIDs) == 0 {
+		return func() tea.Msg {
+			return installResultMsg{err: fmt.Errorf("no platforms selected — nothing to install")}
+		}
+	}
+
+	// Determine prev mode (from config, zero-value = no prior install).
+	prevMode := DocsMode(m.cfg.Mode)
+
+	// Copy overwrite consent map into the plan so executeInstall can check it.
+	overwrite := make(map[string]bool, len(m.overwriteConsent))
+	for k, v := range m.overwriteConsent {
+		overwrite[k] = v
+	}
+
+	plan := InstallPlan{
+		Platforms: selectedIDs,
+		Mode:      m.mode,
+		BasePath:  strings.TrimSpace(m.pathInput.Value()),
+		PrevMode:  prevMode,
+		Yes:       true, // user confirmed in stepConfirm
+		Overwrite: overwrite,
+	}
+
+	manifest := m.manifest
+	distDir := m.distDir
+	allPlatforms := m.allPlatforms
+
+	return func() tea.Msg {
+		// Collect progress lines into a local slice owned by this closure.
+		// We do not store a pointer to the InstallModel here because tea.Cmd
+		// runs on a separate goroutine; writing to the model copy in the event
+		// loop's goroutine would cause a data race with no guarantee the lines
+		// reach the rendered model. Instead, lines are returned inside
+		// installResultMsg and the Update method merges them into the live model.
+		var lines []string
+		collector := &collectingReporter{lines: &lines}
+		err := executeInstall(manifest, plan, distDir, allPlatforms, collector)
+		return installResultMsg{err: err, progressLines: lines}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// collectingReporter — collects engine output for display in the done step
+// ---------------------------------------------------------------------------
+
+// collectingReporter is a Reporter that appends formatted lines to a local
+// []string slice owned by the tea.Cmd closure. The collected lines are
+// returned via installResultMsg and merged into the live model by Update,
+// ensuring they are displayed in the done step. This avoids writing to a
+// detached model copy from the Cmd goroutine.
+type collectingReporter struct {
+	lines *[]string
+}
+
+func (c *collectingReporter) Ok(msg string)     { *c.lines = append(*c.lines, "  ✔ "+msg) }
+func (c *collectingReporter) Warn(msg string)   { *c.lines = append(*c.lines, "  ⚠  "+msg) }
+func (c *collectingReporter) ErrOut(msg string) { *c.lines = append(*c.lines, "  ✖ "+msg) }
+func (c *collectingReporter) Info(msg string)   { *c.lines = append(*c.lines, "  → "+msg) }
+func (c *collectingReporter) Dim(msg string)    { *c.lines = append(*c.lines, "  "+msg) }
+func (c *collectingReporter) Head(msg string)   { *c.lines = append(*c.lines, "\n  "+msg) }
+
+// ---------------------------------------------------------------------------
+// View
+// ---------------------------------------------------------------------------
+
+func (m InstallModel) View() string {
+	var sb strings.Builder
+
+	sb.WriteString("\n")
+	sb.WriteString(m.styles.Banner.Render("  doc-agent-ai") + "  " +
+		m.styles.Dim.Render("v"+version+" — installer") + "\n\n")
+
+	switch m.step {
+	case stepPlatformSelect:
+		m.viewPlatformSelect(&sb)
+	case stepOverwriteConfirm:
+		m.viewOverwriteConfirm(&sb)
+	case stepDocsMode:
+		m.viewDocsMode(&sb)
+	case stepPath:
+		m.viewPath(&sb)
+	case stepConfirm:
+		m.viewConfirm(&sb)
+	case stepProgress:
+		m.viewProgress(&sb)
+	case stepDone:
+		m.viewDone(&sb)
+	}
+
+	return sb.String()
+}
+
+func (m InstallModel) viewPlatformSelect(sb *strings.Builder) {
+	sb.WriteString(m.styles.Title.Render("  Select platforms") + "\n")
+	sb.WriteString(m.styles.Subtitle.Render("  Space to toggle · Enter to continue") + "\n\n")
+
+	if m.notice != "" {
+		sb.WriteString(m.styles.Warning.Render("  ! "+m.notice) + "\n\n")
+	}
+
+	for i, p := range m.platforms {
+		cursor := "  "
+		if i == m.cursor {
+			cursor = m.styles.SelectedItem.Render("▶ ")
+		}
+
+		checkbox := "[ ]"
+		if p.selected {
+			checkbox = m.styles.CheckedItem.Render("[✔]")
+		}
+
+		label := p.label
+		if i == m.cursor {
+			label = m.styles.SelectedItem.Render(p.label)
+		}
+
+		sb.WriteString(cursor + checkbox + " " + label + "\n")
+	}
+}
+
+func (m InstallModel) viewOverwriteConfirm(sb *strings.Builder) {
+	if m.overwriteQueueIdx >= len(m.overwriteQueue) {
+		return
+	}
+	platID := m.overwriteQueue[m.overwriteQueueIdx]
+	platLabel := platformDisplayName(platID)
+
+	// Find which agents are already installed for this platform.
+	var existing []string
+	for _, plat := range m.allPlatforms {
+		if plat.ID() == platID {
+			existing = checkAlreadyInstalled(m.manifest, plat)
+			break
+		}
+	}
+
+	sb.WriteString(m.styles.Title.Render("  Overwrite existing installation?") + "\n\n")
+	sb.WriteString(m.styles.Subtitle.Render("  "+platLabel+" already has agents installed:") + "\n")
+	for _, id := range existing {
+		sb.WriteString(m.styles.Dim.Render("    - "+id) + "\n")
+	}
+	sb.WriteString("\n")
+	total := len(m.overwriteQueue)
+	sb.WriteString(m.styles.Dim.Render(fmt.Sprintf("  Platform %d of %d", m.overwriteQueueIdx+1, total)) + "\n\n")
+	sb.WriteString(m.styles.Confirm.Render("  Overwrite " + platLabel + "? (y/N) "))
+}
+
+func (m InstallModel) viewDocsMode(sb *strings.Builder) {
+	sb.WriteString(m.styles.Title.Render("  Documentation mode") + "\n")
+	sb.WriteString(m.styles.Subtitle.Render("  ↑/↓ to move · Enter to select") + "\n\n")
+
+	modes := []struct {
+		label string
+		desc  string
+	}{
+		{"vault", "Save docs to a central vault path (e.g. ~/docs/)"},
+		{"in-project", "Save docs under docs/doc-agent/ in each project"},
+	}
+
+	for i, mo := range modes {
+		cursor := "  "
+		if i == m.modeCursor {
+			cursor = m.styles.SelectedItem.Render("▶ ")
+		}
+
+		radio := "( )"
+		if i == m.modeCursor {
+			radio = m.styles.CheckedItem.Render("(●)")
+		}
+
+		label := mo.label
+		desc := m.styles.Dim.Render("  " + mo.desc)
+		if i == m.modeCursor {
+			label = m.styles.SelectedItem.Render(mo.label)
+		}
+
+		sb.WriteString(cursor + radio + " " + label + "\n")
+		sb.WriteString(desc + "\n")
+	}
+}
+
+func (m InstallModel) viewPath(sb *strings.Builder) {
+	sb.WriteString(m.styles.Title.Render("  Vault base path") + "\n")
+	sb.WriteString(m.styles.Subtitle.Render("  Enter the root folder for all your doc-agent-ai documentation") + "\n\n")
+	sb.WriteString("  " + m.pathInput.View() + "\n\n")
+	sb.WriteString(m.styles.Dim.Render("  Enter to continue") + "\n")
+}
+
+func (m InstallModel) viewConfirm(sb *strings.Builder) {
+	sb.WriteString(m.styles.Title.Render("  Confirm installation") + "\n\n")
+
+	// List selected platforms.
+	sb.WriteString(m.styles.Subtitle.Render("  Platforms:") + "\n")
+	for _, p := range m.platforms {
+		if p.selected {
+			sb.WriteString(m.styles.Ok.Render("    ✔ "+p.label) + "\n")
+		}
+	}
+
+	// Mode.
+	sb.WriteString("\n")
+	sb.WriteString(m.styles.Subtitle.Render("  Mode: ") + string(m.mode) + "\n")
+
+	// Path (vault only).
+	if m.mode == ModeVault {
+		sb.WriteString(m.styles.Subtitle.Render("  Path: ") + m.pathInput.Value() + "\n")
+	}
+
+	// Mode-switch notice when switching modes.
+	if m.cfgExisted && m.cfg.Mode != "" && m.cfg.Mode != string(m.mode) {
+		sb.WriteString("\n")
+		sb.WriteString(m.styles.Notice.Render("  ! Mode change detected.") + "\n")
+		sb.WriteString(m.styles.Dim.Render("    Existing documentation files are not automatically migrated.") + "\n")
+	}
+
+	sb.WriteString("\n")
+	sb.WriteString(m.styles.Confirm.Render("  Install? (Y/n) "))
+}
+
+func (m InstallModel) viewProgress(sb *strings.Builder) {
+	sb.WriteString(m.styles.Title.Render("  Installing...") + "\n\n")
+	for _, line := range m.progressLines {
+		sb.WriteString(line + "\n")
+	}
+	sb.WriteString("\n")
+	sb.WriteString(m.styles.Dim.Render("  Please wait...") + "\n")
+}
+
+func (m InstallModel) viewDone(sb *strings.Builder) {
+	if m.err != nil {
+		sb.WriteString(m.styles.ErrStyle.Render("  ✖ Install failed") + "\n\n")
+		sb.WriteString(m.styles.ErrStyle.Render("  "+m.err.Error()) + "\n\n")
+		sb.WriteString(m.styles.Dim.Render("  Run with --help for headless flag usage.") + "\n")
+		return
+	}
+
+	sb.WriteString(m.styles.Ok.Render("  ✔ Install complete!") + "\n\n")
+
+	// Show progress log.
+	for _, line := range m.progressLines {
+		sb.WriteString(line + "\n")
+	}
+
+	sb.WriteString("\n")
+	sb.WriteString(m.styles.Dim.Render("  Restart your AI tool if it is currently running.") + "\n")
+}
+
+// BuildPlan returns the InstallPlan the user confirmed. Call this after the
+// wizard exits to extract the final plan for display or logging.
+func (m InstallModel) BuildPlan() InstallPlan {
+	var selectedIDs []string
+	for _, p := range m.platforms {
+		if p.selected {
+			selectedIDs = append(selectedIDs, p.id)
+		}
+	}
+
+	overwrite := make(map[string]bool, len(m.overwriteConsent))
+	for k, v := range m.overwriteConsent {
+		overwrite[k] = v
+	}
+
+	return InstallPlan{
+		Platforms: selectedIDs,
+		Mode:      m.mode,
+		BasePath:  strings.TrimSpace(m.pathInput.Value()),
+		PrevMode:  DocsMode(m.cfg.Mode),
+		Yes:       true,
+		Overwrite: overwrite,
+	}
+}
