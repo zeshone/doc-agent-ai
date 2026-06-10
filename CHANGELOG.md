@@ -8,6 +8,58 @@ For older releases without a section here, the GitHub Release notes have the det
 
 ## v4.0.0 — Unreleased
 
+### Bubbletea installer TUI (PR 2b)
+
+Replaces the hand-rolled `bufio` interactive flow with a Bubbletea wizard. The
+wizard is isolated in `tui_*.go` files; the engine remains charm-free (enforced
+by the purity guard from PR 2a).
+
+#### Charm dependencies added
+
+```
+github.com/charmbracelet/bubbletea v1.3.10
+github.com/charmbracelet/bubbles  (textinput only)
+github.com/charmbracelet/lipgloss v1.1.0
+golang.org/x/term                  (TTY detection)
+```
+
+**Binary size (T2-1 measurement):** with deps, `CGO_ENABLED=0 go build -ldflags="-s -w"` produces
+**5.32 MiB** (up from 4.0 MiB before charm; CI gate: 6 MiB — gate is safe).
+
+#### Install wizard
+
+Six-step wizard: platform selection → docs-mode → vault path (vault only) → confirm → progress → done.
+
+- Config defaults pre-fill mode, vault path, and platform selection on reinstall.
+- In-project mode skips the path entry step.
+- Mode-switch notice displayed in the confirm step when mode changes from config.
+- Progress step renders engine output (via a `collectingReporter`) without corrupting frames.
+
+#### Uninstall wizard
+
+Three-step wizard: confirm (lists what will be removed) → progress → done.
+Enter defaults to no; explicit `y` is required (destructive action guard).
+
+#### TTY detection routing (main.go)
+
+Decision order:
+1. **Flags present** → headless path (existing, from PR 2a).
+2. **No flags + TTY** → Bubbletea wizard (this PR).
+3. **No flags + no TTY** → actionable error with flag examples; exit 1.
+
+#### Tests
+
+- `tui_model_test.go`: 15 direct `Model.Update()` state-transition tests (platform toggle,
+  cursor nav, step advance, in-project skips path, vault includes path, config pre-fill,
+  plan correctness, mode-switch notice display, TTY-error message components).
+- `tui_flow_test.go`: 9 golden view snapshots (one per step + mode-switch + uninstall confirm)
+  + 4 teatest full-flow tests (in-project, vault, config-prefilled, uninstall-cancel).
+
+- `feat(tui)`: add Bubbletea install wizard (tui.go, tui_model.go, tui_steps.go, tui_styles.go)
+- `feat(tui)`: add Bubbletea uninstall wizard (tui_uninstall.go)
+- `feat(main)`: wire TTY detection — flags > TTY-TUI > no-TTY-error
+- `test(tui)`: add 15 unit tests, 9 golden snapshots, 4 teatest flow tests
+
 ### Headless flags + engine seam (PR 2a)
 
 The install command now accepts four flags that bypass the interactive/TUI flow
