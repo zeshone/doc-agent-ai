@@ -30,8 +30,11 @@ const (
 
 // uninstallResultMsg is sent on the Bubbletea bus when the uninstall engine
 // finishes. The TUI Update method uses it to transition to uninstallStepDone.
+// progressLines carries the output collected by the engine closure — the model
+// copy the closure captured is dead by then, so lines must travel in the msg.
 type uninstallResultMsg struct {
-	err error
+	err           error
+	progressLines []string
 }
 
 // ---------------------------------------------------------------------------
@@ -93,6 +96,7 @@ func (m UninstallModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case uninstallResultMsg:
 		m.err = msg.err
+		m.progressLines = append(m.progressLines, msg.progressLines...)
 		m.step = uninstallStepDone
 		return m, tea.Quit
 
@@ -131,18 +135,19 @@ func (m UninstallModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // runUninstall drives the existing uninstallPlatform engine for each detected
-// installation, collecting output via the TUI progress lines.
-func (m *UninstallModel) runUninstall() tea.Cmd {
+// installation. Output is accumulated locally and returned in the result msg —
+// never appended through the model, whose copy is dead once the Cmd runs.
+func (m UninstallModel) runUninstall() tea.Cmd {
 	installed := m.installed
 	manifest := m.manifest
-	lines := &m.progressLines
 
 	return func() tea.Msg {
+		var lines []string
 		for _, details := range installed {
-			*lines = append(*lines, "\n  Removing from "+details.platform.ID()+"...")
+			lines = append(lines, "  Removing from "+details.platform.ID()+"...")
 			uninstallPlatform(details, manifest)
 		}
-		return uninstallResultMsg{err: nil}
+		return uninstallResultMsg{err: nil, progressLines: lines}
 	}
 }
 
@@ -215,6 +220,12 @@ func (m UninstallModel) viewDone(sb *strings.Builder) {
 	if m.err != nil {
 		sb.WriteString(m.styles.ErrStyle.Render("  ✖ Uninstall failed: "+m.err.Error()) + "\n")
 		return
+	}
+	for _, line := range m.progressLines {
+		sb.WriteString(m.styles.Dim.Render(line) + "\n")
+	}
+	if len(m.progressLines) > 0 {
+		sb.WriteString("\n")
 	}
 	sb.WriteString(m.styles.Ok.Render("  ✔ Uninstall complete!") + "\n\n")
 	sb.WriteString(m.styles.Dim.Render("  Restart your AI tool if it is currently running.") + "\n")
