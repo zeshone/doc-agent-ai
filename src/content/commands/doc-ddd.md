@@ -11,7 +11,7 @@ Delegate to the `doc-ddd` sub-agent with the argument: `$ARGUMENTS`.
 
 **Prerequisites:** `doc-tech` phase should be completed first. If the tech spec is missing, provide schema files, migration history, or entity descriptions manually.
 
-**Output:** `<BASE_PATH><sistema>/<sistema>_db-design.md`
+**Output:** `<sistema>_db-design.md` written under the docs root resolved per the preamble below.
 
 The argument may be:
 - `<sistema>` → system DB design document
