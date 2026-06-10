@@ -6,12 +6,11 @@ package main
 //
 // Tests for:
 //   - prevStep / nextStep pure helpers (Step transition table).
-//   - focusZone: Tab cycles content ↔ buttons; Enter on list vs buttons.
+//   - Dual-axis nav: ↑/↓ move the platform cursor; ←/→ move button focus.
 //   - Platform list: already-installed marks render; checkbox toggle.
 //   - Zero-selected guard: [Continue] blocked.
 //   - [Back] → Welcome (prevStep) with state preserved.
 //   - [Continue] → stepDocsMode (nextStep).
-//   - focusZone movement: Tab on list zone → button zone, Tab on buttons → list.
 
 import (
 	"os"

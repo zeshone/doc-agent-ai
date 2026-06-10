@@ -5,7 +5,7 @@ package main
 // ---------------------------------------------------------------------------
 //
 // Tests for:
-//   - Docs-mode screen: radio-style selection toggles; Tab cycles list ↔ buttons.
+//   - Docs-mode screen: radio-style selection toggles (↑/↓); ←/→ move button focus.
 //   - In-project mode: skips stepPath and goes directly to install (or stepOverwrite).
 //   - Vault mode: includes stepPath before install (or stepOverwrite).
 //   - Config pre-fill: mode and vault path pre-filled from AppConfig.
@@ -15,7 +15,7 @@ package main
 //   - [Continue] from docs-mode with in-project → install or stepOverwrite.
 //   - Mode-switch notice: shown on docs-mode screen when PrevMode != selected mode
 //     (cfgExisted=true, cfg.Mode != selected mode); NOT shown on fresh install.
-//   - focusZone movement on docs-mode screen.
+//   - Button focus movement (←/→) on docs-mode screen.
 
 import (
 	"strings"

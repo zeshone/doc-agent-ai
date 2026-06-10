@@ -16,7 +16,7 @@ package main
 //     and the wizard routes to stepDone with a "nothing to do" summary.
 //   - [Back] from stepOverwrite → prevStep (stepPath for vault, stepDocsMode for in-project).
 //   - [Install] → stepProgress.
-//   - focusZone works: Tab cycles list↔buttons; left/right moves button focus.
+//   - Dual-axis nav: ↑/↓ move the overwrite choice; ←/→ move button focus.
 //   - prevStep(stepOverwrite) == stepPath when mode==ModeVault.
 //   - prevStep(stepOverwrite) == stepDocsMode when mode==ModeInProject (slice 5 uses this).
 

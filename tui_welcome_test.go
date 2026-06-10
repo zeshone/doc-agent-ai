@@ -5,7 +5,7 @@ package main
 // ---------------------------------------------------------------------------
 //
 // Tests T1.7 (all sub-tests) for:
-//   - buttonRow: Tab/Shift+Tab focus, Enter activation, render with Plain styles.
+//   - buttonRow: left/right focus, Enter activation, render with Plain styles.
 //   - renderBanner: Plain mode byte-stability, no ANSI escape sequences.
 //   - bannerPalette: correct mapping for indices 0/1/2.
 //   - Welcome screen: Quit quits, Continue advances to stepPlatformSelect.
@@ -20,7 +20,7 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// TestButtonRow_Handle_TabMovesFocus
+// buttonRow focus movement
 // ---------------------------------------------------------------------------
 
 // TestButtonRow_Handle_LeftRightMovesFocusOnly verifies that ← and → cycle

@@ -505,6 +505,24 @@ func TestNav_Path_TypingInsertsIntoInput(t *testing.T) {
 	}
 }
 
+// TestNav_Path_TypingB_InsertsAndStays specifically guards that 'b' types into
+// the path (no longer a Back shortcut) — vault paths routinely contain 'b'
+// (e.g. C:\Users\bob\docs). Back on the path screen is Esc only.
+func TestNav_Path_TypingB_InsertsAndStays(t *testing.T) {
+	plats := testPlatformsFromTempDir(t)
+	m := newInstallModelForTest(AppConfig{}, false, plats)
+	m.step = stepPath
+	m.pathInput.SetValue("")
+
+	m = sendKey(t, m, "b")
+	if m.step != stepPath {
+		t.Fatalf("typing 'b' must stay on stepPath, got %v", m.step)
+	}
+	if !strings.Contains(m.pathInput.Value(), "b") {
+		t.Errorf("typing 'b' should insert into path input; value = %q", m.pathInput.Value())
+	}
+}
+
 // ---------------------------------------------------------------------------
 // View hint strings: must not contain "Tab" on content+button screens
 // ---------------------------------------------------------------------------
