@@ -10,6 +10,8 @@ Also read the full agent rules at:
 
 The base path for all projects is: {{BASE_PATH}}
 
+> Paths below show vault layout (`{{BASE_PATH}}<system>/...`). In in-project mode apply the docs root resolved per the preamble above: replace `{{BASE_PATH}}<system>/` with `docs/doc-agent/` (no `<system>` folder).
+
 ---
 
 ## Pre-flight checks — run ALL before doing any work
