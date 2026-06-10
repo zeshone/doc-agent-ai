@@ -1,5 +1,5 @@
 **Resolve docs mode before writing any file:**
 1. Check for `.doc-agent.json` at the current project root. If present, read its `mode` field.
 2. If no marker, use the global mode: `__DOC_AGENT_GLOBAL_MODE__`.
-3. **vault** → write under `__DOC_AGENT_BASE_PATH__<system>/` using the system/modules layout.
+3. **vault** → write under `__DOC_AGENT_GLOBAL_BASE__/<system>/` using the system/modules layout.
 4. **in-project** → write under `docs/doc-agent/` (no `<system>` folder): `docs/doc-agent/_prd.md`, `docs/doc-agent/<module>/`, `docs/doc-agent/features/<slug>/`, `docs/doc-agent/agent_sdd_context_project/`.
