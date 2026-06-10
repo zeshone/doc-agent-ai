@@ -120,6 +120,36 @@ func replaceInFile(path, search, replace string) error {
 	return os.WriteFile(path, []byte(content), 0644)
 }
 
+// placeholderPair is a (placeholder, value) pair for ordered multi-token
+// substitution. Order matters: each substitution runs in sequence on the
+// result of the previous one.
+type placeholderPair struct {
+	placeholder string
+	value       string
+}
+
+// replaceAllInFile applies an ordered list of (placeholder → value) substitutions
+// to a file. Each substitution is applied to the result of the previous one.
+// If a placeholder is not found in the current content, that step is a no-op.
+func replaceAllInFile(path string, pairs []placeholderPair) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	content := string(data)
+	changed := false
+	for _, p := range pairs {
+		if strings.Contains(content, p.placeholder) {
+			content = strings.ReplaceAll(content, p.placeholder, p.value)
+			changed = true
+		}
+	}
+	if !changed {
+		return nil
+	}
+	return os.WriteFile(path, []byte(content), 0644)
+}
+
 // ---------------------------------------------------------------------------
 // Manifest reading
 // ---------------------------------------------------------------------------
@@ -355,7 +385,28 @@ func sweepLegacyCommands(homeDir string, legacyIDs []string) {
 
 // installToPlatform installs all artifacts from distDir to a single platform.
 // This is the non-interactive core — tests can call it directly.
-func installToPlatform(manifest DistManifest, plat Platform, basePath, distDir string) error {
+//
+// The optional globalMode variadic argument (0 or 1 values accepted) provides the
+// resolved global documentation mode string (e.g. "vault" or "in-project") that
+// is substituted for the __DOC_AGENT_GLOBAL_MODE__ placeholder in installed files.
+// When omitted, the mode defaults to "vault" to preserve pre-v4 install behaviour.
+func installToPlatform(manifest DistManifest, plat Platform, basePath, distDir string, globalMode ...string) error {
+	// Resolve global mode: first explicit argument wins, otherwise default to vault.
+	resolvedGlobalMode := "vault"
+	if len(globalMode) > 0 && globalMode[0] != "" {
+		resolvedGlobalMode = globalMode[0]
+	}
+
+	// Ordered placeholder substitution applied to every installed file.
+	// Order is significant: BASE_PATH is replaced first so that any remaining
+	// __DOC_AGENT_BASE_PATH__-prefixed tokens (e.g. in path-resolution preamble)
+	// are already resolved before the mode token runs.
+	installPlaceholders := []placeholderPair{
+		{manifest.PlaceholderBasePath, basePath},                        // __DOC_AGENT_BASE_PATH__/
+		{"__DOC_AGENT_GLOBAL_MODE__", resolvedGlobalMode},              // vault | in-project
+		{"__DOC_AGENT_GLOBAL_BASE__", strings.TrimSuffix(basePath, "/")}, // vault base without trailing slash (preamble prose)
+	}
+
 	// --- Copy skills ---
 	skillsDir := plat.SkillsDir()
 	for _, skill := range manifest.Skills {
@@ -382,7 +433,7 @@ func installToPlatform(manifest DistManifest, plat Platform, basePath, distDir s
 		if err := copyFile(src, dst); err != nil {
 			return fmt.Errorf("copy prompt %s: %w", role.ID, err)
 		}
-		if err := replaceInFile(dst, manifest.PlaceholderBasePath, basePath); err != nil {
+		if err := replaceAllInFile(dst, installPlaceholders); err != nil {
 			return fmt.Errorf("replace placeholder in %s: %w", dst, err)
 		}
 		ok("prompt: " + filepath.Base(dst))
@@ -404,7 +455,7 @@ func installToPlatform(manifest DistManifest, plat Platform, basePath, distDir s
 			if err := copyFile(src, dst); err != nil {
 				return fmt.Errorf("copy agent %s: %w", role.ID, err)
 			}
-			if err := replaceInFile(dst, manifest.PlaceholderBasePath, basePath); err != nil {
+			if err := replaceAllInFile(dst, installPlaceholders); err != nil {
 				return fmt.Errorf("replace placeholder in %s: %w", dst, err)
 			}
 			ok("agent: " + filepath.Base(dst))
@@ -423,7 +474,7 @@ func installToPlatform(manifest DistManifest, plat Platform, basePath, distDir s
 			if err := copyFile(src, dst); err != nil {
 				return fmt.Errorf("copy command %s: %w", cmd.ID, err)
 			}
-			if err := replaceInFile(dst, manifest.PlaceholderBasePath, basePath); err != nil {
+			if err := replaceAllInFile(dst, installPlaceholders); err != nil {
 				return fmt.Errorf("replace placeholder in %s: %w", dst, err)
 			}
 			ok("command: " + filepath.Base(dst))

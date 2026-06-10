@@ -499,13 +499,20 @@ func TestInstallToPlatform_PlaceholderListOrdered(t *testing.T) {
 		t.Fatalf("read manifest: %v", err)
 	}
 
-	// Inject both placeholder tokens into an existing generated file to prove
-	// that the ordered replacement substitutes both.
-	// We pick the first prompt file available and patch it before install.
-	if len(manifest.Roles) == 0 {
-		t.Skip("no roles in manifest")
+	// Inject __DOC_AGENT_GLOBAL_MODE__ into a role that also uses BASE_PATH
+	// (doc-prd) so we can verify both substitutions happen in one install.
+	// Find the doc-prd role entry.
+	var prdRole DistRole
+	for _, r := range manifest.Roles {
+		if r.ID == "doc-prd" {
+			prdRole = r
+			break
+		}
 	}
-	samplePromptSrc := filepath.Join(distDir, filepath.ToSlash(manifest.Roles[0].PromptFiles.OpenCode))
+	if prdRole.ID == "" {
+		t.Skip("doc-prd role not found in manifest")
+	}
+	samplePromptSrc := filepath.Join(distDir, filepath.ToSlash(prdRole.PromptFiles.OpenCode))
 	if _, err := os.Stat(samplePromptSrc); os.IsNotExist(err) {
 		t.Fatalf("sample prompt file not found: %s", samplePromptSrc)
 	}
@@ -538,7 +545,7 @@ func TestInstallToPlatform_PlaceholderListOrdered(t *testing.T) {
 	}
 
 	// Verify __DOC_AGENT_BASE_PATH__ was replaced by basePath.
-	dstPrompt := filepath.Join(plat.PromptsDir(), filepath.Base(manifest.Roles[0].PromptFiles.OpenCode))
+	dstPrompt := filepath.Join(plat.PromptsDir(), filepath.Base(prdRole.PromptFiles.OpenCode))
 	content, err := os.ReadFile(dstPrompt)
 	if err != nil {
 		t.Fatalf("read installed prompt: %v", err)
