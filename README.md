@@ -1,9 +1,26 @@
-# doc-agent-ai
+<p align="center">
+  <img src="./docs/assets/brand/Zeen_Dark.png" alt="Zeen" width="860">
+</p>
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go)](https://go.dev)
+<h1 align="center">doc-agent-ai</h1>
 
-**Multi-platform documentation workflow agent.** Single binary — download and run. No Node.js, no npm, no dependencies. Install once, document everywhere across opencode, Claude Code, GitHub Copilot, Qwen Code, and Pi.
+<p align="center"><strong>Zeen-branded multi-platform documentation workflow agent.</strong><br>Single binary — download and run. No Node.js, no npm, no dependencies.</p>
+
+<p align="center">
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="MIT License"></a>
+  <a href="https://go.dev"><img src="https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go" alt="Go Version"></a>
+</p>
+
+<p align="center"><strong>Install once, document everywhere</strong> across opencode, Claude Code, GitHub Copilot, Qwen Code, and Pi.</p>
+
+## Why it exists
+
+`doc-agent-ai` gives teams one consistent documentation workflow across multiple AI coding platforms without dragging a JavaScript toolchain into the install path.
+
+- One binary
+- One command surface
+- One documentation flow
+- Multi-platform installation
 
 > **v4.0.0** — All opencode commands now carry the `doc-` prefix (e.g. `/doc-arch`, `/doc-prd`). This is a breaking change for opencode users — see the [migration table in CHANGELOG →](./CHANGELOG.md).
 
