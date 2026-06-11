@@ -1393,9 +1393,9 @@ func TestPiUninstall_PromptRemovedFromFlatDir(t *testing.T) {
 		t.Fatalf("installToPlatform: %v", err)
 	}
 
-	// Collect installed prompt IDs.
-	installed := map[string]bool{}
-	promptIDs, err := plat.GetPromptIDs(manifest, installed)
+	// Collect installed prompt IDs. Pass nil so candidateRoleIDs checks all
+	// manifest roles (non-nil empty map would filter to zero candidates).
+	promptIDs, err := plat.GetPromptIDs(manifest, nil)
 	if err != nil {
 		t.Fatalf("GetPromptIDs: %v", err)
 	}
