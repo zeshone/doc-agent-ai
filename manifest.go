@@ -67,6 +67,13 @@ type DistManifest struct {
 	Platforms           PlatformManifest `json:"platforms"`
 }
 
+// Bundle is the fully-rendered, ready-to-install content held in memory.
+// Keys in Files are slash-separated paths relative to the former dist root.
+type Bundle struct {
+	Manifest DistManifest
+	Files    map[string][]byte
+}
+
 // DistRole represents a role in the output manifest.
 type DistRole struct {
 	ID            string          `json:"id"`

@@ -28,7 +28,8 @@ import (
 // The engine never reads AppConfig directly — it receives resolved values via
 // InstallPlan. This keeps the engine pure and unit-testable without filesystem
 // state.
-func executeInstall(manifest DistManifest, plan InstallPlan, distDir string, allPlatforms []Platform, r Reporter) error {
+func ExecuteInstall(bundle Bundle, plan InstallPlan, allPlatforms []Platform, r Reporter) error {
+	manifest := bundle.Manifest
 	// --- Step 1: Resolve platform list ---
 	// nil Platforms → install to all provided platforms (headless "all" behaviour).
 	targets := resolvePlatformTargets(plan.Platforms, allPlatforms)
@@ -59,7 +60,7 @@ func executeInstall(manifest DistManifest, plan InstallPlan, distDir string, all
 		}
 
 		r.Head("Installing for " + platformDisplayName(platID) + "...")
-		if err := installToPlatformWithReporter(manifest, plat, plan.BasePath, distDir, r, globalMode); err != nil {
+		if err := InstallToPlatformWithReporter(manifest, bundle, plat, plan.BasePath, r, globalMode); err != nil {
 			return fmt.Errorf("install to %s: %w", platID, err)
 		}
 	}
@@ -88,6 +89,14 @@ func executeInstall(manifest DistManifest, plan InstallPlan, distDir string, all
 	}
 
 	return nil
+}
+
+func executeInstall(manifest DistManifest, plan InstallPlan, distDir string, allPlatforms []Platform, r Reporter) error {
+	bundle, err := bundleFromDistDir(manifest, distDir)
+	if err != nil {
+		return err
+	}
+	return ExecuteInstall(bundle, plan, allPlatforms, r)
 }
 
 // resolvePlatformTargets returns the Platform instances to install to.

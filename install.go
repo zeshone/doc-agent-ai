@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -291,8 +292,9 @@ func checkAlreadyInstalled(manifest DistManifest, plat Platform) []string {
 
 // validateDist checks that all files referenced in the manifest exist in distDir.
 // Returns a list of missing paths (relative to distDir).
-func validateDist(manifest DistManifest, distDir string) []string {
+func ValidateBundle(bundle Bundle) []string {
 	var missing []string
+	manifest := bundle.Manifest
 
 	for _, role := range manifest.Roles {
 		for _, file := range []string{
@@ -308,28 +310,66 @@ func validateDist(manifest DistManifest, distDir string) []string {
 			if file == "" {
 				continue
 			}
-			path := filepath.Join(distDir, filepath.ToSlash(file))
-			if _, err := os.Stat(path); os.IsNotExist(err) {
+			if _, ok := bundle.Files[filepath.ToSlash(file)]; !ok {
 				missing = append(missing, file)
 			}
 		}
 	}
 
 	for _, cmd := range manifest.Commands {
-		path := filepath.Join(distDir, filepath.ToSlash(cmd.File))
-		if _, err := os.Stat(path); os.IsNotExist(err) {
+		if _, ok := bundle.Files[filepath.ToSlash(cmd.File)]; !ok {
 			missing = append(missing, cmd.File)
 		}
 	}
 
 	for _, skill := range manifest.Skills {
-		skillDir := filepath.Join(distDir, "skills", skill)
-		if _, err := os.Stat(skillDir); os.IsNotExist(err) {
+		prefix := filepath.ToSlash(filepath.Join("skills", skill)) + "/"
+		found := false
+		for rel := range bundle.Files {
+			if strings.HasPrefix(rel, prefix) {
+				found = true
+				break
+			}
+		}
+		if !found {
 			missing = append(missing, filepath.Join("skills", skill))
 		}
 	}
 
 	return missing
+}
+
+func validateDist(manifest DistManifest, distDir string) []string {
+	bundle := Bundle{Manifest: manifest, Files: make(map[string][]byte)}
+	for _, role := range manifest.Roles {
+		for _, rel := range []string{role.PromptFiles.OpenCode, role.PromptFiles.Copilot, role.PromptFiles.Claude, role.PromptFiles.Qwen, role.PromptFiles.Pi, role.AgentFiles.Copilot, role.AgentFiles.Claude, role.AgentFiles.Qwen} {
+			if rel == "" {
+				continue
+			}
+			if _, err := os.Stat(filepath.Join(distDir, filepath.FromSlash(rel))); err == nil {
+				bundle.Files[filepath.ToSlash(rel)] = []byte("ok")
+			}
+		}
+	}
+	for _, cmd := range manifest.Commands {
+		if _, err := os.Stat(filepath.Join(distDir, filepath.FromSlash(cmd.File))); err == nil {
+			bundle.Files[filepath.ToSlash(cmd.File)] = []byte("ok")
+		}
+	}
+	for _, skill := range manifest.Skills {
+		skillDir := filepath.Join(distDir, "skills", skill)
+		_ = filepath.Walk(skillDir, func(path string, info os.FileInfo, err error) error {
+			if err != nil || info == nil || info.IsDir() {
+				return nil
+			}
+			rel, relErr := filepath.Rel(distDir, path)
+			if relErr == nil {
+				bundle.Files[filepath.ToSlash(rel)] = []byte("ok")
+			}
+			return nil
+		})
+	}
+	return ValidateBundle(bundle)
 }
 
 // ---------------------------------------------------------------------------
@@ -358,7 +398,7 @@ func sweepLegacyCommands(homeDir string, legacyIDs []string) {
 // resolved global documentation mode string (e.g. "vault" or "in-project") that
 // is substituted for the __DOC_AGENT_GLOBAL_MODE__ placeholder in installed files.
 // When omitted, the mode defaults to "vault" to preserve pre-v4 install behaviour.
-func installToPlatformWithReporter(manifest DistManifest, plat Platform, basePath, distDir string, r Reporter, globalMode ...string) error {
+func InstallToPlatformWithReporter(manifest DistManifest, bundle Bundle, plat Platform, basePath string, r Reporter, globalMode ...string) error {
 	// Resolve global mode: first explicit argument wins, otherwise default to vault.
 	resolvedGlobalMode := "vault"
 	if len(globalMode) > 0 && globalMode[0] != "" {
@@ -389,9 +429,8 @@ func installToPlatformWithReporter(manifest DistManifest, plat Platform, basePat
 		if conditionalSkillSet[skill] && resolvedGlobalMode != string(ModeInProject) {
 			continue
 		}
-		srcDir := filepath.Join(distDir, "skills", skill)
 		dstDir := filepath.Join(skillsDir, skill)
-		if err := copyDir(srcDir, dstDir); err != nil {
+		if err := writeBundleDir(bundle, filepath.ToSlash(filepath.Join("skills", skill)), dstDir); err != nil {
 			return fmt.Errorf("copy skills/%s: %w", skill, err)
 		}
 		r.Ok("skill: " + skill)
@@ -407,9 +446,8 @@ func installToPlatformWithReporter(manifest DistManifest, plat Platform, basePat
 		if promptFile == "" {
 			continue
 		}
-		src := filepath.Join(distDir, filepath.ToSlash(promptFile))
 		dst := filepath.Join(promptsDir, filepath.Base(promptFile))
-		if err := copyFile(src, dst); err != nil {
+		if err := writeBundleFile(bundle, promptFile, dst); err != nil {
 			return fmt.Errorf("copy prompt %s: %w", role.ID, err)
 		}
 		if err := replaceAllInFile(dst, installPlaceholders); err != nil {
@@ -429,9 +467,8 @@ func installToPlatformWithReporter(manifest DistManifest, plat Platform, basePat
 			if agentFile == "" {
 				continue
 			}
-			src := filepath.Join(distDir, filepath.ToSlash(agentFile))
 			dst := filepath.Join(agentsDir, filepath.Base(agentFile))
-			if err := copyFile(src, dst); err != nil {
+			if err := writeBundleFile(bundle, agentFile, dst); err != nil {
 				return fmt.Errorf("copy agent %s: %w", role.ID, err)
 			}
 			if err := replaceAllInFile(dst, installPlaceholders); err != nil {
@@ -448,9 +485,8 @@ func installToPlatformWithReporter(manifest DistManifest, plat Platform, basePat
 			return fmt.Errorf("create commands dir: %w", err)
 		}
 		for _, cmd := range manifest.Commands {
-			src := filepath.Join(distDir, filepath.ToSlash(cmd.File))
 			dst := filepath.Join(cmdsDir, filepath.Base(cmd.File))
-			if err := copyFile(src, dst); err != nil {
+			if err := writeBundleFile(bundle, cmd.File, dst); err != nil {
 				return fmt.Errorf("copy command %s: %w", cmd.ID, err)
 			}
 			if err := replaceAllInFile(dst, installPlaceholders); err != nil {
@@ -483,24 +519,124 @@ func installToPlatformWithReporter(manifest DistManifest, plat Platform, basePat
 	return nil
 }
 
+func installToPlatformWithReporter(manifest DistManifest, plat Platform, basePath, distDir string, r Reporter, globalMode ...string) error {
+	bundle, err := bundleFromDistDir(manifest, distDir)
+	if err != nil {
+		return err
+	}
+	return InstallToPlatformWithReporter(manifest, bundle, plat, basePath, r, globalMode...)
+}
+
 // installToPlatform is the backward-compatible wrapper around
 // installToPlatformWithReporter. It routes output to the default stdout
 // Reporter so all existing call sites and tests remain unmodified.
 //
 // The optional globalMode variadic argument behaves identically to
 // installToPlatformWithReporter.
+func InstallToPlatform(manifest DistManifest, bundle Bundle, plat Platform, basePath string, globalMode ...string) error {
+	return InstallToPlatformWithReporter(manifest, bundle, plat, basePath, defaultReporter, globalMode...)
+}
+
 func installToPlatform(manifest DistManifest, plat Platform, basePath, distDir string, globalMode ...string) error {
-	return installToPlatformWithReporter(manifest, plat, basePath, distDir, defaultReporter, globalMode...)
+	bundle, err := bundleFromDistDir(manifest, distDir)
+	if err != nil {
+		return err
+	}
+	return InstallToPlatform(manifest, bundle, plat, basePath, globalMode...)
 }
 
 // installPlatforms installs to multiple platforms non-interactively.
 // This is the entry point for tests. It defaults to vault mode for
 // backward compatibility; use executeInstall when an InstallPlan is available.
 func installPlatforms(manifest DistManifest, platforms []Platform, basePath, distDir string) error {
+	bundle, err := bundleFromDistDir(manifest, distDir)
+	if err != nil {
+		return err
+	}
 	for _, plat := range platforms {
 		head("Installing for " + platformDisplayName(plat.ID()) + "...")
-		if err := installToPlatform(manifest, plat, basePath, distDir, string(ModeVault)); err != nil {
+		if err := InstallToPlatform(manifest, bundle, plat, basePath, string(ModeVault)); err != nil {
 			return fmt.Errorf("install to %s: %w", plat.ID(), err)
+		}
+	}
+	return nil
+}
+
+func bundleFromDistDir(manifest DistManifest, distDir string) (Bundle, error) {
+	bundle := Bundle{Manifest: manifest, Files: make(map[string][]byte)}
+	for _, role := range manifest.Roles {
+		for _, rel := range []string{role.PromptFiles.OpenCode, role.PromptFiles.Copilot, role.PromptFiles.Claude, role.PromptFiles.Qwen, role.PromptFiles.Pi, role.AgentFiles.Copilot, role.AgentFiles.Claude, role.AgentFiles.Qwen} {
+			if rel == "" {
+				continue
+			}
+			data, err := os.ReadFile(filepath.Join(distDir, filepath.FromSlash(rel)))
+			if err != nil {
+				return Bundle{}, fmt.Errorf("read bundle file %s: %w", rel, err)
+			}
+			bundle.Files[filepath.ToSlash(rel)] = data
+		}
+	}
+	for _, cmd := range manifest.Commands {
+		data, err := os.ReadFile(filepath.Join(distDir, filepath.FromSlash(cmd.File)))
+		if err != nil {
+			return Bundle{}, fmt.Errorf("read bundle file %s: %w", cmd.File, err)
+		}
+		bundle.Files[filepath.ToSlash(cmd.File)] = data
+	}
+	for _, skill := range manifest.Skills {
+		skillDir := filepath.Join(distDir, "skills", skill)
+		walkErr := filepath.Walk(skillDir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+			if info == nil || info.IsDir() {
+				return nil
+			}
+			rel, relErr := filepath.Rel(distDir, path)
+			if relErr != nil {
+				return relErr
+			}
+			data, readErr := os.ReadFile(path)
+			if readErr != nil {
+				return readErr
+			}
+			bundle.Files[filepath.ToSlash(rel)] = data
+			return nil
+		})
+		if walkErr != nil {
+			return Bundle{}, fmt.Errorf("read bundle skill %s: %w", skill, walkErr)
+		}
+	}
+	return bundle, nil
+}
+
+func writeBundleFile(bundle Bundle, rel, dst string) error {
+	data, ok := bundle.Files[filepath.ToSlash(rel)]
+	if !ok {
+		return fmt.Errorf("bundle file not found: %s", rel)
+	}
+	if err := ensureDir(filepath.Dir(dst)); err != nil {
+		return err
+	}
+	return os.WriteFile(dst, data, 0644)
+}
+
+func writeBundleDir(bundle Bundle, relPrefix, dst string) error {
+	prefix := strings.TrimSuffix(filepath.ToSlash(relPrefix), "/") + "/"
+	var rels []string
+	for rel := range bundle.Files {
+		if strings.HasPrefix(rel, prefix) {
+			rels = append(rels, rel)
+		}
+	}
+	if len(rels) == 0 {
+		return fmt.Errorf("bundle directory not found: %s", relPrefix)
+	}
+	sort.Strings(rels)
+	for _, rel := range rels {
+		suffix := strings.TrimPrefix(rel, prefix)
+		if err := writeBundleFile(bundle, rel, filepath.Join(dst, filepath.FromSlash(suffix))); err != nil {
+			return err
 		}
 	}
 	return nil
