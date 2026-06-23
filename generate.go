@@ -10,16 +10,18 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	installpkg "github.com/zeshone/doc-agent-ai/internal/install"
 )
 
 //go:embed src skills
 var embedded embed.FS
 
 // BuildBundle renders all install content into an in-memory bundle.
-func BuildBundle() (Bundle, error) {
+func BuildBundle() (installpkg.Bundle, error) {
 	// Fail fast on invalid skill frontmatter before touching the output dir.
 	if err := lintEmbeddedSkills(); err != nil {
-		return Bundle{}, fmt.Errorf("skill frontmatter lint failed: %w", err)
+		return installpkg.Bundle{}, fmt.Errorf("skill frontmatter lint failed: %w", err)
 	}
 
 	files := make(map[string][]byte)
@@ -27,30 +29,30 @@ func BuildBundle() (Bundle, error) {
 	// Read manifests from embedded FS
 	contentRaw, err := embedded.ReadFile("src/manifests/content.json")
 	if err != nil {
-		return Bundle{}, fmt.Errorf("read content.json: %w", err)
+		return installpkg.Bundle{}, fmt.Errorf("read content.json: %w", err)
 	}
 	var contentManifest ContentManifest
 	if err := json.Unmarshal(contentRaw, &contentManifest); err != nil {
-		return Bundle{}, fmt.Errorf("parse content.json: %w", err)
+		return installpkg.Bundle{}, fmt.Errorf("parse content.json: %w", err)
 	}
 
 	platformsRaw, err := embedded.ReadFile("src/manifests/platforms.json")
 	if err != nil {
-		return Bundle{}, fmt.Errorf("read platforms.json: %w", err)
+		return installpkg.Bundle{}, fmt.Errorf("read platforms.json: %w", err)
 	}
-	var platformManifest PlatformManifest
+	var platformManifest installpkg.PlatformManifest
 	if err := json.Unmarshal(platformsRaw, &platformManifest); err != nil {
-		return Bundle{}, fmt.Errorf("parse platforms.json: %w", err)
+		return installpkg.Bundle{}, fmt.Errorf("parse platforms.json: %w", err)
 	}
 
 	// Read templates
 	promptTmpl, err := embedded.ReadFile("src/templates/prompt.md.tmpl")
 	if err != nil {
-		return Bundle{}, fmt.Errorf("read prompt.md.tmpl: %w", err)
+		return installpkg.Bundle{}, fmt.Errorf("read prompt.md.tmpl: %w", err)
 	}
 	commandTmpl, err := embedded.ReadFile("src/templates/command.md.tmpl")
 	if err != nil {
-		return Bundle{}, fmt.Errorf("read command.md.tmpl: %w", err)
+		return installpkg.Bundle{}, fmt.Errorf("read command.md.tmpl: %w", err)
 	}
 
 	// Read the path-resolution preamble template. Its content uses __DOC_AGENT_*__
@@ -61,7 +63,7 @@ func BuildBundle() (Bundle, error) {
 	// missingkey=error — only a MISSING key causes an error).
 	pathResolutionTmplRaw, err := embedded.ReadFile("src/templates/path-resolution.md.tmpl")
 	if err != nil {
-		return Bundle{}, fmt.Errorf("read path-resolution.md.tmpl: %w", err)
+		return installpkg.Bundle{}, fmt.Errorf("read path-resolution.md.tmpl: %w", err)
 	}
 	// Trim the trailing newline added by the file so the injected block is clean.
 	pathResolutionPreamble := strings.TrimRight(string(pathResolutionTmplRaw), "\n")
@@ -69,7 +71,7 @@ func BuildBundle() (Bundle, error) {
 	// Ordered platform map (matches platforms.json key order for portability)
 	type namedPlatform struct {
 		id  string
-		cfg PlatformConfig
+		cfg installpkg.PlatformConfig
 	}
 	platforms := []namedPlatform{
 		{"opencode", platformManifest.OpenCode},
@@ -85,7 +87,7 @@ func BuildBundle() (Bundle, error) {
 	// preamble. Content files that do NOT reference the token are unaffected
 	// (missingkey=error only fires on keys that ARE referenced but absent;
 	// a key that is present but not referenced in the template is silently ignored).
-	buildBodyVars := func(platformID string, platform PlatformConfig, role RoleConfig) map[string]string {
+	buildBodyVars := func(platformID string, platform installpkg.PlatformConfig, role RoleConfig) map[string]string {
 		return map[string]string{
 			"BASE_PATH":          contentManifest.PlaceholderBasePath,
 			"SKILL_PATH":         platform.SkillRoot + "/" + role.Skill + "/SKILL.md",
@@ -99,20 +101,20 @@ func BuildBundle() (Bundle, error) {
 	for _, role := range contentManifest.Roles {
 		roleBodyRaw, err := embedded.ReadFile(path.Join("src/content", role.Content))
 		if err != nil {
-			return Bundle{}, fmt.Errorf("read role content %s: %w", role.Content, err)
+			return installpkg.Bundle{}, fmt.Errorf("read role content %s: %w", role.Content, err)
 		}
 
 		for _, plat := range platforms {
 			// Render prompt body with platform-specific variables
 			promptBody, err := renderTemplate(string(roleBodyRaw), buildBodyVars(plat.id, plat.cfg, role))
 			if err != nil {
-				return Bundle{}, fmt.Errorf("render body for %s/%s: %w", plat.id, role.ID, err)
+				return installpkg.Bundle{}, fmt.Errorf("render body for %s/%s: %w", plat.id, role.ID, err)
 			}
 
 			// Write prompt file
 			promptOut, err := renderTemplate(string(promptTmpl), map[string]string{"BODY": promptBody})
 			if err != nil {
-				return Bundle{}, fmt.Errorf("render prompt for %s/%s: %w", plat.id, role.ID, err)
+				return installpkg.Bundle{}, fmt.Errorf("render prompt for %s/%s: %w", plat.id, role.ID, err)
 			}
 			promptPath := filepath.ToSlash(filepath.Join(plat.cfg.PromptDir, role.ID+".md"))
 			files[promptPath] = ensureTrailingNewline([]byte(promptOut))
@@ -124,7 +126,7 @@ func BuildBundle() (Bundle, error) {
 
 			agentTmpl, err := embedded.ReadFile(path.Join("src/templates", plat.cfg.AgentTemplate))
 			if err != nil {
-				return Bundle{}, fmt.Errorf("read agent template %s: %w", plat.cfg.AgentTemplate, err)
+				return installpkg.Bundle{}, fmt.Errorf("read agent template %s: %w", plat.cfg.AgentTemplate, err)
 			}
 
 			// Select tools: orchestrator tools for doc-arch, agent tools otherwise
@@ -167,7 +169,7 @@ func BuildBundle() (Bundle, error) {
 
 			agentOut, err := renderTemplate(string(agentTmpl), agentVars)
 			if err != nil {
-				return Bundle{}, fmt.Errorf("render agent for %s/%s: %w", plat.id, role.ID, err)
+				return installpkg.Bundle{}, fmt.Errorf("render agent for %s/%s: %w", plat.id, role.ID, err)
 			}
 			agentPath := filepath.ToSlash(filepath.Join(plat.cfg.AgentDir, role.ID+plat.cfg.AgentExtension))
 			files[agentPath] = ensureTrailingNewline([]byte(agentOut))
@@ -178,7 +180,7 @@ func BuildBundle() (Bundle, error) {
 	for _, cmd := range contentManifest.Commands {
 		cmdBodyRaw, err := embedded.ReadFile(path.Join("src/content", cmd.Content))
 		if err != nil {
-			return Bundle{}, fmt.Errorf("read command content %s: %w", cmd.Content, err)
+			return installpkg.Bundle{}, fmt.Errorf("read command content %s: %w", cmd.Content, err)
 		}
 
 		cmdBody, err := renderTemplate(string(cmdBodyRaw), map[string]string{
@@ -186,7 +188,7 @@ func BuildBundle() (Bundle, error) {
 			"PATH_RESOLUTION": pathResolutionPreamble,
 		})
 		if err != nil {
-			return Bundle{}, fmt.Errorf("render command body for %s: %w", cmd.ID, err)
+			return installpkg.Bundle{}, fmt.Errorf("render command body for %s: %w", cmd.ID, err)
 		}
 
 		cmdOut, err := renderTemplate(string(commandTmpl), map[string]string{
@@ -195,7 +197,7 @@ func BuildBundle() (Bundle, error) {
 			"BODY":        cmdBody,
 		})
 		if err != nil {
-			return Bundle{}, fmt.Errorf("render command %s: %w", cmd.ID, err)
+			return installpkg.Bundle{}, fmt.Errorf("render command %s: %w", cmd.ID, err)
 		}
 
 		cmdPath := filepath.ToSlash(filepath.Join(platformManifest.OpenCode.CommandDir, cmd.ID+".md"))
@@ -205,10 +207,10 @@ func BuildBundle() (Bundle, error) {
 	manifest := buildDistManifest(contentManifest, platformManifest)
 
 	if err := collectSkills(files); err != nil {
-		return Bundle{}, fmt.Errorf("copy skills: %w", err)
+		return installpkg.Bundle{}, fmt.Errorf("copy skills: %w", err)
 	}
 
-	return Bundle{Manifest: manifest, Files: files}, nil
+	return installpkg.Bundle{Manifest: manifest, Files: files}, nil
 }
 
 // Generate produces the dist/ directory from embedded src/ + skills/ content.
@@ -346,10 +348,10 @@ func collectSkills(files map[string][]byte) error {
 	})
 }
 
-func buildDistManifest(content ContentManifest, platforms PlatformManifest) DistManifest {
+func buildDistManifest(content ContentManifest, platforms installpkg.PlatformManifest) installpkg.DistManifest {
 	platSlice := []struct {
 		id  string
-		cfg PlatformConfig
+		cfg installpkg.PlatformConfig
 	}{
 		{"opencode", platforms.OpenCode},
 		{"copilot", platforms.Copilot},
@@ -358,9 +360,9 @@ func buildDistManifest(content ContentManifest, platforms PlatformManifest) Dist
 		{"pi", platforms.Pi},
 	}
 
-	distRoles := make([]DistRole, 0, len(content.Roles))
+	distRoles := make([]installpkg.DistRole, 0, len(content.Roles))
 	for _, role := range content.Roles {
-		dr := DistRole{
+		dr := installpkg.DistRole{
 			ID:            role.ID,
 			Description:   role.Description,
 			Hidden:        role.Hidden,
@@ -404,9 +406,9 @@ func buildDistManifest(content ContentManifest, platforms PlatformManifest) Dist
 		distRoles = append(distRoles, dr)
 	}
 
-	distCommands := make([]DistCommand, 0, len(content.Commands))
+	distCommands := make([]installpkg.DistCommand, 0, len(content.Commands))
 	for _, cmd := range content.Commands {
-		distCommands = append(distCommands, DistCommand{
+		distCommands = append(distCommands, installpkg.DistCommand{
 			ID:          cmd.ID,
 			Description: cmd.Description,
 			Agent:       cmd.Agent,
@@ -414,7 +416,7 @@ func buildDistManifest(content ContentManifest, platforms PlatformManifest) Dist
 		})
 	}
 
-	return DistManifest{
+	return installpkg.DistManifest{
 		GeneratedAt:         time.Now().UTC().Format(time.RFC3339Nano),
 		PlaceholderBasePath: content.PlaceholderBasePath,
 		Skills:              content.Skills,
@@ -426,7 +428,7 @@ func buildDistManifest(content ContentManifest, platforms PlatformManifest) Dist
 	}
 }
 // writeManifest marshals and writes dist/manifest.json.
-func writeManifest(outputDir string, manifest DistManifest) error {
+func writeManifest(outputDir string, manifest installpkg.DistManifest) error {
 	data, err := json.MarshalIndent(manifest, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal manifest: %w", err)

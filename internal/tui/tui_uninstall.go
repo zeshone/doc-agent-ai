@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	installpkg "github.com/zeshone/doc-agent-ai/internal/install"
 )
 
 // ---------------------------------------------------------------------------
@@ -48,10 +49,10 @@ type UninstallModel struct {
 	step uninstallStep
 
 	// installed is the list of platforms that have doc-agent-ai artifacts.
-	installed []InstalledDetails
+	installed []installpkg.InstalledDetails
 
 	// manifest is the rendered install manifest for uninstall detection/removal.
-	manifest DistManifest
+	manifest installpkg.DistManifest
 
 	// progressLines collects output during uninstallStepProgress.
 	progressLines []string
@@ -68,7 +69,7 @@ type UninstallModel struct {
 }
 
 // newUninstallModel constructs an UninstallModel ready for use.
-func newUninstallModel(installed []InstalledDetails, manifest DistManifest, styles Styles) UninstallModel {
+func newUninstallModel(installed []installpkg.InstalledDetails, manifest installpkg.DistManifest, styles Styles) UninstallModel {
 	return UninstallModel{
 		step:      uninstallStepConfirm,
 		installed: installed,
@@ -145,7 +146,7 @@ func (m UninstallModel) runUninstall() tea.Cmd {
 		var lines []string
 		for _, details := range installed {
 			lines = append(lines, "  Removing from "+details.Platform.ID()+"...")
-			uninstallPlatform(details, manifest)
+			installpkg.UninstallPlatform(details, manifest)
 		}
 		return uninstallResultMsg{err: nil, progressLines: lines}
 	}

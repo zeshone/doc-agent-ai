@@ -24,7 +24,7 @@ import (
 //  3. Build the in-memory bundle.
 //  4. Detect platforms; filter to plan.Platforms.
 //  5. ExecuteInstall with a stdout Reporter.
-func runHeadlessInstall(flags FlagSet) error {
+func runHeadlessInstall(flags configpkg.FlagSet) error {
 	bundle, err := BuildBundle()
 	if err != nil {
 		return fmt.Errorf("build content: %w", err)
@@ -32,11 +32,11 @@ func runHeadlessInstall(flags FlagSet) error {
 	return runHeadlessInstallWithBundle(flags, bundle)
 }
 
-func RunHeadlessInstall(flags FlagSet) error {
+func RunHeadlessInstall(flags configpkg.FlagSet) error {
 	return runHeadlessInstall(flags)
 }
 
-func runHeadlessInstallWithBundle(flags FlagSet, bundle Bundle) error {
+func runHeadlessInstallWithBundle(flags configpkg.FlagSet, bundle installpkg.Bundle) error {
 	r := installpkg.NewStdoutReporter()
 
 	// --- Step 1: Load config for defaults ---

@@ -5,6 +5,8 @@ import (
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
+	configpkg "github.com/zeshone/doc-agent-ai/internal/config"
+	installpkg "github.com/zeshone/doc-agent-ai/internal/install"
 	"golang.org/x/term"
 )
 
@@ -25,31 +27,28 @@ func IsTerminal() bool {
 // ---------------------------------------------------------------------------
 
 // runInstallTUI bootstraps the Bubbletea install wizard and blocks until the
-// user completes or cancels it. It handles:
-//   - Dist generation (auto-generate if missing)
-//   - Config loading (pre-fill defaults)
-//   - Platform detection
-//   - Running the Bubbletea program
+// user completes or cancels it. It validates the provided bundle, loads saved
+// config for defaults, detects platforms, and runs the Bubbletea program.
 //
 // Returns an error if the bundle cannot be validated or the install engine fails.
 // Returns (nil) when the user cancels (tea.Quit without error).
-func RunInstallTUI(bundle Bundle) error {
+func RunInstallTUI(bundle installpkg.Bundle) error {
 	manifest := bundle.Manifest
-	if missing := ValidateBundle(bundle); len(missing) > 0 {
-		return fmt.Errorf("incomplete bundle: %s", summarizeMissingArtifacts(missing))
+	if missing := installpkg.ValidateBundle(bundle); len(missing) > 0 {
+		return fmt.Errorf("incomplete bundle: %s", installpkg.SummarizeMissingArtifacts(missing))
 	}
 
 	// Step 2: Load config for pre-fill defaults.
-	cfg, cfgExisted, err := loadConfig()
+	cfg, cfgExisted, err := configpkg.Load()
 	if err != nil {
 		// Non-fatal: warn and proceed without defaults.
 		fmt.Fprintf(os.Stderr, "  warning: could not read config: %v\n", err)
-		cfg = AppConfig{}
+		cfg = configpkg.AppConfig{}
 		cfgExisted = false
 	}
 
 	// Step 3: Detect platforms.
-	allPlatforms := detectAllPlatforms(manifest)
+	allPlatforms := installpkg.DetectAllPlatforms(manifest)
 	if len(allPlatforms) == 0 {
 		return fmt.Errorf("no supported platform detected — install opencode, claude, copilot, qwen, or pi first")
 	}
@@ -78,14 +77,14 @@ func RunInstallTUI(bundle Bundle) error {
 
 // runUninstallTUI bootstraps the Bubbletea uninstall wizard and blocks until
 // the user completes or cancels it.
-func RunUninstallTUI(bundle Bundle) error {
+func RunUninstallTUI(bundle installpkg.Bundle) error {
 	manifest := bundle.Manifest
 
 	// Step 2: Detect platforms.
-	allPlatforms := detectAllPlatforms(manifest)
+	allPlatforms := installpkg.DetectAllPlatforms(manifest)
 
 	// Step 3: Check what's installed.
-	installed := checkWhatIsInstalled(manifest, allPlatforms)
+	installed := installpkg.CheckWhatIsInstalled(manifest, allPlatforms)
 	if len(installed) == 0 {
 		fmt.Println("\n  doc-agent-ai does not appear to be installed on detected platforms.")
 		fmt.Println("  Nothing to uninstall.")
@@ -110,7 +109,7 @@ func RunUninstallTUI(bundle Bundle) error {
 	return nil
 }
 
-func RunApp(bundle Bundle) error {
+func RunApp(bundle installpkg.Bundle) error {
 	var err error
 	model := RootModel{screen: screenHome, bundle: bundle, styles: NewStyles(), width: 80, height: 24}
 	p := tea.NewProgram(model, tea.WithAltScreen())

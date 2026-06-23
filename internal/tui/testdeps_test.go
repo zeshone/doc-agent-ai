@@ -1,6 +1,17 @@
-package docagent
+package tui
 
-import installpkg "github.com/zeshone/doc-agent-ai/internal/install"
+import (
+	configpkg "github.com/zeshone/doc-agent-ai/internal/config"
+	installpkg "github.com/zeshone/doc-agent-ai/internal/install"
+)
+
+type AppConfig = configpkg.AppConfig
+type DocsMode = configpkg.DocsMode
+
+const (
+	ModeVault     = configpkg.ModeVault
+	ModeInProject = configpkg.ModeInProject
+)
 
 type Bundle = installpkg.Bundle
 type DistManifest = installpkg.DistManifest
@@ -11,9 +22,6 @@ type DistCommand = installpkg.DistCommand
 type PlatformManifest = installpkg.PlatformManifest
 type PlatformConfig = installpkg.PlatformConfig
 type Platform = installpkg.Platform
-type Reporter = installpkg.Reporter
 type InstalledDetails = installpkg.InstalledDetails
 
-func registryTemplate(basePath, skillsDir, triggerStyle string) string {
-	return installpkg.RegistryTemplate(basePath, skillsDir, triggerStyle)
-}
+func platformDisplayName(id string) string { return installpkg.PlatformDisplayName(id) }

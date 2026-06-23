@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	configpkg "github.com/zeshone/doc-agent-ai/internal/config"
+	installpkg "github.com/zeshone/doc-agent-ai/internal/install"
 )
 
 type screen int
@@ -17,7 +19,7 @@ const (
 
 type RootModel struct {
 	screen     screen
-	bundle     Bundle
+	bundle     installpkg.Bundle
 	styles     Styles
 	width      int
 	height     int
@@ -106,18 +108,18 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m RootModel) startInstall() (RootModel, tea.Cmd) {
-	if missing := ValidateBundle(m.bundle); len(missing) > 0 {
-		m.notice = fmt.Sprintf("bundle is incomplete — %s.", summarizeMissingArtifacts(missing))
+	if missing := installpkg.ValidateBundle(m.bundle); len(missing) > 0 {
+		m.notice = fmt.Sprintf("bundle is incomplete — %s.", installpkg.SummarizeMissingArtifacts(missing))
 		return m, nil
 	}
 
-	cfg, cfgExisted, err := loadConfig()
+	cfg, cfgExisted, err := configpkg.Load()
 	if err != nil {
-		cfg = AppConfig{}
+		cfg = configpkg.AppConfig{}
 		cfgExisted = false
 	}
 
-	allPlatforms := detectAllPlatforms(m.bundle.Manifest)
+	allPlatforms := installpkg.DetectAllPlatforms(m.bundle.Manifest)
 	if len(allPlatforms) == 0 {
 		m.notice = "No supported platform detected — install opencode, claude, copilot, qwen, or pi first."
 		return m, nil
@@ -135,8 +137,8 @@ func (m RootModel) startInstall() (RootModel, tea.Cmd) {
 }
 
 func (m RootModel) startUninstall() (RootModel, tea.Cmd) {
-	allPlatforms := detectAllPlatforms(m.bundle.Manifest)
-	installed := checkWhatIsInstalled(m.bundle.Manifest, allPlatforms)
+	allPlatforms := installpkg.DetectAllPlatforms(m.bundle.Manifest)
+	installed := installpkg.CheckWhatIsInstalled(m.bundle.Manifest, allPlatforms)
 	if len(installed) == 0 {
 		m.notice = "doc-agent-ai is not installed on any detected platform — nothing to uninstall."
 		return m, nil

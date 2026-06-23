@@ -8,6 +8,8 @@ import (
 	"github.com/charmbracelet/bubbles/progress"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	configpkg "github.com/zeshone/doc-agent-ai/internal/config"
+	installpkg "github.com/zeshone/doc-agent-ai/internal/install"
 )
 
 // ---------------------------------------------------------------------------
@@ -52,7 +54,7 @@ type InstallModel struct {
 	alreadyInstalled map[string]bool
 
 	// mode is the chosen documentation mode.
-	mode DocsMode
+	mode configpkg.DocsMode
 
 	// modeCursor is the focused index in the mode selection list (0=vault, 1=in-project).
 	modeCursor int
@@ -66,19 +68,19 @@ type InstallModel struct {
 	overwriteChoice int
 
 	// cfg is the AppConfig loaded at startup; used for pre-fill defaults.
-	cfg AppConfig
+	cfg configpkg.AppConfig
 
 	// cfgExisted is true when a config file was found (enables PrevMode tracking).
 	cfgExisted bool
 
 	// bundle is the fully rendered install content.
-	bundle Bundle
+	bundle installpkg.Bundle
 
 	// manifest is cached from bundle.Manifest for read-only detection logic.
-	manifest DistManifest
+	manifest installpkg.DistManifest
 
 	// allPlatforms is the full detected platform list (passed to executeInstall).
-	allPlatforms []Platform
+	allPlatforms []installpkg.Platform
 
 	// installing is set to true when the install engine starts running.
 	// While true, BACK navigation is disabled on stepProgress.
@@ -117,7 +119,7 @@ type InstallModel struct {
 
 // newInstallModel constructs an InstallModel with defaults pre-filled from cfg.
 // allPlatforms is the detected platform list; it is passed through to executeInstall.
-func newInstallModel(cfg AppConfig, cfgExisted bool, bundle Bundle, allPlatforms []Platform, styles Styles) InstallModel {
+func newInstallModel(cfg configpkg.AppConfig, cfgExisted bool, bundle installpkg.Bundle, allPlatforms []installpkg.Platform, styles Styles) InstallModel {
 	manifest := bundle.Manifest
 	// Build checkbox list: all detected platforms, pre-select from config if any.
 	cfgPlatSet := make(map[string]bool, len(cfg.Platforms))
@@ -135,7 +137,7 @@ func newInstallModel(cfg AppConfig, cfgExisted bool, bundle Bundle, allPlatforms
 		sel := len(cfg.Platforms) == 0 || cfgPlatSet[p.ID()] // all if no saved prefs
 		items = append(items, platformItem{
 			id:               p.ID(),
-			label:            platformDisplayName(p.ID()),
+			label:            installpkg.PlatformDisplayName(p.ID()),
 			detected:         true,
 			selected:         sel,
 			alreadyInstalled: alreadyInstalled[p.ID()],
@@ -143,13 +145,13 @@ func newInstallModel(cfg AppConfig, cfgExisted bool, bundle Bundle, allPlatforms
 	}
 
 	// Pre-fill mode from config (default vault if no prior config).
-	mode := ModeVault
-	if cfgExisted && cfg.Mode == string(ModeInProject) {
-		mode = ModeInProject
+	mode := configpkg.ModeVault
+	if cfgExisted && cfg.Mode == string(configpkg.ModeInProject) {
+		mode = configpkg.ModeInProject
 	}
 
 	modeCursor := 0
-	if mode == ModeInProject {
+	if mode == configpkg.ModeInProject {
 		modeCursor = 1
 	}
 
@@ -160,7 +162,7 @@ func newInstallModel(cfg AppConfig, cfgExisted bool, bundle Bundle, allPlatforms
 	if cfg.Path != "" {
 		pi.SetValue(cfg.Path)
 	}
-	if mode == ModeVault {
+	if mode == configpkg.ModeVault {
 		pi.Focus()
 	}
 
@@ -207,10 +209,10 @@ func newInstallModel(cfg AppConfig, cfgExisted bool, bundle Bundle, allPlatforms
 // returns a map of platformID → true for every platform that has existing agents.
 // It is a pure read from the filesystem; it does NOT modify the manifest or
 // any engine state. Call once at newInstallModel time.
-func buildAlreadyInstalledMap(manifest DistManifest, allPlatforms []Platform) map[string]bool {
+func buildAlreadyInstalledMap(manifest installpkg.DistManifest, allPlatforms []installpkg.Platform) map[string]bool {
 	result := make(map[string]bool, len(allPlatforms))
 	for _, plat := range allPlatforms {
-		if len(checkAlreadyInstalled(manifest, plat)) > 0 {
+		if len(installpkg.CheckAlreadyInstalled(manifest, plat)) > 0 {
 			result[plat.ID()] = true
 		}
 	}
@@ -363,7 +365,7 @@ func (m InstallModel) runInstall() tea.Cmd {
 	}
 
 	// Determine prev mode (from config, zero-value = no prior install).
-	prevMode := DocsMode(m.cfg.Mode)
+	prevMode := configpkg.DocsMode(m.cfg.Mode)
 
 	// Build the overwrite map and effective platform list based on overwriteChoice.
 	overwrite := make(map[string]bool)
@@ -395,7 +397,7 @@ func (m InstallModel) runInstall() tea.Cmd {
 		}
 	}
 
-	plan := InstallPlan{
+	plan := configpkg.InstallPlan{
 		Platforms: effectiveIDs,
 		Mode:      m.mode,
 		BasePath:  strings.TrimSpace(m.pathInput.Value()),
@@ -416,7 +418,7 @@ func (m InstallModel) runInstall() tea.Cmd {
 		// installResultMsg and the Update method merges them into the live model.
 		var lines []string
 		collector := &collectingReporter{lines: &lines}
-		err := ExecuteInstall(bundle, plan, allPlatforms, collector)
+		err := installpkg.ExecuteInstall(bundle, plan, allPlatforms, collector)
 		return installResultMsg{err: err, progressLines: lines}
 	}
 }
@@ -525,7 +527,7 @@ func (m InstallModel) viewOverwrite(sb *strings.Builder) {
 	var installedNames []string
 	for _, p := range m.platforms {
 		if p.selected && m.alreadyInstalled[p.id] {
-			installedNames = append(installedNames, platformDisplayName(p.id))
+			installedNames = append(installedNames, installpkg.PlatformDisplayName(p.id))
 		}
 	}
 
@@ -573,9 +575,9 @@ func (m InstallModel) viewDocsMode(sb *strings.Builder) {
 	// Mode-switch notice: shown when there is a prior config and the currently
 	// selected mode differs from the saved mode. Rendered here (docs-mode screen)
 	// as an early signal. stepConfirm has been removed in slice 4.
-	selectedMode := ModeVault
+	selectedMode := configpkg.ModeVault
 	if m.modeCursor == 1 {
-		selectedMode = ModeInProject
+		selectedMode = configpkg.ModeInProject
 	}
 	if m.cfgExisted && m.cfg.Mode != "" && m.cfg.Mode != string(selectedMode) {
 		sb.WriteString(m.styles.Notice.Render("  ! Mode change detected.") + "\n")
@@ -650,7 +652,7 @@ func (m InstallModel) viewProgress(sb *strings.Builder) {
 	for _, item := range m.checklist {
 		var marker string
 		var label string
-		displayName := platformDisplayName(item.platformID)
+		displayName := installpkg.PlatformDisplayName(item.platformID)
 		switch item.state {
 		case stateChecklist_Pending:
 			marker = "  ○ "
@@ -856,15 +858,15 @@ func (m InstallModel) updateDocsMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "Continue":
 			// Commit the mode from the current cursor position.
 			if m.modeCursor == 0 {
-				m.mode = ModeVault
+				m.mode = configpkg.ModeVault
 			} else {
-				m.mode = ModeInProject
+				m.mode = configpkg.ModeInProject
 			}
 			// Reset button focus for the next screen.
 			m.docsModeButtons.focus = 0
 			m.pathButtons.focus = 0
 			m.overwriteButtons.focus = 0
-			if m.mode == ModeVault {
+			if m.mode == configpkg.ModeVault {
 				m.pathInput.Focus()
 				m.step = stepPath
 			} else {
@@ -977,7 +979,7 @@ func (m InstallModel) updateOverwrite(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case "Back":
 			m.overwriteButtons.focus = 0
 			// Mode-aware BACK: in-project skipped path, so go back to DocsMode.
-			if m.mode == ModeInProject {
+			if m.mode == configpkg.ModeInProject {
 				m.step = stepDocsMode
 			} else {
 				m.step = prevStep(stepOverwrite)
@@ -1095,7 +1097,7 @@ func (m InstallModel) processTickMsg() (tea.Model, tea.Cmd) {
 // This mirrors the plan that runInstall would send to the engine.
 // For install-only-missing, plan.Platforms excludes already-installed platforms;
 // it is always non-nil ([]string{} when empty, never nil).
-func (m InstallModel) BuildPlan() InstallPlan {
+func (m InstallModel) BuildPlan() configpkg.InstallPlan {
 	var selectedIDs []string
 	for _, p := range m.platforms {
 		if p.selected {
@@ -1121,11 +1123,11 @@ func (m InstallModel) BuildPlan() InstallPlan {
 		}
 	}
 
-	return InstallPlan{
+	return configpkg.InstallPlan{
 		Platforms: effectiveIDs,
 		Mode:      m.mode,
 		BasePath:  strings.TrimSpace(m.pathInput.Value()),
-		PrevMode:  DocsMode(m.cfg.Mode),
+		PrevMode:  configpkg.DocsMode(m.cfg.Mode),
 		Yes:       true,
 		Overwrite: overwrite,
 	}
