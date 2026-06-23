@@ -66,6 +66,13 @@ type UninstallModel struct {
 	// width / height are the terminal dimensions.
 	width  int
 	height int
+
+	// quitting is set to true immediately before the model returns tea.Quit,
+	// so RootModel can detect the exit request and return to Home instead of
+	// propagating the quit to the top-level Bubbletea program. This preserves
+	// standalone behavior: when UninstallModel is run directly via RunUninstallTUI,
+	// the tea.Quit is never intercepted so the program exits normally.
+	quitting bool
 }
 
 // newUninstallModel constructs an UninstallModel ready for use.
@@ -112,23 +119,28 @@ func (m UninstallModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case uninstallStepConfirm:
 		switch msg.String() {
 		case "ctrl+c":
+			m.quitting = true
 			return m, tea.Quit
 		case "y", "Y":
 			m.step = uninstallStepProgress
 			return m, m.runUninstall()
 		case "n", "N":
+			m.quitting = true
 			return m, tea.Quit
 		case "enter":
 			// Default = no (destructive action requires explicit y).
+			m.quitting = true
 			return m, tea.Quit
 		}
 
 	case uninstallStepProgress:
 		if msg.String() == "ctrl+c" {
+			m.quitting = true
 			return m, tea.Quit
 		}
 
 	case uninstallStepDone:
+		m.quitting = true
 		return m, tea.Quit
 	}
 

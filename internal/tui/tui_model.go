@@ -115,6 +115,13 @@ type InstallModel struct {
 	// width / height are the terminal dimensions (used for layout).
 	width  int
 	height int
+
+	// quitting is set to true immediately before the model returns tea.Quit,
+	// so RootModel can detect the exit request and return to Home instead of
+	// propagating the quit to the top-level Bubbletea program. This preserves
+	// standalone behavior: when InstallModel is run directly via RunInstallTUI,
+	// the tea.Quit is never intercepted so the program exits normally.
+	quitting bool
 }
 
 // newInstallModel constructs an InstallModel with defaults pre-filled from cfg.
@@ -138,7 +145,6 @@ func newInstallModel(cfg configpkg.AppConfig, cfgExisted bool, bundle installpkg
 		items = append(items, platformItem{
 			id:               p.ID(),
 			label:            installpkg.PlatformDisplayName(p.ID()),
-			detected:         true,
 			selected:         sel,
 			alreadyInstalled: alreadyInstalled[p.ID()],
 		})
@@ -727,6 +733,7 @@ func (m InstallModel) viewWelcome(sb *strings.Builder) {
 func (m InstallModel) updateWelcome(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c":
+		m.quitting = true
 		return m, tea.Quit
 	case "left", "right":
 		m.welcomeButtons.handle(msg.String())
@@ -741,6 +748,7 @@ func (m InstallModel) updateWelcome(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.step = stepPlatformSelect
 			return m, nil
 		case "Quit":
+			m.quitting = true
 			return m, tea.Quit
 		}
 	}
@@ -1075,19 +1083,14 @@ func (m InstallModel) processTickMsg() (tea.Model, tea.Cmd) {
 	m.checklist[idx].state = stateChecklist_Installing
 	m.checklistCursor = idx + 1
 
-	// Count non-skipped total to compute bar percentage.
+	// Count non-skipped total for the tick guard.
 	nonSkipped := 0
-	done := 0
 	for _, item := range m.checklist {
-		if item.state == stateChecklist_Skipped {
-			continue
-		}
-		nonSkipped++
-		if item.state == stateChecklist_Done {
-			done++
+		if item.state != stateChecklist_Skipped {
+			nonSkipped++
 		}
 	}
-	_ = done // percentage managed at completion; bar uses ViewAs in view
+	_ = nonSkipped // guard: tick only runs while non-skipped items remain
 
 	// Re-issue tickCmd for the next step.
 	return m, tickCmd()

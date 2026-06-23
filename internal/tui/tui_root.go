@@ -45,12 +45,16 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if key, ok := msg.(tea.KeyMsg); ok {
 		switch m.screen {
 		case screenInstall:
+			// Intercept any key while at the terminal done step — return to Home
+			// without processing the key in the sub-model.
 			if m.install != nil && m.install.step == stepDone {
 				m.screen = screenHome
 				m.install = nil
 				return m, nil
 			}
 		case screenUninstall:
+			// Intercept any key while at the terminal done step — return to Home
+			// without processing the key in the sub-model.
 			if m.uninstall != nil && m.uninstall.step == uninstallStepDone {
 				m.screen = screenHome
 				m.uninstall = nil
@@ -93,6 +97,14 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		next, cmd := m.install.Update(msg)
 		updated := next.(InstallModel)
 		m.install = &updated
+		// If the sub-model signals it wants to quit (cancel or done), intercept
+		// and return to Home instead of propagating the quit upward. Standalone
+		// usage (RunInstallTUI) is unaffected because there is no RootModel wrapper.
+		if updated.quitting {
+			m.screen = screenHome
+			m.install = nil
+			return m, nil
+		}
 		return m, cmd
 	case screenUninstall:
 		if m.uninstall == nil {
@@ -101,6 +113,14 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		next, cmd := m.uninstall.Update(msg)
 		updated := next.(UninstallModel)
 		m.uninstall = &updated
+		// If the sub-model signals it wants to quit (cancel or done), intercept
+		// and return to Home instead of propagating the quit upward. Standalone
+		// usage (RunUninstallTUI) is unaffected because there is no RootModel wrapper.
+		if updated.quitting {
+			m.screen = screenHome
+			m.uninstall = nil
+			return m, nil
+		}
 		return m, cmd
 	default:
 		return m, nil

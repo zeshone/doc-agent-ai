@@ -83,6 +83,93 @@ func TestRootModel_DoneKeyReturnsHome(t *testing.T) {
 	}
 }
 
+// TestRootModel_UninstallCancelReturnsHome verifies that pressing 'n' on the
+// uninstall confirm screen returns to Home instead of quitting the whole app.
+// RED: this test MUST fail before the fix is applied.
+func TestRootModel_UninstallCancelReturnsHome(t *testing.T) {
+	m := newRootModelForTest(testBundle())
+	m.screen = screenUninstall
+	uninstall := newUninstallModel([]InstalledDetails{{Platform: &tuiTestPlatform{id: "opencode"}}}, testManifest(), NoColor())
+	uninstall.step = uninstallStepConfirm
+	m.uninstall = &uninstall
+
+	// Send 'n' — the cancel key on the uninstall confirm screen.
+	next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("n")})
+
+	updated, ok := next.(RootModel)
+	if !ok {
+		t.Fatalf("Update returned %T, want RootModel", next)
+	}
+	if updated.screen != screenHome {
+		t.Fatalf("screen = %v after cancel, want screenHome", updated.screen)
+	}
+	if updated.uninstall != nil {
+		t.Fatal("uninstall sub-model should be cleared after cancel returns to Home")
+	}
+	if cmd != nil {
+		// cmd must be nil (not tea.Quit) — RootModel swallowed the quit.
+		// We detect a quit cmd by checking if it is non-nil; a nil cmd is
+		// the correct "stay alive" signal.
+		t.Fatalf("cmd should be nil (quit swallowed by RootModel), got non-nil cmd")
+	}
+}
+
+// TestRootModel_UninstallEnterCancelReturnsHome verifies that pressing Enter
+// on the uninstall confirm screen (default No) also returns to Home.
+func TestRootModel_UninstallEnterCancelReturnsHome(t *testing.T) {
+	m := newRootModelForTest(testBundle())
+	m.screen = screenUninstall
+	uninstall := newUninstallModel([]InstalledDetails{{Platform: &tuiTestPlatform{id: "opencode"}}}, testManifest(), NoColor())
+	uninstall.step = uninstallStepConfirm
+	m.uninstall = &uninstall
+
+	// Send Enter — default No on the uninstall confirm screen.
+	next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	updated, ok := next.(RootModel)
+	if !ok {
+		t.Fatalf("Update returned %T, want RootModel", next)
+	}
+	if updated.screen != screenHome {
+		t.Fatalf("screen = %v after Enter-cancel, want screenHome", updated.screen)
+	}
+	if updated.uninstall != nil {
+		t.Fatal("uninstall sub-model should be cleared after cancel returns to Home")
+	}
+	if cmd != nil {
+		t.Fatalf("cmd should be nil (quit swallowed by RootModel), got non-nil cmd")
+	}
+}
+
+// TestRootModel_InstallWelcomeQuitReturnsHome verifies that activating the Quit
+// button on the Install welcome screen returns to Home instead of quitting the app.
+func TestRootModel_InstallWelcomeQuitReturnsHome(t *testing.T) {
+	m := newRootModelForTest(testBundle())
+	m.screen = screenInstall
+	install := newInstallModelForTest(AppConfig{}, false, []Platform{})
+	install.step = stepWelcome
+	// Move focus to "Quit" button (index 1).
+	install.welcomeButtons.focus = 1
+	m.install = &install
+
+	// Send Enter — activates the focused "Quit" button.
+	next, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	updated, ok := next.(RootModel)
+	if !ok {
+		t.Fatalf("Update returned %T, want RootModel", next)
+	}
+	if updated.screen != screenHome {
+		t.Fatalf("screen = %v after Install-Welcome-Quit, want screenHome", updated.screen)
+	}
+	if updated.install != nil {
+		t.Fatal("install sub-model should be cleared after Quit returns to Home")
+	}
+	if cmd != nil {
+		t.Fatalf("cmd should be nil (quit swallowed by RootModel), got non-nil cmd")
+	}
+}
+
 func TestGolden_HomeScreen(t *testing.T) {
 	m := newRootModelForTest(testBundle())
 	view := m.View()

@@ -36,9 +36,6 @@ type Styles struct {
 	// SelectedItem is used to highlight the focused item in a list.
 	SelectedItem lipgloss.Style
 
-	// NormalItem is used for list items that are not focused.
-	NormalItem lipgloss.Style
-
 	// CheckedItem is used for a checked (selected) list item.
 	CheckedItem lipgloss.Style
 
@@ -79,7 +76,6 @@ func NewStyles() Styles {
 		SelectedItem: lipgloss.NewStyle().
 			Foreground(lipgloss.Color(brandDark)).
 			Background(lipgloss.Color(brandCyan)),
-		NormalItem: lipgloss.NewStyle(),
 		CheckedItem: lipgloss.NewStyle().
 			Foreground(lipgloss.Color(brandCyan)),
 		// Status colors stay conventional for accessibility — not brand palette.
@@ -104,7 +100,6 @@ func NoColor() Styles {
 		Title:        plain,
 		Subtitle:     plain,
 		SelectedItem: plain,
-		NormalItem:   plain,
 		CheckedItem:  plain,
 		Ok:           plain,
 		Warning:      plain,

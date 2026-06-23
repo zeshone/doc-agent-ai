@@ -99,9 +99,6 @@ type platformItem struct {
 	// label is the human-readable display name shown in the TUI.
 	label string
 
-	// detected is true if this platform was found on the current system.
-	detected bool
-
 	// selected is true if the user has toggled this platform on.
 	selected bool
 
