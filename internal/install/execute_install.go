@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	configpkg "github.com/zeshone/doc-agent-ai/internal/config"
 )
 
 // ---------------------------------------------------------------------------
@@ -28,7 +30,7 @@ import (
 // The engine never reads AppConfig directly — it receives resolved values via
 // InstallPlan. This keeps the engine pure and unit-testable without filesystem
 // state.
-func ExecuteInstall(bundle Bundle, plan InstallPlan, allPlatforms []Platform, r Reporter) error {
+func ExecuteInstall(bundle Bundle, plan configpkg.InstallPlan, allPlatforms []Platform, r Reporter) error {
 	manifest := bundle.Manifest
 	// --- Step 1: Resolve platform list ---
 	// nil Platforms → install to all provided platforms (headless "all" behaviour).
@@ -71,13 +73,13 @@ func ExecuteInstall(bundle Bundle, plan InstallPlan, allPlatforms []Platform, r 
 	for _, p := range targets {
 		installedIDs = append(installedIDs, p.ID())
 	}
-	newCfg := AppConfig{
+	newCfg := configpkg.AppConfig{
 		Version:   1,
 		Mode:      globalMode,
 		Path:      plan.BasePath,
 		Platforms: installedIDs,
 	}
-	if err := saveConfig(newCfg); err != nil {
+	if err := configpkg.Save(newCfg); err != nil {
 		// Config write failure is non-fatal: the install succeeded; we just
 		// cannot pre-fill defaults next time. Emit a warning and continue.
 		r.Warn("could not save config: " + err.Error())
@@ -120,7 +122,7 @@ func resolvePlatformTargets(requestedIDs []string, allPlatforms []Platform) []Pl
 // runModeSwitchHook is kept for backward compatibility with existing tests that
 // call it without a platform list. It delegates to runModeSwitchHookWithPlatforms
 // with a nil platform list (notice only, no sweep).
-func runModeSwitchHook(plan InstallPlan, r Reporter) {
+func runModeSwitchHook(plan configpkg.InstallPlan, r Reporter) {
 	runModeSwitchHookWithPlatforms(plan, nil, r)
 }
 
@@ -130,7 +132,7 @@ func runModeSwitchHook(plan InstallPlan, r Reporter) {
 //
 // platforms is the resolved install target list (from executeInstall). When nil
 // (legacy / test call path), the sweep is skipped.
-func runModeSwitchHookWithPlatforms(plan InstallPlan, platforms []Platform, r Reporter) {
+func runModeSwitchHookWithPlatforms(plan configpkg.InstallPlan, platforms []Platform, r Reporter) {
 	// Always emit the non-migration notice (spec F1, mode-switch cleanup notice).
 	r.Info("Mode changed from " + string(plan.PrevMode) + " to " + string(plan.Mode) + ".")
 	r.Warn("Existing documentation files are not automatically migrated.")
@@ -139,7 +141,7 @@ func runModeSwitchHookWithPlatforms(plan InstallPlan, platforms []Platform, r Re
 	// When switching from in-project → vault, remove the doc-reader skill from
 	// all platforms that have a skillsDir. The sweep is idempotent: absent dirs
 	// are silently skipped (reusing the removeDirIfExists pattern from uninstall).
-	if plan.PrevMode == ModeInProject && plan.Mode == ModeVault && len(platforms) > 0 {
+	if plan.PrevMode == configpkg.ModeInProject && plan.Mode == configpkg.ModeVault && len(platforms) > 0 {
 		sweepDocReaderIfLeavingInProject(platforms, r)
 	}
 }

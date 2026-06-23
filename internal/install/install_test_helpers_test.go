@@ -1,12 +1,21 @@
 package install
 
 import (
+	configpkg "github.com/zeshone/doc-agent-ai/internal/config"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
 )
+
+const (
+	ModeVault     = configpkg.ModeVault
+	ModeInProject = configpkg.ModeInProject
+)
+
+func loadConfig() (configpkg.AppConfig, bool, error) { return configpkg.Load() }
+func configPath() (string, error)                    { return configpkg.ConfigPath() }
 
 func newPlatformForTest(t *testing.T, id string, homeDir string) Platform {
 	t.Helper()

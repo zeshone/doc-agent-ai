@@ -31,11 +31,18 @@ func mockHomeEnv(t *testing.T, tmpDir string) func() {
 
 func newPlatformForTest(t *testing.T, id string, homeDir string) Platform {
 	t.Helper()
-	plat := installpkg.NewPlatformForTest(id, homeDir)
-	if plat == nil {
-		t.Fatalf("unknown platform: %s", id)
+	if id != "opencode" {
+		t.Fatalf("unsupported root test platform: %s", id)
 	}
-	return plat
+	p, err := installpkg.NewOpenCodePlatform(installpkg.PlatformConfig{
+		SkillRoot:  homeDir + "/skills",
+		PromptDir:  "prompts",
+		CommandDir: "commands",
+	})
+	if err != nil {
+		t.Fatalf("newOpenCodePlatform: %v", err)
+	}
+	return p
 }
 
 func setupExecuteInstallFixture(t *testing.T) (string, Bundle, DistManifest, Platform) {

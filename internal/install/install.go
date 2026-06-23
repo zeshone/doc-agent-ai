@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	configpkg "github.com/zeshone/doc-agent-ai/internal/config"
 )
 
 // ---------------------------------------------------------------------------
@@ -356,7 +358,7 @@ func InstallToPlatformWithReporter(manifest DistManifest, bundle Bundle, plat Pl
 	skillsDir := plat.SkillsDir()
 	for _, skill := range manifest.Skills {
 		// Skip conditional (in-project-only) skills when the resolved mode is vault.
-		if conditionalSkillSet[skill] && resolvedGlobalMode != string(ModeInProject) {
+		if conditionalSkillSet[skill] && resolvedGlobalMode != string(configpkg.ModeInProject) {
 			continue
 		}
 		dstDir := filepath.Join(skillsDir, skill)
@@ -485,7 +487,7 @@ func installPlatforms(manifest DistManifest, platforms []Platform, basePath, dis
 	}
 	for _, plat := range platforms {
 		head("Installing for " + platformDisplayName(plat.ID()) + "...")
-		if err := InstallToPlatform(manifest, bundle, plat, basePath, string(ModeVault)); err != nil {
+		if err := InstallToPlatform(manifest, bundle, plat, basePath, string(configpkg.ModeVault)); err != nil {
 			return fmt.Errorf("install to %s: %w", plat.ID(), err)
 		}
 	}

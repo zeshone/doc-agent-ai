@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	configpkg "github.com/zeshone/doc-agent-ai/internal/config"
 )
 
 // ---------------------------------------------------------------------------
@@ -106,9 +108,9 @@ func TestRunModeSwitchHook_InProjectToVault_CallsSweep(t *testing.T) {
 	opencode := newPlatformForTest(t, "opencode", opencodeHome)
 	seedDocReaderOnPlatform(t, opencode)
 
-	plan := InstallPlan{
-		PrevMode:  ModeInProject,
-		Mode:      ModeVault,
+	plan := configpkg.InstallPlan{
+		PrevMode:  configpkg.ModeInProject,
+		Mode:      configpkg.ModeVault,
 		Platforms: []string{"opencode"},
 	}
 	r := newBufferReporter()
@@ -138,9 +140,9 @@ func TestRunModeSwitchHook_VaultToVault_DoesNotSweep(t *testing.T) {
 	// Seed doc-reader to confirm it is NOT removed.
 	seedDocReaderOnPlatform(t, opencode)
 
-	plan := InstallPlan{
-		PrevMode:  ModeVault,
-		Mode:      ModeVault,
+	plan := configpkg.InstallPlan{
+		PrevMode:  configpkg.ModeVault,
+		Mode:      configpkg.ModeVault,
 		Platforms: []string{"opencode"},
 	}
 	r := newBufferReporter()
@@ -170,9 +172,9 @@ func TestRunModeSwitchHook_VaultToInProject_DoesNotSweep(t *testing.T) {
 	writeEmptyJSON(t, filepath.Join(opencodeHome, "opencode.json"))
 	opencode := newPlatformForTest(t, "opencode", opencodeHome)
 
-	plan := InstallPlan{
-		PrevMode:  ModeVault,
-		Mode:      ModeInProject,
+	plan := configpkg.InstallPlan{
+		PrevMode:  configpkg.ModeVault,
+		Mode:      configpkg.ModeInProject,
 		Platforms: []string{"opencode"},
 	}
 	r := newBufferReporter()

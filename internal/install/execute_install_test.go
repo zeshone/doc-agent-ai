@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	configpkg "github.com/zeshone/doc-agent-ai/internal/config"
 )
 
 // ---------------------------------------------------------------------------
@@ -52,11 +54,11 @@ func TestExecuteInstall_VaultMode_InstallsAndPersistsConfig(t *testing.T) {
 	tmpHome, bundle, _, plat := setupExecuteInstallFixture(t)
 
 	basePath := filepath.ToSlash(filepath.Join(tmpHome, "projects")) + "/"
-	plan := InstallPlan{
+	plan := configpkg.InstallPlan{
 		Platforms: []string{"opencode"},
-		Mode:      ModeVault,
+		Mode:      configpkg.ModeVault,
 		BasePath:  basePath,
-		PrevMode:  ModeVault,
+		PrevMode:  configpkg.ModeVault,
 	}
 
 	r := newBufferReporter()
@@ -78,8 +80,8 @@ func TestExecuteInstall_VaultMode_InstallsAndPersistsConfig(t *testing.T) {
 	if !existed {
 		t.Fatal("config file does not exist after executeInstall")
 	}
-	if cfg.Mode != string(ModeVault) {
-		t.Errorf("config.Mode = %q; want %q", cfg.Mode, ModeVault)
+	if cfg.Mode != string(configpkg.ModeVault) {
+		t.Errorf("config.Mode = %q; want %q", cfg.Mode, configpkg.ModeVault)
 	}
 	if cfg.Path != basePath {
 		t.Errorf("config.Path = %q; want %q", cfg.Path, basePath)
@@ -91,11 +93,11 @@ func TestExecuteInstall_VaultMode_InstallsAndPersistsConfig(t *testing.T) {
 func TestExecuteInstall_InProjectMode_InstallsAndPersistsConfig(t *testing.T) {
 	_, bundle, _, plat := setupExecuteInstallFixture(t)
 
-	plan := InstallPlan{
+	plan := configpkg.InstallPlan{
 		Platforms: []string{"opencode"},
-		Mode:      ModeInProject,
+		Mode:      configpkg.ModeInProject,
 		BasePath:  "", // in-project has no base path
-		PrevMode:  ModeVault,
+		PrevMode:  configpkg.ModeVault,
 	}
 
 	r := newBufferReporter()
@@ -110,8 +112,8 @@ func TestExecuteInstall_InProjectMode_InstallsAndPersistsConfig(t *testing.T) {
 	if !existed {
 		t.Fatal("config file does not exist after executeInstall (in-project)")
 	}
-	if cfg.Mode != string(ModeInProject) {
-		t.Errorf("config.Mode = %q; want %q", cfg.Mode, ModeInProject)
+	if cfg.Mode != string(configpkg.ModeInProject) {
+		t.Errorf("config.Mode = %q; want %q", cfg.Mode, configpkg.ModeInProject)
 	}
 }
 
@@ -121,11 +123,11 @@ func TestExecuteInstall_PlatformListNilUsesDetected(t *testing.T) {
 	tmpHome, bundle, _, plat := setupExecuteInstallFixture(t)
 
 	basePath := filepath.ToSlash(filepath.Join(tmpHome, "projects")) + "/"
-	plan := InstallPlan{
+	plan := configpkg.InstallPlan{
 		Platforms: nil, // nil → install all provided platforms
-		Mode:      ModeVault,
+		Mode:      configpkg.ModeVault,
 		BasePath:  basePath,
-		PrevMode:  ModeVault,
+		PrevMode:  configpkg.ModeVault,
 	}
 
 	r := newBufferReporter()
@@ -149,11 +151,11 @@ func TestExecuteInstall_PassesModeToInstallToPlatform(t *testing.T) {
 	tmpHome, bundle, _, plat := setupExecuteInstallFixture(t)
 
 	basePath := filepath.ToSlash(filepath.Join(tmpHome, "projects")) + "/"
-	plan := InstallPlan{
+	plan := configpkg.InstallPlan{
 		Platforms: []string{"opencode"},
-		Mode:      ModeVault,
+		Mode:      configpkg.ModeVault,
 		BasePath:  basePath,
-		PrevMode:  ModeVault,
+		PrevMode:  configpkg.ModeVault,
 	}
 
 	r := newBufferReporter()
@@ -190,11 +192,11 @@ func TestExecuteInstall_ModeSwitchHook_NoopWhenSameMode(t *testing.T) {
 	tmpHome, bundle, _, plat := setupExecuteInstallFixture(t)
 
 	basePath := filepath.ToSlash(filepath.Join(tmpHome, "projects")) + "/"
-	plan := InstallPlan{
+	plan := configpkg.InstallPlan{
 		Platforms: []string{"opencode"},
-		Mode:      ModeVault,
+		Mode:      configpkg.ModeVault,
 		BasePath:  basePath,
-		PrevMode:  ModeVault, // same mode — no switch
+		PrevMode:  configpkg.ModeVault, // same mode — no switch
 	}
 
 	r := newBufferReporter()
@@ -215,11 +217,11 @@ func TestExecuteInstall_ModeSwitchHook_NoticeWhenModeChanges(t *testing.T) {
 	tmpHome, bundle, _, plat := setupExecuteInstallFixture(t)
 
 	basePath := filepath.ToSlash(filepath.Join(tmpHome, "projects")) + "/"
-	plan := InstallPlan{
+	plan := configpkg.InstallPlan{
 		Platforms: []string{"opencode"},
-		Mode:      ModeVault,
+		Mode:      configpkg.ModeVault,
 		BasePath:  basePath,
-		PrevMode:  ModeInProject, // mode switch: in-project → vault
+		PrevMode:  configpkg.ModeInProject, // mode switch: in-project → vault
 	}
 
 	r := newBufferReporter()
@@ -272,11 +274,11 @@ func TestExecuteInstall_FailurePath_NoConfigWritten(t *testing.T) {
 	plat := newPlatformForTest(t, "opencode", opencodeHome)
 
 	basePath := filepath.ToSlash(filepath.Join(tmpHome, "projects")) + "/"
-	plan := InstallPlan{
+	plan := configpkg.InstallPlan{
 		Platforms: []string{"opencode"},
-		Mode:      ModeVault,
+		Mode:      configpkg.ModeVault,
 		BasePath:  basePath,
-		PrevMode:  ModeVault,
+		PrevMode:  configpkg.ModeVault,
 	}
 
 	r := newBufferReporter()
@@ -298,11 +300,11 @@ func TestExecuteInstall_ConfigPersistsSelectedPlatforms(t *testing.T) {
 	tmpHome, bundle, _, plat := setupExecuteInstallFixture(t)
 
 	basePath := filepath.ToSlash(filepath.Join(tmpHome, "projects")) + "/"
-	plan := InstallPlan{
+	plan := configpkg.InstallPlan{
 		Platforms: []string{"opencode"},
-		Mode:      ModeVault,
+		Mode:      configpkg.ModeVault,
 		BasePath:  basePath,
-		PrevMode:  ModeVault,
+		PrevMode:  configpkg.ModeVault,
 	}
 
 	r := newBufferReporter()
