@@ -1,4 +1,4 @@
-package main
+package docagent
 
 import "fmt"
 
@@ -25,6 +25,10 @@ func runHeadlessInstall(flags FlagSet, _ string) error {
 		return fmt.Errorf("build content: %w", err)
 	}
 	return runHeadlessInstallWithBundle(flags, bundle)
+}
+
+func RunHeadlessInstall(flags FlagSet, distDirOverride string) error {
+	return runHeadlessInstall(flags, distDirOverride)
 }
 
 func runHeadlessInstallWithBundle(flags FlagSet, bundle Bundle) error {

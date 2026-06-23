@@ -1,4 +1,4 @@
-package main
+package docagent
 
 // ---------------------------------------------------------------------------
 // Overwrite semantics tests — headless + engine layer (PRESERVED)

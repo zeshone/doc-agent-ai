@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"os"
 
+	docagent "github.com/zeshone/doc-agent-ai"
 	buildpkg "github.com/zeshone/doc-agent-ai/internal/build"
+	configpkg "github.com/zeshone/doc-agent-ai/internal/config"
+	installpkg "github.com/zeshone/doc-agent-ai/internal/install"
 	tuipkg "github.com/zeshone/doc-agent-ai/internal/tui"
 )
 
@@ -21,9 +24,9 @@ func main() {
 		for i := 0; i < len(args)-1; i++ {
 			switch args[i] {
 			case "--copilot-path":
-				setCopilotPathOverride(args[i+1])
+				installpkg.SetCopilotPathOverride(args[i+1])
 			case "--pi-path":
-				setPiPathOverride(args[i+1])
+				installpkg.SetPiPathOverride(args[i+1])
 			default:
 				continue
 			}
@@ -38,11 +41,11 @@ func main() {
 
 	// Pass 2: extract install-specific flags (--platforms, --docs-mode, --path, --yes).
 	// These are consumed from args; the subcommand and unrecognised tokens remain.
-	installFlags, args := parseInstallFlags(args)
+	installFlags, args := configpkg.ParseInstallFlags(args)
 
 	if len(args) == 0 {
 		if tuipkg.IsTerminal() {
-			bundle, err := BuildBundle()
+			bundle, err := docagent.BuildBundle()
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 				os.Exit(1)
@@ -63,7 +66,7 @@ func main() {
 			fmt.Fprintln(os.Stderr, "Usage: doc-agent-ai generate <dir>")
 			os.Exit(1)
 		}
-		if err := Generate(args[1]); err != nil {
+		if err := docagent.Generate(args[1]); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
@@ -72,14 +75,14 @@ func main() {
 	case "install":
 		// Decision order (spec F1): explicit install flags > TTY-interactive > error.
 		// --yes alone also triggers the headless path (skips confirmation).
-		if hasInstallFlags(installFlags) {
-			if err := runHeadlessInstall(installFlags, ""); err != nil {
+		if configpkg.HasInstallFlags(installFlags) {
+			if err := docagent.RunHeadlessInstall(installFlags, ""); err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 				os.Exit(1)
 			}
 		} else if tuipkg.IsTerminal() {
 			// No flags, TTY present: launch the Bubbletea install wizard.
-			bundle, err := BuildBundle()
+			bundle, err := docagent.BuildBundle()
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 				os.Exit(1)
@@ -105,7 +108,7 @@ func main() {
 		// Uninstall only needs a yes/no confirmation, so the bufio fallback is safe
 		// and avoids breaking automated environments that call uninstall directly.
 		if tuipkg.IsTerminal() {
-			bundle, err := BuildBundle()
+			bundle, err := docagent.BuildBundle()
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 				os.Exit(1)
@@ -115,12 +118,12 @@ func main() {
 				os.Exit(1)
 			}
 		} else {
-			bundle, err := BuildBundle()
+			bundle, err := docagent.BuildBundle()
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 				os.Exit(1)
 			}
-			if err := uninstallInteractive(bundle.Manifest); err != nil {
+			if err := installpkg.UninstallInteractive(bundle.Manifest); err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 				os.Exit(1)
 			}

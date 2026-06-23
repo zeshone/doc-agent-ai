@@ -75,7 +75,7 @@ The `doc-reader` skill is installed on every platform with a skills directory wh
 
 | Subcommand | What it does |
 |------------|--------------|
-| `generate` | Build `dist/` from embedded canonical content |
+| `generate <dir>` | Write the rendered bundle to an explicit directory (dev/build only) |
 | `install` | TUI installer — platform selection, docs mode (vault / in-project), overwrite confirmation |
 | `uninstall` | TUI uninstaller — removes only doc-agent-ai artifacts, leaves your docs untouched |
 
@@ -164,9 +164,9 @@ skills/             ← skill definitions shared across platforms
 ### Modify the agent
 
 1. Edit files under `src/` or `skills/`.
-2. Run `go run . generate` to rebuild `dist/`.
-3. Run `go run . install` to apply changes locally.
-4. Commit. `dist/` is git-ignored — only `src/` is versioned.
+2. Run `go run ./cmd/doc-agent-ai generate <dir>` to write a rendered bundle for inspection or packaging.
+3. Run `go run ./cmd/doc-agent-ai` to open the installer UI, or `go run ./cmd/doc-agent-ai install --platforms ...` for headless install.
+4. Commit. Generated output directories remain disposable — `src/` and `skills/` are still the source of truth.
 
 ### Build from source
 
@@ -174,7 +174,8 @@ skills/             ← skill definitions shared across platforms
 git clone https://github.com/zeshone/doc-agent-ai.git
 cd doc-agent-ai
 go build -o doc-agent-ai .
-./doc-agent-ai install
+go build -o doc-agent-ai ./cmd/doc-agent-ai
+./doc-agent-ai
 ```
 
 ### Authoring conventions
@@ -193,7 +194,7 @@ go build -o doc-agent-ai .
 ## Uninstall
 
 ```bash
-./doc-agent-ai uninstall
+./doc-agent-ai
 ```
 
 Removes skills, prompts, commands, and agent registrations from all detected platforms. Your documentation files are never touched.

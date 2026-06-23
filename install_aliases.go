@@ -1,4 +1,4 @@
-package main
+package docagent
 
 import installpkg "github.com/zeshone/doc-agent-ai/internal/install"
 

@@ -1,4 +1,4 @@
-package main
+package docagent
 
 import configpkg "github.com/zeshone/doc-agent-ai/internal/config"
 
