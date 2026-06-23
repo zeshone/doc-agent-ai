@@ -292,6 +292,16 @@ func ValidateBundle(bundle Bundle) []string {
 	return missing
 }
 
+func summarizeMissingArtifacts(missing []string) string {
+	if len(missing) == 0 {
+		return "none"
+	}
+	if len(missing) <= 3 {
+		return strings.Join(missing, ", ")
+	}
+	return fmt.Sprintf("%s, %s, %s (+%d more)", missing[0], missing[1], missing[2], len(missing)-3)
+}
+
 // ---------------------------------------------------------------------------
 // Legacy command sweep
 // ---------------------------------------------------------------------------

@@ -1,6 +1,5 @@
 package install
 
-func ReadManifestFrom(distDir string) (DistManifest, error) { return readManifestFrom(distDir) }
 func NewStdoutReporter() Reporter                           { return newStdoutReporter() }
 func RegistryTemplate(basePath, skillsDir, triggerStyle string) string {
 	return registryTemplate(basePath, skillsDir, triggerStyle)
@@ -28,7 +27,6 @@ func RemovePromptFilesForPlatform(plat Platform, promptIDs []string, manifest Di
 	removePromptFilesForPlatform(plat, promptIDs, manifest)
 }
 func UninstallPlatform(details InstalledDetails, manifest DistManifest) { uninstallPlatform(details, manifest) }
-func BundleFromDistDir(manifest DistManifest, distDir string) (Bundle, error) { return bundleFromDistDir(manifest, distDir) }
 func NewPlatformForTest(id string, homeDir string) Platform {
 	cfg := PlatformConfig{SkillRoot: homeDir + "/skills", PromptDir: "prompts"}
 	switch id {
@@ -50,3 +48,4 @@ func NewPlatformForTest(id string, homeDir string) Platform {
 		return nil
 	}
 }
+func SummarizeMissingArtifacts(missing []string) string { return summarizeMissingArtifacts(missing) }

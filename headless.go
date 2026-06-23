@@ -2,7 +2,6 @@ package docagent
 
 import (
 	"fmt"
-	"strings"
 
 	configpkg "github.com/zeshone/doc-agent-ai/internal/config"
 	installpkg "github.com/zeshone/doc-agent-ai/internal/install"
@@ -55,7 +54,7 @@ func runHeadlessInstallWithBundle(flags FlagSet, bundle Bundle) error {
 
 	manifest := bundle.Manifest
 	if missing := installpkg.ValidateBundleExport(bundle); len(missing) > 0 {
-		return fmt.Errorf("incomplete bundle: %s", summarizeMissingArtifacts(missing))
+		return fmt.Errorf("incomplete bundle: %s", installpkg.SummarizeMissingArtifacts(missing))
 	}
 
 	// --- Step 3: Detect platforms ---
@@ -65,14 +64,4 @@ func runHeadlessInstallWithBundle(flags FlagSet, bundle Bundle) error {
 
 	// --- Step 4: Execute install ---
 	return installpkg.ExecuteInstallExport(bundle, plan, allDetected, r)
-}
-
-func summarizeMissingArtifacts(missing []string) string {
-	if len(missing) == 0 {
-		return "none"
-	}
-	if len(missing) <= 3 {
-		return strings.Join(missing, ", ")
-	}
-	return fmt.Sprintf("%s, %s, %s (+%d more)", missing[0], missing[1], missing[2], len(missing)-3)
 }

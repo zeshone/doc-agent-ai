@@ -27,6 +27,12 @@ type RootModel struct {
 	uninstall  *UninstallModel
 }
 
+var homeMenuItems = []struct{ title, desc string }{
+	{"Install", "Set up doc-agent-ai on your detected AI platforms"},
+	{"Uninstall", "Remove doc-agent-ai from your platforms"},
+	{"Quit", "Exit"},
+}
+
 func (m RootModel) Init() tea.Cmd { return nil }
 
 func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -51,10 +57,10 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case screenHome:
 			switch key.String() {
 			case "up", "k":
-				m.menuCursor = (m.menuCursor + 2) % 3
+				m.menuCursor = (m.menuCursor + len(homeMenuItems) - 1) % len(homeMenuItems)
 				return m, nil
 			case "down", "j":
-				m.menuCursor = (m.menuCursor + 1) % 3
+				m.menuCursor = (m.menuCursor + 1) % len(homeMenuItems)
 				return m, nil
 			case "q":
 				return m, tea.Quit
@@ -171,12 +177,7 @@ func (m RootModel) viewHome() string {
 		sb.WriteString(m.styles.Subtitle.Render("  Multi-platform documentation agents — setup") + "\n\n")
 	}
 
-	rows := []struct{ title, desc string }{
-		{"Install", "Set up doc-agent-ai on your detected AI platforms"},
-		{"Uninstall", "Remove doc-agent-ai from your platforms"},
-		{"Quit", "Exit"},
-	}
-	for i, row := range rows {
+	for i, row := range homeMenuItems {
 		label := "    " + row.title
 		if i == m.menuCursor {
 			label = m.styles.SelectedItem.Render("  ▸  " + row.title)
