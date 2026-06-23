@@ -37,7 +37,7 @@ func uninstallPlatform(details InstalledDetails, manifest DistManifest) {
 	installpkg.UninstallPlatform(details, manifest)
 }
 func ExecuteInstall(bundle Bundle, plan InstallPlan, allPlatforms []Platform, r Reporter) error {
-	return installpkg.ExecuteInstallExport(bundle, plan, allPlatforms, r)
+	return installpkg.ExecuteInstall(bundle, plan, allPlatforms, r)
 }
-func ValidateBundle(bundle Bundle) []string { return installpkg.ValidateBundleExport(bundle) }
+func ValidateBundle(bundle Bundle) []string { return installpkg.ValidateBundle(bundle) }
 func summarizeMissingArtifacts(missing []string) string { return installpkg.SummarizeMissingArtifacts(missing) }

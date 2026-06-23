@@ -53,7 +53,7 @@ func runHeadlessInstallWithBundle(flags FlagSet, bundle Bundle) error {
 	}
 
 	manifest := bundle.Manifest
-	if missing := installpkg.ValidateBundleExport(bundle); len(missing) > 0 {
+	if missing := installpkg.ValidateBundle(bundle); len(missing) > 0 {
 		return fmt.Errorf("incomplete bundle: %s", installpkg.SummarizeMissingArtifacts(missing))
 	}
 
@@ -63,5 +63,5 @@ func runHeadlessInstallWithBundle(flags FlagSet, bundle Bundle) error {
 	allDetected := installpkg.DetectAllPlatforms(manifest)
 
 	// --- Step 4: Execute install ---
-	return installpkg.ExecuteInstallExport(bundle, plan, allDetected, r)
+	return installpkg.ExecuteInstall(bundle, plan, allDetected, r)
 }

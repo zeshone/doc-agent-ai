@@ -160,7 +160,7 @@ func TestExecuteInstall_RespectsOverwriteMap(t *testing.T) {
 	}
 
 	r := newBufferReporter()
-	err := installpkg.ExecuteInstallExport(bundle, plan, []Platform{opencodePlat}, r)
+	err := installpkg.ExecuteInstall(bundle, plan, []Platform{opencodePlat}, r)
 	if err == nil {
 		t.Fatal("expected error when existing install found and Overwrite map has no consent for the platform")
 	}
@@ -193,7 +193,7 @@ func TestExecuteInstall_OverwriteMapTrue_InstallsNormally(t *testing.T) {
 	}
 
 	r := newBufferReporter()
-	err := installpkg.ExecuteInstallExport(bundle, plan, []Platform{opencodePlat}, r)
+	err := installpkg.ExecuteInstall(bundle, plan, []Platform{opencodePlat}, r)
 	if err != nil {
 		t.Fatalf("executeInstall should succeed when Overwrite[platform]=true; got: %v", err)
 	}

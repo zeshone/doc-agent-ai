@@ -13,10 +13,6 @@ func CheckWhatIsInstalled(manifest DistManifest, platforms []Platform) []Install
 	return checkWhatIsInstalled(manifest, platforms)
 }
 func UninstallInteractive(manifest DistManifest) error { return uninstallInteractive(manifest) }
-func ValidateBundleExport(bundle Bundle) []string { return ValidateBundle(bundle) }
-func ExecuteInstallExport(bundle Bundle, plan InstallPlan, allPlatforms []Platform, r Reporter) error {
-	return ExecuteInstall(bundle, plan, allPlatforms, r)
-}
 func RunModeSwitchHookWithPlatforms(plan InstallPlan, platforms []Platform, r Reporter) {
 	runModeSwitchHookWithPlatforms(plan, platforms, r)
 }
