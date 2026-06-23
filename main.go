@@ -3,10 +3,9 @@ package main
 import (
 	"fmt"
 	"os"
-)
 
-// version is set at build time via ldflags: -ldflags "-X main.version=3.0.0"
-var version = "dev"
+	buildpkg "github.com/zeshone/doc-agent-ai/internal/build"
+)
 
 func main() {
 	// Pre-scan os.Args for platform-path overrides and install flags before
@@ -112,7 +111,7 @@ func main() {
 		}
 
 	case "--version":
-		fmt.Printf("doc-agent-ai %s\n", version)
+		fmt.Printf("doc-agent-ai %s\n", buildpkg.Version)
 
 	case "--help":
 		printHelp()
