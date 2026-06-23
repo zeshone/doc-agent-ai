@@ -6,7 +6,11 @@ For older releases without a section here, the GitHub Release notes have the det
 
 ---
 
-## Unreleased
+## v4.1.0 — 2026-06-23
+
+### Fixed
+
+- Cancelling Install or Uninstall from the Home menu now returns to the menu instead of quitting the whole app.
 
 ### Changed
 

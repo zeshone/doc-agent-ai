@@ -247,19 +247,6 @@ func Generate(outputDir string) error {
 
 func generate(outputDir string) error { return Generate(outputDir) }
 
-// writeFile writes content to path, creating parent directories as needed.
-// A trailing newline is added if missing (matching generate.js behavior).
-func writeFile(path, content string) error {
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return err
-	}
-	if !strings.HasSuffix(content, "\n") {
-		content += "\n"
-	}
-	return os.WriteFile(path, []byte(content), 0644)
-}
-
 func ensureTrailingNewline(data []byte) []byte {
 	if len(data) == 0 || data[len(data)-1] != '\n' {
 		return append(data, '\n')
