@@ -1,4 +1,4 @@
-package main
+package docagent
 
 import (
 	"encoding/json"
@@ -113,9 +113,9 @@ func TestRunHeadlessInstall_VaultSuccess(t *testing.T) {
 	restoreHome := mockHomeEnv(t, tmpHome)
 	defer restoreHome()
 
-	distDir := filepath.Join(t.TempDir(), "dist")
-	if err := generate(distDir); err != nil {
-		t.Fatalf("generate dist: %v", err)
+	bundle, err := BuildBundle()
+	if err != nil {
+		t.Fatalf("BuildBundle: %v", err)
 	}
 
 	// Set up opencode platform.
@@ -136,8 +136,7 @@ func TestRunHeadlessInstall_VaultSuccess(t *testing.T) {
 		Yes:       true,
 	}
 
-	// Provide a custom distDir override to avoid touching the real dist/.
-	if err := runHeadlessInstall(flags, distDir); err != nil {
+	if err := runHeadlessInstallWithBundle(flags, bundle); err != nil {
 		t.Fatalf("runHeadlessInstall: %v", err)
 	}
 
@@ -158,9 +157,9 @@ func TestRunHeadlessInstall_InProjectSuccess(t *testing.T) {
 	restoreHome := mockHomeEnv(t, tmpHome)
 	defer restoreHome()
 
-	distDir := filepath.Join(t.TempDir(), "dist")
-	if err := generate(distDir); err != nil {
-		t.Fatalf("generate dist: %v", err)
+	bundle, err := BuildBundle()
+	if err != nil {
+		t.Fatalf("BuildBundle: %v", err)
 	}
 
 	opencodeHome := filepath.Join(tmpHome, ".config", "opencode")
@@ -179,7 +178,7 @@ func TestRunHeadlessInstall_InProjectSuccess(t *testing.T) {
 		Yes: true,
 	}
 
-	if err := runHeadlessInstall(flags, distDir); err != nil {
+	if err := runHeadlessInstallWithBundle(flags, bundle); err != nil {
 		t.Fatalf("runHeadlessInstall in-project: %v", err)
 	}
 
@@ -196,9 +195,9 @@ func TestRunHeadlessInstall_VaultMissingPath(t *testing.T) {
 	restoreHome := mockHomeEnv(t, tmpHome)
 	defer restoreHome()
 
-	distDir := filepath.Join(t.TempDir(), "dist")
-	if err := generate(distDir); err != nil {
-		t.Fatalf("generate dist: %v", err)
+	bundle, err := BuildBundle()
+	if err != nil {
+		t.Fatalf("BuildBundle: %v", err)
 	}
 
 	flags := FlagSet{
@@ -208,7 +207,7 @@ func TestRunHeadlessInstall_VaultMissingPath(t *testing.T) {
 		Yes: true,
 	}
 
-	err := runHeadlessInstall(flags, distDir)
+	err = runHeadlessInstallWithBundle(flags, bundle)
 	if err == nil {
 		t.Error("expected error for vault mode with no path; got nil")
 	}
@@ -224,9 +223,9 @@ func TestRunHeadlessInstall_InvalidPlatform(t *testing.T) {
 	restoreHome := mockHomeEnv(t, tmpHome)
 	defer restoreHome()
 
-	distDir := filepath.Join(t.TempDir(), "dist")
-	if err := generate(distDir); err != nil {
-		t.Fatalf("generate dist: %v", err)
+	bundle, err := BuildBundle()
+	if err != nil {
+		t.Fatalf("BuildBundle: %v", err)
 	}
 
 	basePath := filepath.ToSlash(filepath.Join(tmpHome, "projects")) + "/"
@@ -237,7 +236,7 @@ func TestRunHeadlessInstall_InvalidPlatform(t *testing.T) {
 		Yes:       true,
 	}
 
-	err := runHeadlessInstall(flags, distDir)
+	err = runHeadlessInstallWithBundle(flags, bundle)
 	if err == nil {
 		t.Error("expected error for unknown platform; got nil")
 	}

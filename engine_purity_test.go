@@ -1,4 +1,4 @@
-package main
+package docagent
 
 import (
 	"go/parser"
@@ -15,24 +15,28 @@ import (
 
 // engineFiles lists all Go source files that belong to the "engine" layer.
 // These files MUST NOT import any charmbracelet/* package. The TUI files
-// (tui_*.go, added in slice 2b) are the only files allowed to import charm.
+// (internal/tui/tui_*.go) are the only files allowed to import charm.
+//
+// Paths are relative to the repo root. Each file must exist — a missing path
+// is a hard failure (not a skip) so that a future rename is caught immediately.
 var engineFiles = []string{
-	"install.go",
-	"platform.go",
+	// Root package — generate pipeline and headless CLI
 	"generate.go",
-	"config.go",
-	"plan.go",
-	"resolve.go",
-	"uninstall.go",
-	"manifest.go",
 	"template.go",
-	"reporter.go",
 	"headless.go",
-	"execute_install.go",
-	// main.go is the CLI router; in slice 2b it must delegate to charm-free tui.go
-	// wrapper functions only. Adding it here ensures any direct charm import in
-	// main.go is caught immediately by this guard.
-	"main.go",
+	// internal/install — pure install engine
+	"internal/install/install.go",
+	"internal/install/platform.go",
+	"internal/install/manifest.go",
+	"internal/install/reporter.go",
+	"internal/install/execute_install.go",
+	"internal/install/uninstall.go",
+	// internal/config — plan resolution, config I/O
+	"internal/config/config.go",
+	"internal/config/plan.go",
+	"internal/config/resolve.go",
+	// CLI entry point — must delegate to charm-free wrappers only
+	"cmd/doc-agent-ai/main.go",
 }
 
 // TestEnginePurity_NoCharmImports asserts that none of the engine-layer Go
@@ -40,7 +44,7 @@ var engineFiles = []string{
 // erosion and ensures the engine stays charm-free so it can be unit-tested
 // without a TTY and consumed by non-TUI headless paths.
 //
-// To add charm to the project: place it ONLY in tui_*.go files (slice 2b).
+// To add charm to the project: place it ONLY in internal/tui/tui_*.go files.
 func TestEnginePurity_NoCharmImports(t *testing.T) {
 	// Locate the repo root by finding this test file's directory.
 	// go test sets the working directory to the package directory so we can
@@ -55,13 +59,14 @@ func TestEnginePurity_NoCharmImports(t *testing.T) {
 	for _, filename := range engineFiles {
 		path := filepath.Join(repoRoot, filename)
 
-		// If the file doesn't exist yet (future engine files added before
-		// their test is written) we skip rather than fail — the guard is
-		// additive; adding to engineFiles makes it strict immediately.
-		if _, err := os.Stat(path); os.IsNotExist(err) {
-			t.Logf("SKIP: engine file not found (will guard when created): %s", filename)
+		// All listed engine files must exist. A missing file means the path
+		// is stale and the guard is no longer protecting that code — hard fail.
+		if _, err := os.Stat(path); err != nil {
+			t.Errorf("CHECKED: engine file not found — update engineFiles if the file was moved or renamed: %s", filename)
 			continue
 		}
+
+		t.Logf("CHECKED: %s", filename)
 
 		f, err := parser.ParseFile(fset, path, nil, parser.ImportsOnly)
 		if err != nil {
@@ -75,7 +80,7 @@ func TestEnginePurity_NoCharmImports(t *testing.T) {
 			if strings.HasPrefix(importPath, "github.com/charmbracelet") {
 				t.Errorf(
 					"engine purity violation: %s imports charmbracelet package %q\n"+
-						"Engine files must not import charm. Place TUI/charm code in tui_*.go files only.",
+						"Engine files must not import charm. Place TUI/charm code in internal/tui/tui_*.go files only.",
 					filename, importPath,
 				)
 			}

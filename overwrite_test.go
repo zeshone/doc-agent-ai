@@ -1,4 +1,4 @@
-package main
+package docagent
 
 // ---------------------------------------------------------------------------
 // Overwrite semantics tests — headless + engine layer (PRESERVED)
@@ -22,40 +22,8 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	installpkg "github.com/zeshone/doc-agent-ai/internal/install"
 )
-
-// TestInstallModel_OverwriteStep_NotShownForFreshInstall verifies that when no
-// selected platform is already installed, the overwrite step is skipped
-// entirely and the wizard proceeds directly to stepProgress.
-func TestInstallModel_OverwriteStep_NotShownForFreshInstall(t *testing.T) {
-	// No pre-existing agent files → alreadyInstalled will be empty.
-	dir := t.TempDir()
-	plat := newPlatformForTest(t, "claude", dir+"/claude")
-
-	m := newInstallModelForTest(AppConfig{}, false, []Platform{plat})
-	m.manifest.Roles = []DistRole{{ID: "doc-arch"}}
-	// Force empty alreadyInstalled — no agents on disk in t.TempDir().
-	m.alreadyInstalled = map[string]bool{}
-
-	// Platform select → DocsMode.
-	m = sendSpecialKey(t, m, tea.KeyEnter)
-	if m.step != stepDocsMode {
-		t.Fatalf("expected stepDocsMode, got %v", m.step)
-	}
-
-	// DocsMode: in-project (modeCursor=1), Enter (Continue is default focus=0) → stepProgress.
-	m.modeCursor = 1
-	m.docsModeButtons.focus = 0 // Continue
-	m = sendSpecialKey(t, m, tea.KeyEnter)
-
-	if m.step == stepOverwrite {
-		t.Fatal("fresh install (no already-installed) should skip stepOverwrite, but wizard is at stepOverwrite")
-	}
-	if m.step != stepProgress {
-		t.Fatalf("expected stepProgress for fresh in-project install, got %v", m.step)
-	}
-}
 
 // ---------------------------------------------------------------------------
 // Headless overwrite semantics
@@ -68,9 +36,9 @@ func TestHeadless_ExistingInstall_NoYesFlag_Errors(t *testing.T) {
 	restoreHome := mockHomeEnv(t, tmpHome)
 	t.Cleanup(restoreHome)
 
-	distDir := filepath.Join(t.TempDir(), "dist")
-	if err := generate(distDir); err != nil {
-		t.Fatalf("generate dist: %v", err)
+	bundle, err := BuildBundle()
+	if err != nil {
+		t.Fatalf("BuildBundle: %v", err)
 	}
 
 	// Create an opencode home so it is detected.
@@ -79,10 +47,7 @@ func TestHeadless_ExistingInstall_NoYesFlag_Errors(t *testing.T) {
 		t.Fatalf("create opencode home: %v", err)
 	}
 	// Seed opencode.json with an existing agent so checkAlreadyInstalled returns results.
-	manifest, err := readManifestFrom(distDir)
-	if err != nil {
-		t.Fatalf("read manifest: %v", err)
-	}
+	manifest := bundle.Manifest
 	existingAgentIDs := make([]string, 0, len(manifest.Roles))
 	for _, r := range manifest.Roles {
 		existingAgentIDs = append(existingAgentIDs, r.ID)
@@ -109,7 +74,7 @@ func TestHeadless_ExistingInstall_NoYesFlag_Errors(t *testing.T) {
 		Yes:       false, // NO --yes
 	}
 
-	err = runHeadlessInstall(flags, distDir)
+	err = runHeadlessInstallWithBundle(flags, bundle)
 	if err == nil {
 		t.Fatal("expected error when existing install detected and --yes not provided, got nil")
 	}
@@ -127,19 +92,16 @@ func TestHeadless_ExistingInstall_WithYesFlag_Proceeds(t *testing.T) {
 	restoreHome := mockHomeEnv(t, tmpHome)
 	t.Cleanup(restoreHome)
 
-	distDir := filepath.Join(t.TempDir(), "dist")
-	if err := generate(distDir); err != nil {
-		t.Fatalf("generate dist: %v", err)
+	bundle, err := BuildBundle()
+	if err != nil {
+		t.Fatalf("BuildBundle: %v", err)
 	}
 
 	opencodeHome := filepath.Join(tmpHome, ".config", "opencode")
 	if err := os.MkdirAll(opencodeHome, 0755); err != nil {
 		t.Fatalf("create opencode home: %v", err)
 	}
-	manifest, err := readManifestFrom(distDir)
-	if err != nil {
-		t.Fatalf("read manifest: %v", err)
-	}
+	manifest := bundle.Manifest
 	// Write opencode.json with one existing agent using the real opencode format.
 	var firstID string
 	for _, r := range manifest.Roles {
@@ -158,7 +120,7 @@ func TestHeadless_ExistingInstall_WithYesFlag_Proceeds(t *testing.T) {
 		Yes:       true, // --yes provided
 	}
 
-	err = runHeadlessInstall(flags, distDir)
+	err = runHeadlessInstallWithBundle(flags, bundle)
 	if err != nil {
 		t.Fatalf("runHeadlessInstall with --yes should succeed on existing install, got: %v", err)
 	}
@@ -171,7 +133,7 @@ func TestHeadless_ExistingInstall_WithYesFlag_Proceeds(t *testing.T) {
 // TestExecuteInstall_RespectsOverwriteMap verifies that executeInstall skips
 // platforms that have existing installs but no entry in plan.Overwrite.
 func TestExecuteInstall_RespectsOverwriteMap(t *testing.T) {
-	tmpHome, distDir, manifest, opencodePlat := setupExecuteInstallFixture(t)
+	tmpHome, bundle, manifest, opencodePlat := setupExecuteInstallFixture(t)
 
 	// Pre-install one agent into opencode so checkAlreadyInstalled finds it.
 	// opencode.json uses {"agent": {"role-id": {}}} format.
@@ -198,7 +160,7 @@ func TestExecuteInstall_RespectsOverwriteMap(t *testing.T) {
 	}
 
 	r := newBufferReporter()
-	err := executeInstall(manifest, plan, distDir, []Platform{opencodePlat}, r)
+	err := installpkg.ExecuteInstall(bundle, plan, []Platform{opencodePlat}, r)
 	if err == nil {
 		t.Fatal("expected error when existing install found and Overwrite map has no consent for the platform")
 	}
@@ -207,7 +169,7 @@ func TestExecuteInstall_RespectsOverwriteMap(t *testing.T) {
 // TestExecuteInstall_OverwriteMapTrue_InstallsNormally verifies that when
 // Overwrite["opencode"] = true, executeInstall proceeds normally.
 func TestExecuteInstall_OverwriteMapTrue_InstallsNormally(t *testing.T) {
-	tmpHome, distDir, manifest, opencodePlat := setupExecuteInstallFixture(t)
+	tmpHome, bundle, manifest, opencodePlat := setupExecuteInstallFixture(t)
 
 	opencodeHome := filepath.Join(tmpHome, ".config", "opencode")
 	var firstID string
@@ -231,7 +193,7 @@ func TestExecuteInstall_OverwriteMapTrue_InstallsNormally(t *testing.T) {
 	}
 
 	r := newBufferReporter()
-	err := executeInstall(manifest, plan, distDir, []Platform{opencodePlat}, r)
+	err := installpkg.ExecuteInstall(bundle, plan, []Platform{opencodePlat}, r)
 	if err != nil {
 		t.Fatalf("executeInstall should succeed when Overwrite[platform]=true; got: %v", err)
 	}
@@ -249,25 +211,4 @@ func containsAny(s string, subs ...string) bool {
 		}
 	}
 	return false
-}
-
-// TestRunInstall_NoPlatformsSelected_Errors is the defense-in-depth guard:
-// runInstall must never hand executeInstall a nil Platforms list (which the
-// engine interprets as "install to all detected").
-func TestRunInstall_NoPlatformsSelected_Errors(t *testing.T) {
-	m := InstallModel{
-		platforms: []platformItem{{id: "opencode", label: "opencode", selected: false}},
-		mode:      ModeVault,
-		styles:    NoColor(),
-	}
-
-	cmd := m.runInstall()
-	msg := cmd()
-	rm, ok := msg.(installResultMsg)
-	if !ok {
-		t.Fatalf("cmd returned %T, want installResultMsg", msg)
-	}
-	if rm.err == nil || !strings.Contains(rm.err.Error(), "no platforms selected") {
-		t.Errorf("err = %v, want 'no platforms selected' guard error", rm.err)
-	}
 }

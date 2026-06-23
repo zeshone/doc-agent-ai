@@ -33,7 +33,7 @@
 ```sh
 brew tap zeshone/tap
 brew install doc-agent-ai
-doc-agent-ai install
+doc-agent-ai
 ```
 
 **Windows (Scoop):**
@@ -41,17 +41,19 @@ doc-agent-ai install
 ```powershell
 scoop bucket add zeshone https://github.com/zeshone/scoop-bucket
 scoop install doc-agent-ai
-doc-agent-ai install
+doc-agent-ai
 ```
 
 **Linux or direct download:** grab the binary for your platform from [Releases](https://github.com/zeshone/doc-agent-ai/releases/latest), then:
 
 ```sh
 chmod +x doc-agent-ai   # not needed on Windows
-./doc-agent-ai install
+./doc-agent-ai
 ```
 
-Restart your AI tool. Then type `/doc-arch my-system` to start documenting.
+The bare binary opens the Zeen Home menu. Choose **Install** to run the wizard, **Uninstall** to remove the installed artifacts, or use headless `install --platforms ...` in CI.
+
+Restart your AI tool after install. Then type `/doc-arch my-system` to start documenting.
 
 ---
 
@@ -75,7 +77,7 @@ The `doc-reader` skill is installed on every platform with a skills directory wh
 
 | Subcommand | What it does |
 |------------|--------------|
-| `generate` | Build `dist/` from embedded canonical content |
+| `generate <dir>` | Write the rendered bundle to an explicit directory (dev/build only) |
 | `install` | TUI installer — platform selection, docs mode (vault / in-project), overwrite confirmation |
 | `uninstall` | TUI uninstaller — removes only doc-agent-ai artifacts, leaves your docs untouched |
 
@@ -164,17 +166,17 @@ skills/             ← skill definitions shared across platforms
 ### Modify the agent
 
 1. Edit files under `src/` or `skills/`.
-2. Run `go run . generate` to rebuild `dist/`.
-3. Run `go run . install` to apply changes locally.
-4. Commit. `dist/` is git-ignored — only `src/` is versioned.
+2. Run `go run ./cmd/doc-agent-ai generate <dir>` to write a rendered bundle for inspection or packaging.
+3. Run `go run ./cmd/doc-agent-ai` to open the installer UI, or `go run ./cmd/doc-agent-ai install --platforms ...` for headless install.
+4. Commit. Generated output directories remain disposable — `src/` and `skills/` are still the source of truth.
 
 ### Build from source
 
 ```bash
 git clone https://github.com/zeshone/doc-agent-ai.git
 cd doc-agent-ai
-go build -o doc-agent-ai .
-./doc-agent-ai install
+go build -o doc-agent-ai ./cmd/doc-agent-ai
+./doc-agent-ai
 ```
 
 ### Authoring conventions
@@ -192,11 +194,13 @@ go build -o doc-agent-ai .
 
 ## Uninstall
 
+Use the Home menu's **Uninstall** option, or run the dedicated subcommand when you want to remove the installed artifacts directly:
+
 ```bash
 ./doc-agent-ai uninstall
 ```
 
-Removes skills, prompts, commands, and agent registrations from all detected platforms. Your documentation files are never touched.
+Uninstall removes skills, prompts, commands, and agent registrations from detected platforms. Your documentation files are never touched.
 
 ---
 

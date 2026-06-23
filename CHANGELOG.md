@@ -6,6 +6,19 @@ For older releases without a section here, the GitHub Release notes have the det
 
 ---
 
+## v4.1.0 — 2026-06-23
+
+### Fixed
+
+- Cancelling Install or Uninstall from the Home menu now returns to the menu instead of quitting the whole app.
+
+### Changed
+
+- Runtime install, uninstall, and TUI flows no longer create or clean a `dist/` directory in the current working directory. Content is rendered into an in-memory bundle and written only to platform homes plus `~/.doc-agent-ai.json`.
+- Running `doc-agent-ai` with no arguments now opens a unified Zeen Home menu with **Install**, **Uninstall**, and **Quit**.
+- The repository layout now uses `cmd/doc-agent-ai` for the shipped binary and `internal/{build,config,install,tui}` for extracted implementation packages, while the root `docagent` package keeps `//go:embed src skills` beside the embedded content.
+- `generate` is now an explicit developer/build command: `doc-agent-ai generate <dir>`. It no longer defaults to writing output in the current directory.
+
 ## v4.0.0 — 2026-06-10
 
 A major release: a TUI installer, your choice of where documentation lives, a new context skill for in-project docs, and a breaking rename of the opencode commands. Non-opencode users upgrade transparently; opencode users have one rename to absorb (see below).

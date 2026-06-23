@@ -30,7 +30,7 @@ jobs:
           go-version: '1.25'
           cache: true
       - name: Build release binary
-        run: CGO_ENABLED=0 go build -ldflags="-s -w" -o doc-agent-ai .
+        run: CGO_ENABLED=0 go build -ldflags="-s -w" -o doc-agent-ai ./cmd/doc-agent-ai
       - name: Check binary size
         run: |
           LIMIT=6291456

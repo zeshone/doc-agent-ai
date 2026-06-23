@@ -1,0 +1,85 @@
+package install
+
+// PlatformManifest matches the schema of src/manifests/platforms.json.
+type PlatformManifest struct {
+	OpenCode PlatformConfig `json:"opencode"`
+	Copilot  PlatformConfig `json:"copilot"`
+	Claude   PlatformConfig `json:"claude"`
+	Qwen     PlatformConfig `json:"qwen"`
+	Pi       PlatformConfig `json:"pi"`
+}
+
+// PlatformConfig holds configuration for a single AI platform.
+type PlatformConfig struct {
+	SkillRoot                string   `json:"skillRoot"`
+	PromptDir                string   `json:"promptDir"`
+	CommandDir               string   `json:"commandDir,omitempty"`
+	AgentDir                 string   `json:"agentDir,omitempty"`
+	AgentExtension           string   `json:"agentExtension,omitempty"`
+	AgentTemplate            string   `json:"agentTemplate,omitempty"`
+	AgentTools               []string `json:"agentTools,omitempty"`
+	OrchestratorTools        []string `json:"orchestratorTools,omitempty"`
+	ApprovalMode             string   `json:"approvalMode,omitempty"`
+	OrchestratorApprovalMode string   `json:"orchestratorApprovalMode,omitempty"`
+}
+
+// DistManifest is the in-memory manifest produced by BuildBundle and optionally
+// written to disk by the generate subcommand. It is embedded in Bundle.Manifest
+// and passed to the install engine at runtime without touching the filesystem.
+type DistManifest struct {
+	GeneratedAt         string           `json:"generatedAt"`
+	PlaceholderBasePath string           `json:"placeholderBasePath"`
+	Skills              []string         `json:"skills"`
+	ConditionalSkills   []string         `json:"conditionalSkills,omitempty"`
+	Roles               []DistRole       `json:"roles"`
+	Commands            []DistCommand    `json:"commands"`
+	LegacyCommandIds    []string         `json:"legacyCommandIds,omitempty"`
+	Platforms           PlatformManifest `json:"platforms"`
+}
+
+// Bundle is the fully-rendered, ready-to-install content held in memory.
+// Keys in Files are slash-separated paths relative to the install root
+// (e.g. ".claude/agents/doc-arch.md"); they are written verbatim by the
+// engine without an intermediate dist/ directory.
+type Bundle struct {
+	Manifest DistManifest
+	Files    map[string][]byte
+}
+
+// DistRole represents a role in the output manifest.
+type DistRole struct {
+	ID            string          `json:"id"`
+	Description   string          `json:"description"`
+	Hidden        bool            `json:"hidden"`
+	Mode          string          `json:"mode"`
+	OpenCodeTools map[string]bool `json:"opencodeTools,omitempty"`
+	PromptFiles   PromptFileMap   `json:"promptFiles"`
+	AgentFiles    AgentFileMap    `json:"agentFiles"`
+}
+
+// PromptFileMap maps platform IDs to prompt file paths. Field order matches
+// the v2.0.0 JS Object.fromEntries insertion order for byte-level parity.
+type PromptFileMap struct {
+	OpenCode string `json:"opencode"`
+	Copilot  string `json:"copilot"`
+	Claude   string `json:"claude"`
+	Qwen     string `json:"qwen"`
+	Pi       string `json:"pi"`
+}
+
+// AgentFileMap maps platform IDs to agent file paths. Only platforms with
+// agent support are included (opencode is excluded). Field order matches
+// the v2.0.0 JS Object.fromEntries insertion order.
+type AgentFileMap struct {
+	Copilot string `json:"copilot"`
+	Claude  string `json:"claude"`
+	Qwen    string `json:"qwen"`
+}
+
+// DistCommand represents a command in the output manifest.
+type DistCommand struct {
+	ID          string `json:"id"`
+	Description string `json:"description"`
+	Agent       string `json:"agent"`
+	File        string `json:"file"`
+}
