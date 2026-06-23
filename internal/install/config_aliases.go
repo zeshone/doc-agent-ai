@@ -14,3 +14,4 @@ const (
 
 func loadConfig() (AppConfig, bool, error) { return configpkg.Load() }
 func saveConfig(cfg AppConfig) error       { return configpkg.Save(cfg) }
+func configPath() (string, error)          { return configpkg.ConfigPath() }

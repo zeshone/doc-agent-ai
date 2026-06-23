@@ -50,7 +50,7 @@ type UninstallModel struct {
 	// installed is the list of platforms that have doc-agent-ai artifacts.
 	installed []InstalledDetails
 
-	// manifest is the DistManifest loaded from dist/.
+	// manifest is the rendered install manifest for uninstall detection/removal.
 	manifest DistManifest
 
 	// progressLines collects output during uninstallStepProgress.

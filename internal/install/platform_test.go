@@ -1,4 +1,4 @@
-package docagent
+package install
 
 import (
 	"encoding/json"
@@ -11,35 +11,6 @@ import (
 // ---------------------------------------------------------------------------
 // 7.4 Platform detection tests
 // ---------------------------------------------------------------------------
-
-// mockHomeEnv sets up a temp dir as HOME and returns the original value plus a
-// restore function.  On Windows, UserProfile or HOMEDRIVE+HOMEPATH are used
-// instead of HOME.
-func mockHomeEnv(t *testing.T, tmpDir string) func() {
-	t.Helper()
-
-	restore := make(map[string]string)
-
-	for _, env := range []string{"HOME", "USERPROFILE", "XDG_CONFIG_HOME"} {
-		old, ok := os.LookupEnv(env)
-		if ok {
-			restore[env] = old
-		}
-	}
-	// On Windows, Go prefers USERPROFILE over HOME for os.UserHomeDir().
-	t.Setenv("HOME", tmpDir)
-	t.Setenv("USERPROFILE", tmpDir)
-	// Pin XDG_CONFIG_HOME inside the mocked home: opencode detection prefers it
-	// over ~/.config, so an inherited value (e.g. on CI runners) would make
-	// detection escape the test sandbox.
-	t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpDir, ".config"))
-
-	return func() {
-		for k, v := range restore {
-			os.Setenv(k, v)
-		}
-	}
-}
 
 // createMockOpenCode creates a fake opencode home dir with opencode.json.
 func createMockOpenCode(t *testing.T, home string) {
@@ -1000,9 +971,9 @@ func TestOpenCodeDetect_XDG_Unset(t *testing.T) {
 // existing directory, Detect() returns true and HomeDir() returns that path.
 func TestCopilotDetect_Flag(t *testing.T) {
 	tmpDir := t.TempDir()
-	orig := copilotPathOverride()
-	setCopilotPathOverride(tmpDir)
-	t.Cleanup(func() { setCopilotPathOverride(orig) })
+	orig := copilotPathOverride
+	copilotPathOverride = tmpDir
+	t.Cleanup(func() { copilotPathOverride = orig })
 
 	cfg := PlatformConfig{SkillRoot: "~/.copilot/skills"}
 	p, err := newCopilotPlatform(cfg)
@@ -1022,9 +993,9 @@ func TestCopilotDetect_Flag(t *testing.T) {
 // non-existent directory the platform is still created (warn is emitted) and
 // Detect() returns false because the dir does not exist.
 func TestCopilotDetect_FlagMissing(t *testing.T) {
-	orig := copilotPathOverride()
-	setCopilotPathOverride(filepath.Join(t.TempDir(), "does-not-exist"))
-	t.Cleanup(func() { setCopilotPathOverride(orig) })
+	orig := copilotPathOverride
+	copilotPathOverride = filepath.Join(t.TempDir(), "does-not-exist")
+	t.Cleanup(func() { copilotPathOverride = orig })
 
 	cfg := PlatformConfig{SkillRoot: "~/.copilot/skills"}
 	p, err := newCopilotPlatform(cfg)
@@ -1033,8 +1004,8 @@ func TestCopilotDetect_FlagMissing(t *testing.T) {
 	}
 
 	// HomeDir must be the override path even when it is missing.
-	if p.HomeDir() != copilotPathOverride() {
-		t.Errorf("HomeDir() = %q, want %q", p.HomeDir(), copilotPathOverride())
+	if p.HomeDir() != copilotPathOverride {
+		t.Errorf("HomeDir() = %q, want %q", p.HomeDir(), copilotPathOverride)
 	}
 	// Detect() returns false because the directory does not exist.
 	if p.Detect() {
@@ -1046,9 +1017,9 @@ func TestCopilotDetect_FlagMissing(t *testing.T) {
 // no XDG) using an explicit homeDir, matching pre-existing test style.
 func TestCopilotDetect_Standard(t *testing.T) {
 	// Ensure no override is active.
-	orig := copilotPathOverride()
-	setCopilotPathOverride("")
-	t.Cleanup(func() { setCopilotPathOverride(orig) })
+	orig := copilotPathOverride
+	copilotPathOverride = ""
+	t.Cleanup(func() { copilotPathOverride = orig })
 
 	tmpDir := t.TempDir()
 	mockHomeEnv(t, tmpDir)
@@ -1136,9 +1107,9 @@ func TestPiDetect_NeitherExists(t *testing.T) {
 // TestPiDetect_Flag — --pi-path override points to an existing dir.
 func TestPiDetect_Flag(t *testing.T) {
 	tmpDir := t.TempDir()
-	orig := piPathOverride()
-	setPiPathOverride(tmpDir)
-	t.Cleanup(func() { setPiPathOverride(orig) })
+	orig := piPathOverride
+	piPathOverride = tmpDir
+	t.Cleanup(func() { piPathOverride = orig })
 
 	cfg := PlatformConfig{SkillRoot: "~/.pi/agent/skills"}
 	p, err := newPiPlatform(cfg)
@@ -1157,11 +1128,11 @@ func TestPiDetect_Flag(t *testing.T) {
 // TestPiDetect_FlagMissing — override points to a nonexistent path; HomeDir
 // reflects the override anyway and Detect falls back to the PATH check.
 func TestPiDetect_FlagMissing(t *testing.T) {
-	orig := piPathOverride()
-	setPiPathOverride(filepath.Join(t.TempDir(), "does-not-exist"))
+	orig := piPathOverride
+	piPathOverride = filepath.Join(t.TempDir(), "does-not-exist")
 	// Scrub PATH so the test does not accidentally find a real `pi`.
 	t.Setenv("PATH", t.TempDir())
-	t.Cleanup(func() { setPiPathOverride(orig) })
+	t.Cleanup(func() { piPathOverride = orig })
 
 	cfg := PlatformConfig{SkillRoot: "~/.pi/agent/skills"}
 	p, err := newPiPlatform(cfg)
@@ -1169,8 +1140,8 @@ func TestPiDetect_FlagMissing(t *testing.T) {
 		t.Fatalf("newPiPlatform: %v", err)
 	}
 
-	if p.HomeDir() != piPathOverride() {
-		t.Errorf("HomeDir() = %q, want %q", p.HomeDir(), piPathOverride())
+	if p.HomeDir() != piPathOverride {
+		t.Errorf("HomeDir() = %q, want %q", p.HomeDir(), piPathOverride)
 	}
 	if p.Detect() {
 		t.Error("Detect() should return false when override path missing and 'pi' not on PATH")
@@ -1180,9 +1151,9 @@ func TestPiDetect_FlagMissing(t *testing.T) {
 // TestPiDetect_EnvOverride — PI_CODING_AGENT_DIR is honoured when --pi-path
 // is unset.
 func TestPiDetect_EnvOverride(t *testing.T) {
-	orig := piPathOverride()
-	setPiPathOverride("")
-	t.Cleanup(func() { setPiPathOverride(orig) })
+	orig := piPathOverride
+	piPathOverride = ""
+	t.Cleanup(func() { piPathOverride = orig })
 
 	tmpDir := t.TempDir()
 	t.Setenv("PI_CODING_AGENT_DIR", tmpDir)

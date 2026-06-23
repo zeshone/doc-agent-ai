@@ -1,4 +1,4 @@
-package docagent
+package install
 
 import (
 	"encoding/json"
@@ -14,8 +14,8 @@ import (
 
 // setupExecuteInstallFixture creates the minimal filesystem state needed for
 // executeInstall tests: temp HOME, an opencode platform, generated dist.
-// Returns: tmpHome, distDir, manifest, opencodePlatform.
-func setupExecuteInstallFixture(t *testing.T) (string, string, DistManifest, Platform) {
+// Returns: tmpHome, bundle, manifest, opencodePlatform.
+func setupExecuteInstallFixture(t *testing.T) (string, Bundle, DistManifest, Platform) {
 	t.Helper()
 	tmpHome := t.TempDir()
 	restoreHome := mockHomeEnv(t, tmpHome)
@@ -29,6 +29,10 @@ func setupExecuteInstallFixture(t *testing.T) (string, string, DistManifest, Pla
 	if err != nil {
 		t.Fatalf("read manifest: %v", err)
 	}
+	bundle, err := bundleFromDistDir(manifest, distDir)
+	if err != nil {
+		t.Fatalf("bundleFromDistDir: %v", err)
+	}
 
 	opencodeHome := filepath.Join(tmpHome, ".config", "opencode")
 	if err := os.MkdirAll(opencodeHome, 0755); err != nil {
@@ -39,13 +43,13 @@ func setupExecuteInstallFixture(t *testing.T) (string, string, DistManifest, Pla
 		t.Fatalf("write opencode.json: %v", err)
 	}
 	plat := newPlatformForTest(t, "opencode", opencodeHome)
-	return tmpHome, distDir, manifest, plat
+	return tmpHome, bundle, manifest, plat
 }
 
 // TestExecuteInstall_VaultMode_InstallsAndPersistsConfig verifies that
 // executeInstall runs a vault-mode install and writes AppConfig afterward.
 func TestExecuteInstall_VaultMode_InstallsAndPersistsConfig(t *testing.T) {
-	tmpHome, distDir, manifest, plat := setupExecuteInstallFixture(t)
+	tmpHome, bundle, _, plat := setupExecuteInstallFixture(t)
 
 	basePath := filepath.ToSlash(filepath.Join(tmpHome, "projects")) + "/"
 	plan := InstallPlan{
@@ -56,7 +60,7 @@ func TestExecuteInstall_VaultMode_InstallsAndPersistsConfig(t *testing.T) {
 	}
 
 	r := newBufferReporter()
-	if err := executeInstall(manifest, plan, distDir, []Platform{plat}, r); err != nil {
+	if err := ExecuteInstall(bundle, plan, []Platform{plat}, r); err != nil {
 		t.Fatalf("executeInstall: %v", err)
 	}
 
@@ -85,7 +89,7 @@ func TestExecuteInstall_VaultMode_InstallsAndPersistsConfig(t *testing.T) {
 // TestExecuteInstall_InProjectMode_InstallsAndPersistsConfig verifies
 // in-project mode sets config.Mode and leaves Path empty.
 func TestExecuteInstall_InProjectMode_InstallsAndPersistsConfig(t *testing.T) {
-	_, distDir, manifest, plat := setupExecuteInstallFixture(t)
+	_, bundle, _, plat := setupExecuteInstallFixture(t)
 
 	plan := InstallPlan{
 		Platforms: []string{"opencode"},
@@ -95,7 +99,7 @@ func TestExecuteInstall_InProjectMode_InstallsAndPersistsConfig(t *testing.T) {
 	}
 
 	r := newBufferReporter()
-	if err := executeInstall(manifest, plan, distDir, []Platform{plat}, r); err != nil {
+	if err := ExecuteInstall(bundle, plan, []Platform{plat}, r); err != nil {
 		t.Fatalf("executeInstall: %v", err)
 	}
 
@@ -114,7 +118,7 @@ func TestExecuteInstall_InProjectMode_InstallsAndPersistsConfig(t *testing.T) {
 // TestExecuteInstall_PlatformListNilUsesDetected verifies that when plan.Platforms
 // is nil, all provided platforms are installed (nil → use provided list as "all").
 func TestExecuteInstall_PlatformListNilUsesDetected(t *testing.T) {
-	tmpHome, distDir, manifest, plat := setupExecuteInstallFixture(t)
+	tmpHome, bundle, _, plat := setupExecuteInstallFixture(t)
 
 	basePath := filepath.ToSlash(filepath.Join(tmpHome, "projects")) + "/"
 	plan := InstallPlan{
@@ -126,7 +130,7 @@ func TestExecuteInstall_PlatformListNilUsesDetected(t *testing.T) {
 
 	r := newBufferReporter()
 	// Provide opencode as the "all detected" list.
-	if err := executeInstall(manifest, plan, distDir, []Platform{plat}, r); err != nil {
+	if err := ExecuteInstall(bundle, plan, []Platform{plat}, r); err != nil {
 		t.Fatalf("executeInstall with nil Platforms: %v", err)
 	}
 
@@ -142,7 +146,7 @@ func TestExecuteInstall_PlatformListNilUsesDetected(t *testing.T) {
 // plan.Mode is passed through to file substitution (no __DOC_AGENT_GLOBAL_MODE__
 // leaks after install).
 func TestExecuteInstall_PassesModeToInstallToPlatform(t *testing.T) {
-	tmpHome, distDir, manifest, plat := setupExecuteInstallFixture(t)
+	tmpHome, bundle, _, plat := setupExecuteInstallFixture(t)
 
 	basePath := filepath.ToSlash(filepath.Join(tmpHome, "projects")) + "/"
 	plan := InstallPlan{
@@ -153,7 +157,7 @@ func TestExecuteInstall_PassesModeToInstallToPlatform(t *testing.T) {
 	}
 
 	r := newBufferReporter()
-	if err := executeInstall(manifest, plan, distDir, []Platform{plat}, r); err != nil {
+	if err := ExecuteInstall(bundle, plan, []Platform{plat}, r); err != nil {
 		t.Fatalf("executeInstall: %v", err)
 	}
 
@@ -183,7 +187,7 @@ func TestExecuteInstall_PassesModeToInstallToPlatform(t *testing.T) {
 // TestExecuteInstall_ModeSwitchHook_NoopWhenSameMode verifies that the mode-switch
 // hook seam fires without error when prevMode == plan.Mode (no mode change).
 func TestExecuteInstall_ModeSwitchHook_NoopWhenSameMode(t *testing.T) {
-	tmpHome, distDir, manifest, plat := setupExecuteInstallFixture(t)
+	tmpHome, bundle, _, plat := setupExecuteInstallFixture(t)
 
 	basePath := filepath.ToSlash(filepath.Join(tmpHome, "projects")) + "/"
 	plan := InstallPlan{
@@ -194,7 +198,7 @@ func TestExecuteInstall_ModeSwitchHook_NoopWhenSameMode(t *testing.T) {
 	}
 
 	r := newBufferReporter()
-	if err := executeInstall(manifest, plan, distDir, []Platform{plat}, r); err != nil {
+	if err := ExecuteInstall(bundle, plan, []Platform{plat}, r); err != nil {
 		t.Fatalf("executeInstall (no mode switch): %v", err)
 	}
 	// No mode-switch notice should appear — assert against the exact strings
@@ -208,7 +212,7 @@ func TestExecuteInstall_ModeSwitchHook_NoopWhenSameMode(t *testing.T) {
 // TestExecuteInstall_ModeSwitchHook_NoticeWhenModeChanges verifies that the
 // mode-switch hook emits a config notice when prevMode != plan.Mode.
 func TestExecuteInstall_ModeSwitchHook_NoticeWhenModeChanges(t *testing.T) {
-	tmpHome, distDir, manifest, plat := setupExecuteInstallFixture(t)
+	tmpHome, bundle, _, plat := setupExecuteInstallFixture(t)
 
 	basePath := filepath.ToSlash(filepath.Join(tmpHome, "projects")) + "/"
 	plan := InstallPlan{
@@ -219,7 +223,7 @@ func TestExecuteInstall_ModeSwitchHook_NoticeWhenModeChanges(t *testing.T) {
 	}
 
 	r := newBufferReporter()
-	if err := executeInstall(manifest, plan, distDir, []Platform{plat}, r); err != nil {
+	if err := ExecuteInstall(bundle, plan, []Platform{plat}, r); err != nil {
 		t.Fatalf("executeInstall (mode switch): %v", err)
 	}
 	// A non-migration notice must be emitted.
@@ -247,6 +251,10 @@ func TestExecuteInstall_FailurePath_NoConfigWritten(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read manifest: %v", err)
 	}
+	bundle, err := bundleFromDistDir(manifest, distDir)
+	if err != nil {
+		t.Fatalf("bundleFromDistDir: %v", err)
+	}
 
 	// Create a platform whose SkillsDir() path is blocked by a file so that
 	// copyDir → ensureDir → os.MkdirAll fails with "not a directory".
@@ -272,7 +280,7 @@ func TestExecuteInstall_FailurePath_NoConfigWritten(t *testing.T) {
 	}
 
 	r := newBufferReporter()
-	installErr := executeInstall(manifest, plan, distDir, []Platform{plat}, r)
+	installErr := ExecuteInstall(bundle, plan, []Platform{plat}, r)
 	if installErr == nil {
 		t.Fatal("expected executeInstall to fail when platform install is blocked; got nil error")
 	}
@@ -287,7 +295,7 @@ func TestExecuteInstall_FailurePath_NoConfigWritten(t *testing.T) {
 // TestExecuteInstall_ConfigPersistsSelectedPlatforms verifies that the
 // platforms list from the plan is saved in AppConfig after a successful install.
 func TestExecuteInstall_ConfigPersistsSelectedPlatforms(t *testing.T) {
-	tmpHome, distDir, manifest, plat := setupExecuteInstallFixture(t)
+	tmpHome, bundle, _, plat := setupExecuteInstallFixture(t)
 
 	basePath := filepath.ToSlash(filepath.Join(tmpHome, "projects")) + "/"
 	plan := InstallPlan{
@@ -298,7 +306,7 @@ func TestExecuteInstall_ConfigPersistsSelectedPlatforms(t *testing.T) {
 	}
 
 	r := newBufferReporter()
-	if err := executeInstall(manifest, plan, distDir, []Platform{plat}, r); err != nil {
+	if err := ExecuteInstall(bundle, plan, []Platform{plat}, r); err != nil {
 		t.Fatalf("executeInstall: %v", err)
 	}
 

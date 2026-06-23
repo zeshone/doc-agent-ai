@@ -91,14 +91,6 @@ func ExecuteInstall(bundle Bundle, plan InstallPlan, allPlatforms []Platform, r 
 	return nil
 }
 
-func executeInstall(manifest DistManifest, plan InstallPlan, distDir string, allPlatforms []Platform, r Reporter) error {
-	bundle, err := bundleFromDistDir(manifest, distDir)
-	if err != nil {
-		return err
-	}
-	return ExecuteInstall(bundle, plan, allPlatforms, r)
-}
-
 // resolvePlatformTargets returns the Platform instances to install to.
 // If requestedIDs is nil or empty, all platforms in allPlatforms are returned.
 // If requestedIDs is non-nil, only those IDs present in allPlatforms are returned.

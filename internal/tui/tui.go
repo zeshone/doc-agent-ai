@@ -31,12 +31,12 @@ func IsTerminal() bool {
 //   - Platform detection
 //   - Running the Bubbletea program
 //
-// Returns an error if dist cannot be loaded or the install engine fails.
+// Returns an error if the bundle cannot be validated or the install engine fails.
 // Returns (nil) when the user cancels (tea.Quit without error).
 func RunInstallTUI(bundle Bundle) error {
 	manifest := bundle.Manifest
 	if missing := ValidateBundle(bundle); len(missing) > 0 {
-		return fmt.Errorf("incomplete bundle: %d missing artifacts", len(missing))
+		return fmt.Errorf("incomplete bundle: %s", summarizeMissingArtifacts(missing))
 	}
 
 	// Step 2: Load config for pre-fill defaults.

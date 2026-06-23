@@ -76,7 +76,7 @@ func main() {
 		// Decision order (spec F1): explicit install flags > TTY-interactive > error.
 		// --yes alone also triggers the headless path (skips confirmation).
 		if configpkg.HasInstallFlags(installFlags) {
-			if err := docagent.RunHeadlessInstall(installFlags, ""); err != nil {
+			if err := docagent.RunHeadlessInstall(installFlags); err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 				os.Exit(1)
 			}

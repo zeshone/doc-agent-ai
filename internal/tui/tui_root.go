@@ -101,7 +101,7 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m RootModel) startInstall() (RootModel, tea.Cmd) {
 	if missing := ValidateBundle(m.bundle); len(missing) > 0 {
-		m.notice = fmt.Sprintf("bundle is incomplete — %d artifacts missing.", len(missing))
+		m.notice = fmt.Sprintf("bundle is incomplete — %s.", summarizeMissingArtifacts(missing))
 		return m, nil
 	}
 

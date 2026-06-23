@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -59,52 +58,6 @@ func ensureDir(path string) error {
 	return os.MkdirAll(path, 0755)
 }
 
-// copyFile copies a single file from src to dst. Creates parent directories.
-func copyFile(src, dst string) error {
-	if err := ensureDir(filepath.Dir(dst)); err != nil {
-		return err
-	}
-	srcFile, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer srcFile.Close()
-
-	dstFile, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-	defer dstFile.Close()
-
-	_, err = io.Copy(dstFile, srcFile)
-	return err
-}
-
-// copyDir recursively copies a directory from src to dst. Mirrors install.js
-// copyDirSync: iterates entries, recurses on subdirs, copies files.
-func copyDir(src, dst string) error {
-	if err := ensureDir(dst); err != nil {
-		return err
-	}
-	entries, err := os.ReadDir(src)
-	if err != nil {
-		return err
-	}
-	for _, entry := range entries {
-		srcPath := filepath.Join(src, entry.Name())
-		dstPath := filepath.Join(dst, entry.Name())
-		if entry.IsDir() {
-			if err := copyDir(srcPath, dstPath); err != nil {
-				return err
-			}
-		} else {
-			if err := copyFile(srcPath, dstPath); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
 
 // placeholderPair is a (placeholder, value) pair for ordered multi-token
 // substitution. Order matters: each substitution runs in sequence on the
@@ -287,11 +240,11 @@ func checkAlreadyInstalled(manifest DistManifest, plat Platform) []string {
 }
 
 // ---------------------------------------------------------------------------
-// Dist validation
+// Bundle validation
 // ---------------------------------------------------------------------------
 
-// validateDist checks that all files referenced in the manifest exist in distDir.
-// Returns a list of missing paths (relative to distDir).
+// ValidateBundle checks that all files referenced in the manifest exist in the in-memory bundle.
+// Returns missing relative paths.
 func ValidateBundle(bundle Bundle) []string {
 	var missing []string
 	manifest := bundle.Manifest
@@ -339,39 +292,6 @@ func ValidateBundle(bundle Bundle) []string {
 	return missing
 }
 
-func validateDist(manifest DistManifest, distDir string) []string {
-	bundle := Bundle{Manifest: manifest, Files: make(map[string][]byte)}
-	for _, role := range manifest.Roles {
-		for _, rel := range []string{role.PromptFiles.OpenCode, role.PromptFiles.Copilot, role.PromptFiles.Claude, role.PromptFiles.Qwen, role.PromptFiles.Pi, role.AgentFiles.Copilot, role.AgentFiles.Claude, role.AgentFiles.Qwen} {
-			if rel == "" {
-				continue
-			}
-			if _, err := os.Stat(filepath.Join(distDir, filepath.FromSlash(rel))); err == nil {
-				bundle.Files[filepath.ToSlash(rel)] = []byte("ok")
-			}
-		}
-	}
-	for _, cmd := range manifest.Commands {
-		if _, err := os.Stat(filepath.Join(distDir, filepath.FromSlash(cmd.File))); err == nil {
-			bundle.Files[filepath.ToSlash(cmd.File)] = []byte("ok")
-		}
-	}
-	for _, skill := range manifest.Skills {
-		skillDir := filepath.Join(distDir, "skills", skill)
-		_ = filepath.Walk(skillDir, func(path string, info os.FileInfo, err error) error {
-			if err != nil || info == nil || info.IsDir() {
-				return nil
-			}
-			rel, relErr := filepath.Rel(distDir, path)
-			if relErr == nil {
-				bundle.Files[filepath.ToSlash(rel)] = []byte("ok")
-			}
-			return nil
-		})
-	}
-	return ValidateBundle(bundle)
-}
-
 // ---------------------------------------------------------------------------
 // Legacy command sweep
 // ---------------------------------------------------------------------------
@@ -390,8 +310,8 @@ func sweepLegacyCommands(homeDir string, legacyIDs []string) {
 // Non-interactive install (used by tests and interactive flow)
 // ---------------------------------------------------------------------------
 
-// installToPlatformWithReporter installs all artifacts from distDir to a single
-// platform and routes all user-visible output through the supplied Reporter.
+// InstallToPlatformWithReporter installs all artifacts from an in-memory bundle
+// to a single platform and routes all user-visible output through the supplied Reporter.
 // This is the canonical implementation; installToPlatform delegates to it.
 //
 // The optional globalMode variadic argument (0 or 1 values accepted) provides the
@@ -545,7 +465,7 @@ func installToPlatform(manifest DistManifest, plat Platform, basePath, distDir s
 	return InstallToPlatform(manifest, bundle, plat, basePath, globalMode...)
 }
 
-// installPlatforms installs to multiple platforms non-interactively.
+// installPlatforms installs a bundle to multiple platforms non-interactively.
 // This is the entry point for tests. It defaults to vault mode for
 // backward compatibility; use executeInstall when an InstallPlan is available.
 func installPlatforms(manifest DistManifest, platforms []Platform, basePath, distDir string) error {

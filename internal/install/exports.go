@@ -2,20 +2,11 @@ package install
 
 func ReadManifestFrom(distDir string) (DistManifest, error) { return readManifestFrom(distDir) }
 func NewStdoutReporter() Reporter                           { return newStdoutReporter() }
-func NewOpenCodePlatform(cfg PlatformConfig) (Platform, error) { return newOpenCodePlatform(cfg) }
-func NewCopilotPlatform(cfg PlatformConfig) (Platform, error) { return newCopilotPlatform(cfg) }
-func NewPiPlatform(cfg PlatformConfig) (Platform, error)      { return newPiPlatform(cfg) }
-func ResolveHome(path string) (string, error)                 { return resolveHome(path) }
 func RegistryTemplate(basePath, skillsDir, triggerStyle string) string {
 	return registryTemplate(basePath, skillsDir, triggerStyle)
 }
-func PromptFileFor(platformID string, role DistRole) string { return promptFileFor(platformID, role) }
-func AgentFileFor(platformID string, role DistRole) string  { return agentFileFor(platformID, role) }
 func DetectAllPlatforms(manifest DistManifest) []Platform    { return detectAllPlatforms(manifest) }
-func DetectedSet(platforms []Platform) map[string]bool       { return detectedSet(platforms) }
 func PlatformDisplayName(id string) string                   { return platformDisplayName(id) }
-func PlatformHome(id string, manifest DistManifest) string   { return platformHome(id, manifest) }
-func PlatformMissingReason(id string) string                 { return platformMissingReason(id) }
 func CheckAlreadyInstalled(manifest DistManifest, plat Platform) []string {
 	return checkAlreadyInstalled(manifest, plat)
 }
@@ -37,7 +28,6 @@ func RemovePromptFilesForPlatform(plat Platform, promptIDs []string, manifest Di
 	removePromptFilesForPlatform(plat, promptIDs, manifest)
 }
 func UninstallPlatform(details InstalledDetails, manifest DistManifest) { uninstallPlatform(details, manifest) }
-func PruneEmptyDirs(startDir, stopDir string) error { return pruneEmptyDirs(startDir, stopDir) }
 func BundleFromDistDir(manifest DistManifest, distDir string) (Bundle, error) { return bundleFromDistDir(manifest, distDir) }
 func NewPlatformForTest(id string, homeDir string) Platform {
 	cfg := PlatformConfig{SkillRoot: homeDir + "/skills", PromptDir: "prompts"}

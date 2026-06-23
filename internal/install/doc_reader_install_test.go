@@ -1,4 +1,4 @@
-package docagent
+package install
 
 import (
 	"os"

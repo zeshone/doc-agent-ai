@@ -1,6 +1,9 @@
 package tui
 
 import (
+	"fmt"
+	"strings"
+
 	configpkg "github.com/zeshone/doc-agent-ai/internal/config"
 	installpkg "github.com/zeshone/doc-agent-ai/internal/install"
 )
@@ -40,3 +43,12 @@ func ExecuteInstall(bundle Bundle, plan InstallPlan, allPlatforms []Platform, r 
 	return installpkg.ExecuteInstallExport(bundle, plan, allPlatforms, r)
 }
 func ValidateBundle(bundle Bundle) []string { return installpkg.ValidateBundleExport(bundle) }
+func summarizeMissingArtifacts(missing []string) string {
+	if len(missing) == 0 {
+		return "none"
+	}
+	if len(missing) <= 3 {
+		return strings.Join(missing, ", ")
+	}
+	return fmt.Sprintf("%s, %s, %s (+%d more)", missing[0], missing[1], missing[2], len(missing)-3)
+}

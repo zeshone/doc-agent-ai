@@ -21,6 +21,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	installpkg "github.com/zeshone/doc-agent-ai/internal/install"
 )
 
 // ---------------------------------------------------------------------------
@@ -34,9 +36,9 @@ func TestHeadless_ExistingInstall_NoYesFlag_Errors(t *testing.T) {
 	restoreHome := mockHomeEnv(t, tmpHome)
 	t.Cleanup(restoreHome)
 
-	distDir := filepath.Join(t.TempDir(), "dist")
-	if err := generate(distDir); err != nil {
-		t.Fatalf("generate dist: %v", err)
+	bundle, err := BuildBundle()
+	if err != nil {
+		t.Fatalf("BuildBundle: %v", err)
 	}
 
 	// Create an opencode home so it is detected.
@@ -45,10 +47,7 @@ func TestHeadless_ExistingInstall_NoYesFlag_Errors(t *testing.T) {
 		t.Fatalf("create opencode home: %v", err)
 	}
 	// Seed opencode.json with an existing agent so checkAlreadyInstalled returns results.
-	manifest, err := readManifestFrom(distDir)
-	if err != nil {
-		t.Fatalf("read manifest: %v", err)
-	}
+	manifest := bundle.Manifest
 	existingAgentIDs := make([]string, 0, len(manifest.Roles))
 	for _, r := range manifest.Roles {
 		existingAgentIDs = append(existingAgentIDs, r.ID)
@@ -75,7 +74,7 @@ func TestHeadless_ExistingInstall_NoYesFlag_Errors(t *testing.T) {
 		Yes:       false, // NO --yes
 	}
 
-	err = runHeadlessInstall(flags, distDir)
+	err = runHeadlessInstallWithBundle(flags, bundle)
 	if err == nil {
 		t.Fatal("expected error when existing install detected and --yes not provided, got nil")
 	}
@@ -93,19 +92,16 @@ func TestHeadless_ExistingInstall_WithYesFlag_Proceeds(t *testing.T) {
 	restoreHome := mockHomeEnv(t, tmpHome)
 	t.Cleanup(restoreHome)
 
-	distDir := filepath.Join(t.TempDir(), "dist")
-	if err := generate(distDir); err != nil {
-		t.Fatalf("generate dist: %v", err)
+	bundle, err := BuildBundle()
+	if err != nil {
+		t.Fatalf("BuildBundle: %v", err)
 	}
 
 	opencodeHome := filepath.Join(tmpHome, ".config", "opencode")
 	if err := os.MkdirAll(opencodeHome, 0755); err != nil {
 		t.Fatalf("create opencode home: %v", err)
 	}
-	manifest, err := readManifestFrom(distDir)
-	if err != nil {
-		t.Fatalf("read manifest: %v", err)
-	}
+	manifest := bundle.Manifest
 	// Write opencode.json with one existing agent using the real opencode format.
 	var firstID string
 	for _, r := range manifest.Roles {
@@ -124,7 +120,7 @@ func TestHeadless_ExistingInstall_WithYesFlag_Proceeds(t *testing.T) {
 		Yes:       true, // --yes provided
 	}
 
-	err = runHeadlessInstall(flags, distDir)
+	err = runHeadlessInstallWithBundle(flags, bundle)
 	if err != nil {
 		t.Fatalf("runHeadlessInstall with --yes should succeed on existing install, got: %v", err)
 	}
@@ -137,7 +133,7 @@ func TestHeadless_ExistingInstall_WithYesFlag_Proceeds(t *testing.T) {
 // TestExecuteInstall_RespectsOverwriteMap verifies that executeInstall skips
 // platforms that have existing installs but no entry in plan.Overwrite.
 func TestExecuteInstall_RespectsOverwriteMap(t *testing.T) {
-	tmpHome, distDir, manifest, opencodePlat := setupExecuteInstallFixture(t)
+	tmpHome, bundle, manifest, opencodePlat := setupExecuteInstallFixture(t)
 
 	// Pre-install one agent into opencode so checkAlreadyInstalled finds it.
 	// opencode.json uses {"agent": {"role-id": {}}} format.
@@ -164,7 +160,7 @@ func TestExecuteInstall_RespectsOverwriteMap(t *testing.T) {
 	}
 
 	r := newBufferReporter()
-	err := executeInstall(manifest, plan, distDir, []Platform{opencodePlat}, r)
+	err := installpkg.ExecuteInstallExport(bundle, plan, []Platform{opencodePlat}, r)
 	if err == nil {
 		t.Fatal("expected error when existing install found and Overwrite map has no consent for the platform")
 	}
@@ -173,7 +169,7 @@ func TestExecuteInstall_RespectsOverwriteMap(t *testing.T) {
 // TestExecuteInstall_OverwriteMapTrue_InstallsNormally verifies that when
 // Overwrite["opencode"] = true, executeInstall proceeds normally.
 func TestExecuteInstall_OverwriteMapTrue_InstallsNormally(t *testing.T) {
-	tmpHome, distDir, manifest, opencodePlat := setupExecuteInstallFixture(t)
+	tmpHome, bundle, manifest, opencodePlat := setupExecuteInstallFixture(t)
 
 	opencodeHome := filepath.Join(tmpHome, ".config", "opencode")
 	var firstID string
@@ -197,7 +193,7 @@ func TestExecuteInstall_OverwriteMapTrue_InstallsNormally(t *testing.T) {
 	}
 
 	r := newBufferReporter()
-	err := executeInstall(manifest, plan, distDir, []Platform{opencodePlat}, r)
+	err := installpkg.ExecuteInstallExport(bundle, plan, []Platform{opencodePlat}, r)
 	if err != nil {
 		t.Fatalf("executeInstall should succeed when Overwrite[platform]=true; got: %v", err)
 	}

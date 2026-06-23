@@ -1,4 +1,4 @@
-package docagent
+package install
 
 import (
 	"encoding/json"
@@ -23,6 +23,10 @@ func TestFreshInstall_NoModeChangedNotice(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read manifest: %v", err)
 	}
+	bundle, err := bundleFromDistDir(manifest, distDir)
+	if err != nil {
+		t.Fatalf("bundleFromDistDir: %v", err)
+	}
 
 	opencodeHome := filepath.Join(tmpHome, ".config", "opencode")
 	if err := os.MkdirAll(opencodeHome, 0755); err != nil {
@@ -42,7 +46,7 @@ func TestFreshInstall_NoModeChangedNotice(t *testing.T) {
 	}
 
 	r := newBufferReporter()
-	if err := executeInstall(manifest, plan, distDir, []Platform{plat}, r); err != nil {
+	if err := ExecuteInstall(bundle, plan, []Platform{plat}, r); err != nil {
 		t.Fatalf("executeInstall: %v", err)
 	}
 
