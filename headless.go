@@ -6,55 +6,6 @@ import "fmt"
 // Headless install flags — parsed in the main pre-scan before subcommand dispatch
 // ---------------------------------------------------------------------------
 
-// parseInstallFlags extracts the four install-specific flags from args:
-//
-//	--platforms <csv>   comma-separated platform IDs
-//	--docs-mode <mode>  vault | in-project
-//	--path <path>       vault base path
-//	--yes               skip interactive confirmation
-//
-// Returns the populated FlagSet and the remaining args (flags consumed, subcommand
-// and unrecognised args left intact). The function is a pure scan-and-consume loop
-// so it can be called before os.Args is otherwise parsed.
-func parseInstallFlags(args []string) (FlagSet, []string) {
-	var flags FlagSet
-	remaining := make([]string, 0, len(args))
-
-	for i := 0; i < len(args); i++ {
-		switch args[i] {
-		case "--platforms":
-			if i+1 < len(args) {
-				flags.Platforms = args[i+1]
-				i++ // consume value
-			}
-		case "--docs-mode":
-			if i+1 < len(args) {
-				flags.DocsMode = args[i+1]
-				i++ // consume value
-			}
-		case "--path":
-			if i+1 < len(args) {
-				flags.Path = args[i+1]
-				i++ // consume value
-			}
-		case "--yes":
-			flags.Yes = true
-		default:
-			remaining = append(remaining, args[i])
-		}
-	}
-
-	return flags, remaining
-}
-
-// hasInstallFlags reports whether any of the four install-specific flags are set.
-// Decision order: explicit flags > TTY-interactive > error.
-// When this returns true the main dispatcher routes directly to runHeadlessInstall,
-// bypassing the interactive/TUI flow entirely.
-func hasInstallFlags(f FlagSet) bool {
-	return f.Platforms != "" || f.DocsMode != "" || f.Path != "" || f.Yes
-}
-
 // ---------------------------------------------------------------------------
 // runHeadlessInstall — non-interactive install driven by flags
 // ---------------------------------------------------------------------------

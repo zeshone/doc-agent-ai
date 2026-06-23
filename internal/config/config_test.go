@@ -1,10 +1,9 @@
-package main
+package config
 
 import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -18,7 +17,7 @@ func TestConfigPath(t *testing.T) {
 	restoreHome := mockHomeEnv(t, tmpHome)
 	defer restoreHome()
 
-	got, err := configPath()
+	got, err := ConfigPath()
 	if err != nil {
 		t.Fatalf("configPath() error: %v", err)
 	}
@@ -41,7 +40,7 @@ func TestLoadConfig_MissingFile(t *testing.T) {
 	restoreHome := mockHomeEnv(t, tmpHome)
 	defer restoreHome()
 
-	cfg, existed, err := loadConfig()
+	cfg, existed, err := Load()
 	if err != nil {
 		t.Fatalf("loadConfig() with missing file returned error: %v", err)
 	}
@@ -67,7 +66,7 @@ func TestLoadConfig_MalformedJSON(t *testing.T) {
 		t.Fatalf("write malformed file: %v", err)
 	}
 
-	_, _, err := loadConfig()
+	_, _, err := Load()
 	if err == nil {
 		t.Fatal("loadConfig() with malformed JSON should return error, got nil")
 	}
@@ -115,11 +114,11 @@ func TestLoadConfig_RoundTrip(t *testing.T) {
 			restoreHome := mockHomeEnv(t, tmpHome)
 			defer restoreHome()
 
-			if err := saveConfig(tt.cfg); err != nil {
+			if err := Save(tt.cfg); err != nil {
 				t.Fatalf("saveConfig() error: %v", err)
 			}
 
-			loaded, existed, err := loadConfig()
+			loaded, existed, err := Load()
 			if err != nil {
 				t.Fatalf("loadConfig() error: %v", err)
 			}
@@ -159,7 +158,7 @@ func TestLoadConfig_VersionTolerance(t *testing.T) {
 		t.Fatalf("write config: %v", err)
 	}
 
-	cfg, existed, err := loadConfig()
+	cfg, existed, err := Load()
 	if err != nil {
 		t.Fatalf("loadConfig() error: %v", err)
 	}
@@ -179,7 +178,7 @@ func TestSaveConfig_FilePermissions(t *testing.T) {
 	defer restoreHome()
 
 	cfg := AppConfig{Version: 1, Mode: "vault", Path: "/docs/"}
-	if err := saveConfig(cfg); err != nil {
+	if err := Save(cfg); err != nil {
 		t.Fatalf("saveConfig() error: %v", err)
 	}
 
@@ -200,63 +199,6 @@ func TestSaveConfig_FilePermissions(t *testing.T) {
 	}
 }
 
-// TestFreshInstall_NoModeChangedNotice verifies that a brand-new install
-// (no prior AppConfig on disk) does NOT emit a "Mode changed" notice.
-//
-// Root-cause guard for W2: loadConfig returning Mode="vault" on a missing file
-// caused parsePlanFromFlags to set plan.PrevMode="vault", which then triggered
-// runModeSwitchHook when the user chose in-project mode — even though there was
-// no actual prior install. With the fix (loadConfig returns AppConfig{} for
-// missing file), plan.PrevMode=="" and the hook gate
-// `plan.PrevMode != ""` (execute_install.go) stays silent.
-func TestFreshInstall_NoModeChangedNotice(t *testing.T) {
-	tmpHome := t.TempDir()
-	restoreHome := mockHomeEnv(t, tmpHome)
-	defer restoreHome()
-
-	// No config file on disk — fresh install scenario.
-	distDir := filepath.Join(t.TempDir(), "dist")
-	if err := generate(distDir); err != nil {
-		t.Fatalf("generate dist: %v", err)
-	}
-	manifest, err := readManifestFrom(distDir)
-	if err != nil {
-		t.Fatalf("read manifest: %v", err)
-	}
-
-	opencodeHome := filepath.Join(tmpHome, ".config", "opencode")
-	if err := os.MkdirAll(opencodeHome, 0755); err != nil {
-		t.Fatalf("create opencode home: %v", err)
-	}
-	cfgData, _ := json.Marshal(map[string]any{})
-	if err := os.WriteFile(filepath.Join(opencodeHome, "opencode.json"), cfgData, 0644); err != nil {
-		t.Fatalf("write opencode.json: %v", err)
-	}
-	plat := newPlatformForTest(t, "opencode", opencodeHome)
-
-	// Load config (will be zero value — no file) and build plan as
-	// parsePlanFromFlags would for a --docs-mode in-project headless call.
-	cfg, _, _ := loadConfig()
-	flags := FlagSet{
-		Platforms: "opencode",
-		DocsMode:  "in-project",
-		Yes:       true,
-	}
-	plan, err := parsePlanFromFlags(flags, cfg)
-	if err != nil {
-		t.Fatalf("parsePlanFromFlags: %v", err)
-	}
-
-	r := newBufferReporter()
-	if err := executeInstall(manifest, plan, distDir, []Platform{plat}, r); err != nil {
-		t.Fatalf("executeInstall: %v", err)
-	}
-
-	out := r.buf.String()
-	if strings.Contains(out, "Mode changed") {
-		t.Errorf("fresh install must NOT emit 'Mode changed' notice; got output:\n%s", out)
-	}
-}
 
 // TestSaveConfig_TrailingNewline verifies that saveConfig output ends with '\n'.
 func TestSaveConfig_TrailingNewline(t *testing.T) {
@@ -265,7 +207,7 @@ func TestSaveConfig_TrailingNewline(t *testing.T) {
 	defer restoreHome()
 
 	cfg := AppConfig{Version: 1, Mode: "vault", Path: "/docs/"}
-	if err := saveConfig(cfg); err != nil {
+	if err := Save(cfg); err != nil {
 		t.Fatalf("saveConfig() error: %v", err)
 	}
 

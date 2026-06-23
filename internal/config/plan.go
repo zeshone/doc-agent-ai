@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"fmt"
@@ -80,7 +80,7 @@ var validPlatformIDs = map[string]bool{
 //   - Unknown platform IDs in --platforms cause an error.
 //   - An invalid --docs-mode value causes an error.
 //   - Vault mode with no path and no config default causes an error.
-func parsePlanFromFlags(flags FlagSet, cfg AppConfig) (InstallPlan, error) {
+func ParsePlanFromFlags(flags FlagSet, cfg AppConfig) (InstallPlan, error) {
 	var plan InstallPlan
 
 	// --- Resolve platforms ---

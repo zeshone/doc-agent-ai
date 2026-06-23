@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"encoding/json"
@@ -46,7 +46,7 @@ const markerFileName = ".doc-agent.json"
 //   - marker: parsed contents (zero value if absent)
 //   - found: true if the file existed and was parsed successfully
 //   - err: non-nil on I/O error or malformed JSON; missing file is NOT an error
-func readMarker(dir string) (ProjectMarker, bool, error) {
+func ReadMarker(dir string) (ProjectMarker, bool, error) {
 	path := filepath.Join(dir, markerFileName)
 
 	data, err := os.ReadFile(path)
@@ -90,7 +90,7 @@ func isValidMode(m DocsMode) bool {
 //   - globalMode: the mode from the global config (empty = use built-in default)
 //
 // This is a pure function with no I/O; testable without filesystem fixtures.
-func resolveMode(markerMode DocsMode, markerFound bool, globalMode DocsMode) DocsMode {
+func ResolveMode(markerMode DocsMode, markerFound bool, globalMode DocsMode) DocsMode {
 	// Highest priority: per-project marker (when present and valid)
 	if markerFound && isValidMode(markerMode) {
 		return markerMode

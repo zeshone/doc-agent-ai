@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"encoding/json"
@@ -81,7 +81,7 @@ func TestResolveMode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := resolveMode(tt.markerMode, tt.markerFound, tt.globalMode)
+			got := ResolveMode(tt.markerMode, tt.markerFound, tt.globalMode)
 			if got != tt.want {
 				t.Errorf("resolveMode(%q, %v, %q) = %q, want %q",
 					tt.markerMode, tt.markerFound, tt.globalMode, got, tt.want)
@@ -99,7 +99,7 @@ func TestReadMarker_Present(t *testing.T) {
 		t.Fatalf("write marker: %v", err)
 	}
 
-	marker, found, err := readMarker(dir)
+	marker, found, err := ReadMarker(dir)
 	if err != nil {
 		t.Fatalf("readMarker() error: %v", err)
 	}
@@ -115,7 +115,7 @@ func TestReadMarker_Present(t *testing.T) {
 func TestReadMarker_Missing(t *testing.T) {
 	dir := t.TempDir()
 
-	marker, found, err := readMarker(dir)
+	marker, found, err := ReadMarker(dir)
 	if err != nil {
 		t.Fatalf("readMarker() error on missing file: %v", err)
 	}
@@ -134,7 +134,7 @@ func TestReadMarker_Malformed(t *testing.T) {
 		t.Fatalf("write marker: %v", err)
 	}
 
-	_, _, err := readMarker(dir)
+	_, _, err := ReadMarker(dir)
 	if err == nil {
 		t.Fatal("readMarker() with malformed JSON should return error, got nil")
 	}
@@ -149,7 +149,7 @@ func TestReadMarker_VaultMode(t *testing.T) {
 		t.Fatalf("write marker: %v", err)
 	}
 
-	marker, found, err := readMarker(dir)
+	marker, found, err := ReadMarker(dir)
 	if err != nil {
 		t.Fatalf("readMarker() error: %v", err)
 	}

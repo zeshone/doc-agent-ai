@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"testing"
@@ -13,7 +13,7 @@ import (
 func TestParsePlan_PlatformsCSV(t *testing.T) {
 	flags := FlagSet{Platforms: "opencode,claude"}
 	cfg := AppConfig{Mode: "vault", Path: "/docs/"}
-	plan, err := parsePlanFromFlags(flags, cfg)
+	plan, err := ParsePlanFromFlags(flags, cfg)
 	if err != nil {
 		t.Fatalf("parsePlanFromFlags() error: %v", err)
 	}
@@ -33,7 +33,7 @@ func TestParsePlan_PlatformsCSV(t *testing.T) {
 func TestParsePlan_InvalidPlatform(t *testing.T) {
 	flags := FlagSet{Platforms: "opencode,unknown-plat"}
 	cfg := AppConfig{Mode: "vault", Path: "/docs/"}
-	_, err := parsePlanFromFlags(flags, cfg)
+	_, err := ParsePlanFromFlags(flags, cfg)
 	if err == nil {
 		t.Fatal("expected error for unknown platform, got nil")
 	}
@@ -48,7 +48,7 @@ func TestParsePlan_DocsModeValidation(t *testing.T) {
 		Path:      "/docs/",
 	}
 	cfg := AppConfig{Mode: "vault"}
-	_, err := parsePlanFromFlags(flags, cfg)
+	_, err := ParsePlanFromFlags(flags, cfg)
 	if err == nil {
 		t.Fatal("expected error for invalid docs-mode, got nil")
 	}
@@ -63,7 +63,7 @@ func TestParsePlan_InProjectDropsPathRequirement(t *testing.T) {
 		// No Path provided
 	}
 	cfg := AppConfig{Mode: "in-project"}
-	plan, err := parsePlanFromFlags(flags, cfg)
+	plan, err := ParsePlanFromFlags(flags, cfg)
 	if err != nil {
 		t.Fatalf("parsePlanFromFlags() error: %v", err)
 	}
@@ -84,7 +84,7 @@ func TestParsePlan_VaultRequiresPath(t *testing.T) {
 		// No Path flag
 	}
 	cfg := AppConfig{Mode: "vault", Path: ""} // no config default either
-	_, err := parsePlanFromFlags(flags, cfg)
+	_, err := ParsePlanFromFlags(flags, cfg)
 	if err == nil {
 		t.Fatal("expected error: vault mode requires a path when no config default exists")
 	}
@@ -99,7 +99,7 @@ func TestParsePlan_YesFlag(t *testing.T) {
 		Yes:       true,
 	}
 	cfg := AppConfig{Mode: "vault"}
-	plan, err := parsePlanFromFlags(flags, cfg)
+	plan, err := ParsePlanFromFlags(flags, cfg)
 	if err != nil {
 		t.Fatalf("parsePlanFromFlags() error: %v", err)
 	}
@@ -118,7 +118,7 @@ func TestParsePlan_ConfigDefaults(t *testing.T) {
 		Path:      "/home/user/docs/",
 		Platforms: []string{"opencode", "claude"},
 	}
-	plan, err := parsePlanFromFlags(flags, cfg)
+	plan, err := ParsePlanFromFlags(flags, cfg)
 	if err != nil {
 		t.Fatalf("parsePlanFromFlags() error: %v", err)
 	}
@@ -145,7 +145,7 @@ func TestParsePlan_FlagOverridesConfig(t *testing.T) {
 		Mode: "vault",
 		Path: "/old/vault/path/",
 	}
-	plan, err := parsePlanFromFlags(flags, cfg)
+	plan, err := ParsePlanFromFlags(flags, cfg)
 	if err != nil {
 		t.Fatalf("parsePlanFromFlags() error: %v", err)
 	}

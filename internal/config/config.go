@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"encoding/json"
@@ -30,7 +30,7 @@ type AppConfig struct {
 
 // configPath returns the absolute path to the persistent config file:
 // $HOME/.doc-agent-ai.json on all OSes.
-func configPath() (string, error) {
+func ConfigPath() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
@@ -50,8 +50,8 @@ func configPath() (string, error) {
 // their own resolution order and must not treat Mode=="" as a prior "vault"
 // install. The Mode=="" → "vault" normalisation is applied ONLY to an existing
 // parsed config whose Mode field is absent (old-config backward compat).
-func loadConfig() (AppConfig, bool, error) {
-	path, err := configPath()
+func Load() (AppConfig, bool, error) {
+	path, err := ConfigPath()
 	if err != nil {
 		return AppConfig{}, false, err
 	}
@@ -81,8 +81,8 @@ func loadConfig() (AppConfig, bool, error) {
 
 // saveConfig writes cfg to ~/.doc-agent-ai.json with file permissions 0644.
 // Output is indented JSON followed by a trailing newline (matches repo convention).
-func saveConfig(cfg AppConfig) error {
-	path, err := configPath()
+func Save(cfg AppConfig) error {
+	path, err := ConfigPath()
 	if err != nil {
 		return err
 	}
