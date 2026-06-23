@@ -118,3 +118,17 @@ func runUninstallTUI() error {
 
 	return nil
 }
+
+func RunApp() error {
+	bundle, err := BuildBundle()
+	if err != nil {
+		return fmt.Errorf("build content: %w", err)
+	}
+	model := RootModel{screen: screenHome, bundle: bundle, styles: NewStyles(), width: 80, height: 24}
+	p := tea.NewProgram(model, tea.WithAltScreen())
+	_, err = p.Run()
+	if err != nil {
+		return fmt.Errorf("TUI error: %w", err)
+	}
+	return nil
+}

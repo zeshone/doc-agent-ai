@@ -98,7 +98,7 @@ func (m UninstallModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.err = msg.err
 		m.progressLines = append(m.progressLines, msg.progressLines...)
 		m.step = uninstallStepDone
-		return m, tea.Quit
+		return m, nil
 
 	case tea.KeyMsg:
 		return m.handleKey(msg)
@@ -229,4 +229,6 @@ func (m UninstallModel) viewDone(sb *strings.Builder) {
 	}
 	sb.WriteString(m.styles.Ok.Render("  ✔ Uninstall complete!") + "\n\n")
 	sb.WriteString(m.styles.Dim.Render("  Restart your AI tool if it is currently running.") + "\n")
+	sb.WriteString("\n")
+	sb.WriteString(m.styles.Dim.Render("  Press any key to return to the menu.") + "\n")
 }

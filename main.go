@@ -41,8 +41,15 @@ func main() {
 	installFlags, args := parseInstallFlags(args)
 
 	if len(args) == 0 {
-		printHelp()
-		os.Exit(0)
+		if isTerminal() {
+			if err := RunApp(); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
+			return
+		}
+		fmt.Fprintln(os.Stderr, "Error: no TTY detected. Run with a TTY, or use `install --platforms ...`.")
+		os.Exit(1)
 	}
 
 	switch args[0] {

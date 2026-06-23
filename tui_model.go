@@ -677,7 +677,7 @@ func (m InstallModel) viewDone(sb *strings.Builder) {
 		sb.WriteString(m.styles.ErrStyle.Render("  ✖ Install failed") + "\n\n")
 		sb.WriteString(m.styles.ErrStyle.Render("  "+m.err.Error()) + "\n\n")
 		sb.WriteString(m.styles.Dim.Render("  Run with --help for headless flag usage.") + "\n\n")
-		sb.WriteString(m.styles.Dim.Render("  Press any key to exit.") + "\n")
+		sb.WriteString(m.styles.Dim.Render("  Press any key to return to the menu.") + "\n")
 		return
 	}
 
@@ -690,7 +690,7 @@ func (m InstallModel) viewDone(sb *strings.Builder) {
 
 	sb.WriteString("\n")
 	sb.WriteString(m.styles.Dim.Render("  Restart your AI tool if it is currently running.") + "\n\n")
-	sb.WriteString(m.styles.Dim.Render("  Press any key to exit.") + "\n")
+	sb.WriteString(m.styles.Dim.Render("  Press any key to return to the menu.") + "\n")
 }
 
 // ---------------------------------------------------------------------------

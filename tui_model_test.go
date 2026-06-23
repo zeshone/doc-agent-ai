@@ -388,8 +388,8 @@ func TestInstallResultMsg_DoesNotAutoQuit(t *testing.T) {
 	if cmd != nil {
 		t.Error("installResultMsg must NOT auto-quit; cmd should be nil so the done screen stays")
 	}
-	if !strings.Contains(im.View(), "Press any key to exit") {
-		t.Error("done view should prompt 'Press any key to exit'")
+	if !strings.Contains(im.View(), "Press any key to return to the menu") {
+		t.Error("done view should prompt 'Press any key to return to the menu'")
 	}
 
 	// Any key on the done screen quits.
