@@ -2,7 +2,6 @@ package install
 
 import (
 	"bufio"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -89,23 +88,6 @@ func replaceAllInFile(path string, pairs []placeholderPair) error {
 		return nil
 	}
 	return os.WriteFile(path, []byte(content), 0644)
-}
-
-// ---------------------------------------------------------------------------
-// Manifest reading
-// ---------------------------------------------------------------------------
-
-// readManifestFrom reads and parses dist/manifest.json from the given dist dir.
-func readManifestFrom(distDir string) (DistManifest, error) {
-	var manifest DistManifest
-	data, err := os.ReadFile(filepath.Join(distDir, "manifest.json"))
-	if err != nil {
-		return manifest, fmt.Errorf("read %s/manifest.json: %w", distDir, err)
-	}
-	if err := json.Unmarshal(data, &manifest); err != nil {
-		return manifest, fmt.Errorf("parse %s/manifest.json: %w", distDir, err)
-	}
-	return manifest, nil
 }
 
 // ---------------------------------------------------------------------------
@@ -451,95 +433,13 @@ func InstallToPlatformWithReporter(manifest DistManifest, bundle Bundle, plat Pl
 	return nil
 }
 
-func installToPlatformWithReporter(manifest DistManifest, plat Platform, basePath, distDir string, r Reporter, globalMode ...string) error {
-	bundle, err := bundleFromDistDir(manifest, distDir)
-	if err != nil {
-		return err
-	}
-	return InstallToPlatformWithReporter(manifest, bundle, plat, basePath, r, globalMode...)
-}
-
-// installToPlatform is the backward-compatible wrapper around
-// installToPlatformWithReporter. It routes output to the default stdout
-// Reporter so all existing call sites and tests remain unmodified.
+// InstallToPlatform installs all artifacts from an in-memory bundle to a single
+// platform using the default stdout Reporter.
 //
 // The optional globalMode variadic argument behaves identically to
-// installToPlatformWithReporter.
+// InstallToPlatformWithReporter.
 func InstallToPlatform(manifest DistManifest, bundle Bundle, plat Platform, basePath string, globalMode ...string) error {
 	return InstallToPlatformWithReporter(manifest, bundle, plat, basePath, defaultReporter, globalMode...)
-}
-
-func installToPlatform(manifest DistManifest, plat Platform, basePath, distDir string, globalMode ...string) error {
-	bundle, err := bundleFromDistDir(manifest, distDir)
-	if err != nil {
-		return err
-	}
-	return InstallToPlatform(manifest, bundle, plat, basePath, globalMode...)
-}
-
-// installPlatforms installs a bundle to multiple platforms non-interactively.
-// This is the entry point for tests. It defaults to vault mode for
-// backward compatibility; use executeInstall when an InstallPlan is available.
-func installPlatforms(manifest DistManifest, platforms []Platform, basePath, distDir string) error {
-	bundle, err := bundleFromDistDir(manifest, distDir)
-	if err != nil {
-		return err
-	}
-	for _, plat := range platforms {
-		head("Installing for " + platformDisplayName(plat.ID()) + "...")
-		if err := InstallToPlatform(manifest, bundle, plat, basePath, string(configpkg.ModeVault)); err != nil {
-			return fmt.Errorf("install to %s: %w", plat.ID(), err)
-		}
-	}
-	return nil
-}
-
-func bundleFromDistDir(manifest DistManifest, distDir string) (Bundle, error) {
-	bundle := Bundle{Manifest: manifest, Files: make(map[string][]byte)}
-	for _, role := range manifest.Roles {
-		for _, rel := range []string{role.PromptFiles.OpenCode, role.PromptFiles.Copilot, role.PromptFiles.Claude, role.PromptFiles.Qwen, role.PromptFiles.Pi, role.AgentFiles.Copilot, role.AgentFiles.Claude, role.AgentFiles.Qwen} {
-			if rel == "" {
-				continue
-			}
-			data, err := os.ReadFile(filepath.Join(distDir, filepath.FromSlash(rel)))
-			if err != nil {
-				return Bundle{}, fmt.Errorf("read bundle file %s: %w", rel, err)
-			}
-			bundle.Files[filepath.ToSlash(rel)] = data
-		}
-	}
-	for _, cmd := range manifest.Commands {
-		data, err := os.ReadFile(filepath.Join(distDir, filepath.FromSlash(cmd.File)))
-		if err != nil {
-			return Bundle{}, fmt.Errorf("read bundle file %s: %w", cmd.File, err)
-		}
-		bundle.Files[filepath.ToSlash(cmd.File)] = data
-	}
-	for _, skill := range manifest.Skills {
-		skillDir := filepath.Join(distDir, "skills", skill)
-		walkErr := filepath.Walk(skillDir, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-			if info == nil || info.IsDir() {
-				return nil
-			}
-			rel, relErr := filepath.Rel(distDir, path)
-			if relErr != nil {
-				return relErr
-			}
-			data, readErr := os.ReadFile(path)
-			if readErr != nil {
-				return readErr
-			}
-			bundle.Files[filepath.ToSlash(rel)] = data
-			return nil
-		})
-		if walkErr != nil {
-			return Bundle{}, fmt.Errorf("read bundle skill %s: %w", skill, walkErr)
-		}
-	}
-	return bundle, nil
 }
 
 func writeBundleFile(bundle Bundle, rel, dst string) error {

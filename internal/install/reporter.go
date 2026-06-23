@@ -86,8 +86,7 @@ func (s *stdoutReporter) Head(msg string) {
 // ---------------------------------------------------------------------------
 
 // bufferReporter captures all Reporter calls into an in-memory buffer.
-// It is used in tests to assert install output without writing to stdout,
-// and in slice 2b the TUI will use a variant to collect structured results.
+// It is used in tests to assert install output without writing to stdout.
 type bufferReporter struct {
 	buf bytes.Buffer
 }

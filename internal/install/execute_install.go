@@ -13,8 +13,8 @@ import (
 // ---------------------------------------------------------------------------
 
 // executeInstall is the engine-side orchestrator that drives a full install
-// from a resolved InstallPlan. Both the headless flags path and (in slice 2b)
-// the Bubbletea TUI will call executeInstall after building an InstallPlan.
+// from a resolved InstallPlan. Both the headless flags path and the Bubbletea
+// TUI call executeInstall after building an InstallPlan.
 //
 // Responsibilities:
 //  1. Platform resolution — if plan.Platforms is nil, treat allPlatforms as
@@ -24,8 +24,8 @@ import (
 //  3. Config persistence — writes AppConfig after a successful install so
 //     subsequent runs pre-fill mode/path/platforms.
 //  4. Mode-switch hook — when plan.PrevMode != plan.Mode, emits the
-//     non-migration notice. Slice 3 will plug doc-reader removal here; for
-//     now the seam exists and the notice is the only side-effect.
+//     non-migration notice and sweeps stale conditional skills (e.g. doc-reader
+//     when leaving in-project mode).
 //
 // The engine never reads AppConfig directly — it receives resolved values via
 // InstallPlan. This keeps the engine pure and unit-testable without filesystem
@@ -85,7 +85,7 @@ func ExecuteInstall(bundle Bundle, plan configpkg.InstallPlan, allPlatforms []Pl
 		r.Warn("could not save config: " + err.Error())
 	}
 
-	// --- Step 4: Mode-switch hook (seam for slice 3 doc-reader cleanup) ---
+	// --- Step 4: Mode-switch hook ---
 	if plan.PrevMode != "" && plan.PrevMode != plan.Mode {
 		runModeSwitchHookWithPlatforms(plan, targets, r)
 	}
@@ -117,13 +117,6 @@ func resolvePlatformTargets(requestedIDs []string, allPlatforms []Platform) []Pl
 		// at parse time so by the time we reach executeInstall they are known-good.
 	}
 	return result
-}
-
-// runModeSwitchHook is kept for backward compatibility with existing tests that
-// call it without a platform list. It delegates to runModeSwitchHookWithPlatforms
-// with a nil platform list (notice only, no sweep).
-func runModeSwitchHook(plan configpkg.InstallPlan, r Reporter) {
-	runModeSwitchHookWithPlatforms(plan, nil, r)
 }
 
 // runModeSwitchHookWithPlatforms is the canonical mode-switch side-effect handler.

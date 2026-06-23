@@ -12,20 +12,14 @@ import (
 
 // setupMultiPlatformFixture creates a tmpHome with opencode + claude platforms
 // for testing conditional skill install across skillsDir platforms.
-func setupMultiPlatformFixture(t *testing.T) (string, string, DistManifest, []Platform) {
+func setupMultiPlatformFixture(t *testing.T) (string, Bundle, DistManifest, []Platform) {
 	t.Helper()
 	tmpHome := t.TempDir()
 	restoreHome := mockHomeEnv(t, tmpHome)
 	t.Cleanup(restoreHome)
 
-	distDir := filepath.Join(t.TempDir(), "dist")
-	if err := generate(distDir); err != nil {
-		t.Fatalf("generate dist: %v", err)
-	}
-	manifest, err := readManifestFrom(distDir)
-	if err != nil {
-		t.Fatalf("read manifest: %v", err)
-	}
+	bundle := testBundle()
+	manifest := bundle.Manifest
 
 	// opencode platform
 	opencodeHome := filepath.Join(tmpHome, ".config", "opencode")
@@ -42,7 +36,7 @@ func setupMultiPlatformFixture(t *testing.T) (string, string, DistManifest, []Pl
 	}
 	claudeP := newPlatformForTest(t, "claude", claudeHome)
 
-	return tmpHome, distDir, manifest, []Platform{opencodeP, claudeP}
+	return tmpHome, bundle, manifest, []Platform{opencodeP, claudeP}
 }
 
 // writeEmptyJSON writes an empty JSON object to path.
@@ -57,12 +51,12 @@ func writeEmptyJSON(t *testing.T, path string) {
 // executing an install in in-project mode copies doc-reader to every platform
 // with a non-empty SkillsDir.
 func TestInstall_InProject_InstallsDocReaderOnAllSkillsDirPlatforms(t *testing.T) {
-	_, distDir, manifest, platforms := setupMultiPlatformFixture(t)
+	_, bundle, manifest, platforms := setupMultiPlatformFixture(t)
 
 	for _, plat := range platforms {
 		r := newBufferReporter()
-		if err := installToPlatformWithReporter(manifest, plat, "", distDir, r, string(ModeInProject)); err != nil {
-			t.Fatalf("installToPlatformWithReporter [%s] in-project: %v", plat.ID(), err)
+		if err := InstallToPlatformWithReporter(manifest, bundle, plat, "", r, string(ModeInProject)); err != nil {
+			t.Fatalf("InstallToPlatformWithReporter [%s] in-project: %v", plat.ID(), err)
 		}
 
 		skillsDir := plat.SkillsDir()
@@ -76,12 +70,12 @@ func TestInstall_InProject_InstallsDocReaderOnAllSkillsDirPlatforms(t *testing.T
 // TestInstall_Vault_DoesNotInstallDocReader verifies that vault mode installs
 // do NOT copy doc-reader to any platform's skillsDir.
 func TestInstall_Vault_DoesNotInstallDocReader(t *testing.T) {
-	_, distDir, manifest, platforms := setupMultiPlatformFixture(t)
+	_, bundle, manifest, platforms := setupMultiPlatformFixture(t)
 
 	for _, plat := range platforms {
 		r := newBufferReporter()
-		if err := installToPlatformWithReporter(manifest, plat, "/base/path/", distDir, r, string(ModeVault)); err != nil {
-			t.Fatalf("installToPlatformWithReporter [%s] vault: %v", plat.ID(), err)
+		if err := InstallToPlatformWithReporter(manifest, bundle, plat, "/base/path/", r, string(ModeVault)); err != nil {
+			t.Fatalf("InstallToPlatformWithReporter [%s] vault: %v", plat.ID(), err)
 		}
 
 		skillsDir := plat.SkillsDir()
@@ -95,11 +89,12 @@ func TestInstall_Vault_DoesNotInstallDocReader(t *testing.T) {
 // TestInstall_Vault_DefaultMode_DoesNotInstallDocReader verifies that the
 // default mode (no explicit mode argument = vault) also skips doc-reader.
 func TestInstall_Vault_DefaultMode_DoesNotInstallDocReader(t *testing.T) {
-	_, distDir, manifest, platforms := setupMultiPlatformFixture(t)
+	_, bundle, manifest, platforms := setupMultiPlatformFixture(t)
 
 	plat := platforms[0] // opencode
-	if err := installToPlatform(manifest, plat, "/base/path/", distDir); err != nil {
-		t.Fatalf("installToPlatform (default mode): %v", err)
+	r := newBufferReporter()
+	if err := InstallToPlatformWithReporter(manifest, bundle, plat, "/base/path/", r); err != nil {
+		t.Fatalf("InstallToPlatformWithReporter (default mode): %v", err)
 	}
 
 	skillsDir := plat.SkillsDir()

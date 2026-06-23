@@ -2,9 +2,7 @@ package install
 
 import (
 	configpkg "github.com/zeshone/doc-agent-ai/internal/config"
-	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 )
@@ -57,13 +55,4 @@ func mockHomeEnv(t *testing.T, tmpDir string) func() {
 			os.Setenv(k, v)
 		}
 	}
-}
-
-func generate(outputDir string) error {
-	cmd := exec.Command("go", "run", "../../cmd/doc-agent-ai", "generate", outputDir)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("go run generate failed: %w: %s", err, string(out))
-	}
-	return nil
 }

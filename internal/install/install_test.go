@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	configpkg "github.com/zeshone/doc-agent-ai/internal/config"
 )
 
 // ---------------------------------------------------------------------------
@@ -51,22 +53,15 @@ func TestInstallSweep_FreshInstall(t *testing.T) {
 	restoreHome := mockHomeEnv(t, tmpHome)
 	defer restoreHome()
 
-	// Generate a real dist so there are actual command files to copy.
-	distDir := filepath.Join(t.TempDir(), "dist")
-	if err := generate(distDir); err != nil {
-		t.Fatalf("generate dist: %v", err)
-	}
-	manifest, err := readManifestFrom(distDir)
-	if err != nil {
-		t.Fatalf("read manifest: %v", err)
-	}
+	bundle := testBundle()
+	manifest := bundle.Manifest
 
 	plat, opencodeHome := setupOpencodeForSweep(t, tmpHome)
 	cmdsDir := filepath.Join(opencodeHome, "commands")
 	basePath := filepath.ToSlash(filepath.Join(tmpHome, "projects")) + "/"
 
-	if err := installToPlatform(manifest, plat, basePath, distDir); err != nil {
-		t.Fatalf("installToPlatform: %v", err)
+	if err := InstallToPlatform(manifest, bundle, plat, basePath); err != nil {
+		t.Fatalf("InstallToPlatform: %v", err)
 	}
 
 	// All new doc-* commands present.
@@ -94,14 +89,8 @@ func TestInstallSweep_ReinstallOverV3(t *testing.T) {
 	restoreHome := mockHomeEnv(t, tmpHome)
 	defer restoreHome()
 
-	distDir := filepath.Join(t.TempDir(), "dist")
-	if err := generate(distDir); err != nil {
-		t.Fatalf("generate dist: %v", err)
-	}
-	manifest, err := readManifestFrom(distDir)
-	if err != nil {
-		t.Fatalf("read manifest: %v", err)
-	}
+	bundle := testBundle()
+	manifest := bundle.Manifest
 
 	plat, opencodeHome := setupOpencodeForSweep(t, tmpHome)
 	cmdsDir := filepath.Join(opencodeHome, "commands")
@@ -110,8 +99,8 @@ func TestInstallSweep_ReinstallOverV3(t *testing.T) {
 	seedLegacyFiles(t, cmdsDir, legacyIDs)
 
 	basePath := filepath.ToSlash(filepath.Join(tmpHome, "projects")) + "/"
-	if err := installToPlatform(manifest, plat, basePath, distDir); err != nil {
-		t.Fatalf("installToPlatform: %v", err)
+	if err := InstallToPlatform(manifest, bundle, plat, basePath); err != nil {
+		t.Fatalf("InstallToPlatform: %v", err)
 	}
 
 	// All legacy files must be deleted.
@@ -138,14 +127,8 @@ func TestInstallSweep_Idempotent(t *testing.T) {
 	restoreHome := mockHomeEnv(t, tmpHome)
 	defer restoreHome()
 
-	distDir := filepath.Join(t.TempDir(), "dist")
-	if err := generate(distDir); err != nil {
-		t.Fatalf("generate dist: %v", err)
-	}
-	manifest, err := readManifestFrom(distDir)
-	if err != nil {
-		t.Fatalf("read manifest: %v", err)
-	}
+	bundle := testBundle()
+	manifest := bundle.Manifest
 
 	plat, opencodeHome := setupOpencodeForSweep(t, tmpHome)
 	cmdsDir := filepath.Join(opencodeHome, "commands")
@@ -155,8 +138,8 @@ func TestInstallSweep_Idempotent(t *testing.T) {
 
 	basePath := filepath.ToSlash(filepath.Join(tmpHome, "projects")) + "/"
 	// Must not return an error even if most legacy files are absent.
-	if err := installToPlatform(manifest, plat, basePath, distDir); err != nil {
-		t.Fatalf("installToPlatform (idempotent test): %v", err)
+	if err := InstallToPlatform(manifest, bundle, plat, basePath); err != nil {
+		t.Fatalf("InstallToPlatform (idempotent test): %v", err)
 	}
 
 	// The two seeded files must be gone.
@@ -172,31 +155,21 @@ func TestInstallSweep_Idempotent(t *testing.T) {
 // 7.5 Install file tree test
 // ---------------------------------------------------------------------------
 
-// TestInstallFileTree creates mock platform dirs, generates dist, runs
-// non-interactive install, and verifies all expected files exist at
-// correct paths per platform (opencode + claude).
+// TestInstallFileTree creates mock platform dirs, runs non-interactive install,
+// and verifies all expected files exist at correct paths per platform (opencode + claude).
 func TestInstallFileTree(t *testing.T) {
 	tmpHome := t.TempDir()
 	restoreHome := mockHomeEnv(t, tmpHome)
 	defer restoreHome()
 
-	// Generate dist into a temp location (avoid race with other tests using "dist/")
-	distDir := filepath.Join(t.TempDir(), "dist")
-	if err := generate(distDir); err != nil {
-		t.Fatalf("generate dist: %v", err)
-	}
-
-	manifest, err := readManifestFrom(distDir)
-	if err != nil {
-		t.Fatalf("read manifest: %v", err)
-	}
+	bundle := testBundle()
+	manifest := bundle.Manifest
 
 	// --- Create mock opencode ---
 	opencodeHome := filepath.Join(tmpHome, ".config", "opencode")
 	if err := os.MkdirAll(opencodeHome, 0755); err != nil {
 		t.Fatalf("create opencode dir: %v", err)
 	}
-	// Write minimal opencode.json so Detect() passes
 	cfg := map[string]any{}
 	data, _ := json.Marshal(cfg)
 	if err := os.WriteFile(filepath.Join(opencodeHome, "opencode.json"), data, 0644); err != nil {
@@ -215,9 +188,11 @@ func TestInstallFileTree(t *testing.T) {
 
 	basePath := filepath.ToSlash(filepath.Join(tmpHome, "projects")) + "/"
 
-	// --- Non-interactive install ---
-	if err := installPlatforms(manifest, []Platform{opencode, claude}, basePath, distDir); err != nil {
-		t.Fatalf("installPlatforms: %v", err)
+	// --- Non-interactive install to both platforms (vault mode) ---
+	for _, plat := range []Platform{opencode, claude} {
+		if err := InstallToPlatform(manifest, bundle, plat, basePath, string(configpkg.ModeVault)); err != nil {
+			t.Fatalf("InstallToPlatform [%s]: %v", plat.ID(), err)
+		}
 	}
 
 	// ======== Verify opencode ========
@@ -248,8 +223,7 @@ func TestInstallFileTree(t *testing.T) {
 		if _, err := os.Stat(promptPath); os.IsNotExist(err) {
 			t.Errorf("opencode prompt %s missing: %s", role.ID, promptPath)
 		}
-		// Verify placeholder replaced (only when placeholder was present —
-		// doc-arch does not use BASE_PATH in its content)
+		// Verify placeholder replaced
 		content, _ := os.ReadFile(promptPath)
 		if strings.Contains(string(content), manifest.PlaceholderBasePath) {
 			t.Errorf("opencode prompt %s: placeholder not replaced (%s still present)", role.ID, manifest.PlaceholderBasePath)
@@ -263,7 +237,7 @@ func TestInstallFileTree(t *testing.T) {
 		if _, err := os.Stat(cmdPath); os.IsNotExist(err) {
 			t.Errorf("opencode command %s missing: %s", cmd.ID, cmdPath)
 		}
-		// Verify placeholder replaced (only arch.md uses BASE_PATH)
+		// Verify placeholder replaced
 		content, _ := os.ReadFile(cmdPath)
 		if strings.Contains(string(content), manifest.PlaceholderBasePath) {
 			t.Errorf("opencode command %s: placeholder not replaced", cmd.ID)
@@ -324,7 +298,7 @@ func TestInstallFileTree(t *testing.T) {
 		if _, err := os.Stat(promptPath); os.IsNotExist(err) {
 			t.Errorf("claude prompt %s missing: %s", role.ID, promptPath)
 		}
-		// Verify placeholder replaced (doc-arch does not use BASE_PATH)
+		// Verify placeholder replaced
 		content, _ := os.ReadFile(promptPath)
 		if strings.Contains(string(content), manifest.PlaceholderBasePath) {
 			t.Errorf("claude prompt %s: placeholder not replaced", role.ID)
@@ -341,7 +315,7 @@ func TestInstallFileTree(t *testing.T) {
 		if _, err := os.Stat(agentPath); os.IsNotExist(err) {
 			t.Errorf("claude agent %s missing: %s", role.ID, agentPath)
 		}
-		// Verify placeholder replaced (doc-arch agent may not use BASE_PATH)
+		// Verify placeholder replaced
 		content, _ := os.ReadFile(agentPath)
 		if strings.Contains(string(content), manifest.PlaceholderBasePath) {
 			t.Errorf("claude agent %s: placeholder not replaced", role.ID)
@@ -498,7 +472,7 @@ func TestOpencodeJsonPatchRoundtrip(t *testing.T) {
 // T1a-8: Ordered placeholder substitution tests
 // ---------------------------------------------------------------------------
 
-// TestInstallToPlatform_PlaceholderListOrdered verifies that installToPlatform
+// TestInstallToPlatform_PlaceholderListOrdered verifies that InstallToPlatform
 // substitutes __DOC_AGENT_BASE_PATH__ (existing) AND __DOC_AGENT_GLOBAL_MODE__
 // (new) in a fixture file during install.
 func TestInstallToPlatform_PlaceholderListOrdered(t *testing.T) {
@@ -506,19 +480,11 @@ func TestInstallToPlatform_PlaceholderListOrdered(t *testing.T) {
 	restoreHome := mockHomeEnv(t, tmpHome)
 	defer restoreHome()
 
-	// Generate dist so we have real role/command files to install.
-	distDir := filepath.Join(t.TempDir(), "dist")
-	if err := generate(distDir); err != nil {
-		t.Fatalf("generate dist: %v", err)
-	}
-	manifest, err := readManifestFrom(distDir)
-	if err != nil {
-		t.Fatalf("read manifest: %v", err)
-	}
+	// Use the shared fixture bundle (already contains both placeholders in doc-prd).
+	bundle := testBundle()
+	manifest := bundle.Manifest
 
-	// Inject __DOC_AGENT_GLOBAL_MODE__ into a role that also uses BASE_PATH
-	// (doc-prd) so we can verify both substitutions happen in one install.
-	// Find the doc-prd role entry.
+	// Find doc-prd — must be present in testBundle.
 	var prdRole DistRole
 	for _, r := range manifest.Roles {
 		if r.ID == "doc-prd" {
@@ -527,21 +493,7 @@ func TestInstallToPlatform_PlaceholderListOrdered(t *testing.T) {
 		}
 	}
 	if prdRole.ID == "" {
-		t.Skip("doc-prd role not found in manifest")
-	}
-	samplePromptSrc := filepath.Join(distDir, filepath.ToSlash(prdRole.PromptFiles.OpenCode))
-	if _, err := os.Stat(samplePromptSrc); os.IsNotExist(err) {
-		t.Fatalf("sample prompt file not found: %s", samplePromptSrc)
-	}
-
-	// Append the __DOC_AGENT_GLOBAL_MODE__ placeholder to the file.
-	origContent, err := os.ReadFile(samplePromptSrc)
-	if err != nil {
-		t.Fatalf("read sample prompt: %v", err)
-	}
-	modifiedContent := string(origContent) + "\nmode: __DOC_AGENT_GLOBAL_MODE__\n"
-	if err := os.WriteFile(samplePromptSrc, []byte(modifiedContent), 0644); err != nil {
-		t.Fatalf("write modified prompt: %v", err)
+		t.Skip("doc-prd role not found in testBundle")
 	}
 
 	// Set up mock opencode platform.
@@ -557,8 +509,8 @@ func TestInstallToPlatform_PlaceholderListOrdered(t *testing.T) {
 	basePath := filepath.ToSlash(filepath.Join(tmpHome, "projects")) + "/"
 
 	// Install using vault mode — the mode string passed is "vault".
-	if err := installToPlatform(manifest, plat, basePath, distDir, "vault"); err != nil {
-		t.Fatalf("installToPlatform: %v", err)
+	if err := InstallToPlatform(manifest, bundle, plat, basePath, "vault"); err != nil {
+		t.Fatalf("InstallToPlatform: %v", err)
 	}
 
 	// Verify __DOC_AGENT_BASE_PATH__ was replaced by basePath.
@@ -585,20 +537,13 @@ func TestInstallToPlatform_PlaceholderListOrdered(t *testing.T) {
 
 // TestInstallToPlatform_VaultByteIdenticalBasePath verifies that the existing
 // BASE_PATH substitution behaviour is preserved (vault output byte-identical).
-// This test uses the original 4-argument signature style via a no-mode call.
 func TestInstallToPlatform_VaultByteIdenticalBasePath(t *testing.T) {
 	tmpHome := t.TempDir()
 	restoreHome := mockHomeEnv(t, tmpHome)
 	defer restoreHome()
 
-	distDir := filepath.Join(t.TempDir(), "dist")
-	if err := generate(distDir); err != nil {
-		t.Fatalf("generate dist: %v", err)
-	}
-	manifest, err := readManifestFrom(distDir)
-	if err != nil {
-		t.Fatalf("read manifest: %v", err)
-	}
+	bundle := testBundle()
+	manifest := bundle.Manifest
 
 	opencodeHome := filepath.Join(tmpHome, ".config", "opencode")
 	if err := os.MkdirAll(opencodeHome, 0755); err != nil {
@@ -612,8 +557,8 @@ func TestInstallToPlatform_VaultByteIdenticalBasePath(t *testing.T) {
 	basePath := filepath.ToSlash(filepath.Join(tmpHome, "projects")) + "/"
 
 	// Install using vault mode.
-	if err := installToPlatform(manifest, plat, basePath, distDir, "vault"); err != nil {
-		t.Fatalf("installToPlatform: %v", err)
+	if err := InstallToPlatform(manifest, bundle, plat, basePath, "vault"); err != nil {
+		t.Fatalf("InstallToPlatform: %v", err)
 	}
 
 	// All installed prompt files must NOT contain the base path placeholder.
@@ -634,23 +579,14 @@ func TestInstallToPlatform_VaultByteIdenticalBasePath(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // TestInstallNoRawTokenLeak is the permanent regression guard that asserts NO
-// installed file contains the bare __DOC_AGENT_ prefix after installToPlatform.
-// This test was introduced RED (failing on 12 files) and turned GREEN by the
-// CRITICAL-1 fix that changed the preamble template to use __DOC_AGENT_GLOBAL_BASE__
-// instead of the bare token form __DOC_AGENT_BASE_PATH__ (without trailing slash).
+// installed file contains the bare __DOC_AGENT_ prefix after InstallToPlatform.
 func TestInstallNoRawTokenLeak(t *testing.T) {
 	tmpHome := t.TempDir()
 	restoreHome := mockHomeEnv(t, tmpHome)
 	defer restoreHome()
 
-	distDir := filepath.Join(t.TempDir(), "dist")
-	if err := generate(distDir); err != nil {
-		t.Fatalf("generate dist: %v", err)
-	}
-	manifest, err := readManifestFrom(distDir)
-	if err != nil {
-		t.Fatalf("read manifest: %v", err)
-	}
+	bundle := testBundle()
+	manifest := bundle.Manifest
 
 	opencodeHome := filepath.Join(tmpHome, ".config", "opencode")
 	if err := os.MkdirAll(opencodeHome, 0755); err != nil {
@@ -663,12 +599,11 @@ func TestInstallNoRawTokenLeak(t *testing.T) {
 	plat := newPlatformForTest(t, "opencode", opencodeHome)
 	basePath := filepath.ToSlash(filepath.Join(tmpHome, "projects")) + "/"
 
-	if err := installToPlatform(manifest, plat, basePath, distDir, "vault"); err != nil {
-		t.Fatalf("installToPlatform: %v", err)
+	if err := InstallToPlatform(manifest, bundle, plat, basePath, "vault"); err != nil {
+		t.Fatalf("InstallToPlatform: %v", err)
 	}
 
 	// Walk every installed file and assert the bare __DOC_AGENT_ prefix is absent.
-	// A remaining token means the substitution step did not cover that placeholder form.
 	const barePrefix = "__DOC_AGENT_"
 	var leaks []string
 

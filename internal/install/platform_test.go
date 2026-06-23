@@ -1250,7 +1250,7 @@ func TestOtherPlatforms_PromptsDirUnchanged(t *testing.T) {
 	}
 }
 
-// TestPiInstall_PromptsWriteToFlatDir verifies that installToPlatform writes
+// TestPiInstall_PromptsWriteToFlatDir verifies that InstallToPlatform writes
 // Pi prompt files directly under <home>/prompts/<role>.md (flat), not under
 // <home>/prompts/doc/<role>.md (the subdirectory Pi never scans).
 func TestPiInstall_PromptsWriteToFlatDir(t *testing.T) {
@@ -1258,15 +1258,8 @@ func TestPiInstall_PromptsWriteToFlatDir(t *testing.T) {
 	restoreHome := mockHomeEnv(t, tmpHome)
 	defer restoreHome()
 
-	// Generate a real dist so there are actual prompt files to copy.
-	distDir := filepath.Join(t.TempDir(), "dist")
-	if err := generate(distDir); err != nil {
-		t.Fatalf("generate dist: %v", err)
-	}
-	manifest, err := readManifestFrom(distDir)
-	if err != nil {
-		t.Fatalf("read manifest: %v", err)
-	}
+	bundle := testBundle()
+	manifest := bundle.Manifest
 
 	// Use a temp Pi home inside tmpHome so we never touch the real ~/.pi.
 	piHome := filepath.Join(tmpHome, ".pi", "agent")
@@ -1276,8 +1269,8 @@ func TestPiInstall_PromptsWriteToFlatDir(t *testing.T) {
 	plat := newPlatformForTest(t, "pi", piHome)
 
 	basePath := filepath.ToSlash(filepath.Join(tmpHome, "projects")) + "/"
-	if err := installToPlatform(manifest, plat, basePath, distDir); err != nil {
-		t.Fatalf("installToPlatform: %v", err)
+	if err := InstallToPlatform(manifest, bundle, plat, basePath); err != nil {
+		t.Fatalf("InstallToPlatform: %v", err)
 	}
 
 	// At least one role must have a Pi prompt file in the manifest.
@@ -1313,14 +1306,8 @@ func TestPiUninstall_PromptRemovedFromFlatDir(t *testing.T) {
 	restoreHome := mockHomeEnv(t, tmpHome)
 	defer restoreHome()
 
-	distDir := filepath.Join(t.TempDir(), "dist")
-	if err := generate(distDir); err != nil {
-		t.Fatalf("generate dist: %v", err)
-	}
-	manifest, err := readManifestFrom(distDir)
-	if err != nil {
-		t.Fatalf("read manifest: %v", err)
-	}
+	bundle := testBundle()
+	manifest := bundle.Manifest
 
 	piHome := filepath.Join(tmpHome, ".pi", "agent")
 	if err := os.MkdirAll(piHome, 0755); err != nil {
@@ -1331,8 +1318,8 @@ func TestPiUninstall_PromptRemovedFromFlatDir(t *testing.T) {
 	basePath := filepath.ToSlash(filepath.Join(tmpHome, "projects")) + "/"
 
 	// Install first.
-	if err := installToPlatform(manifest, plat, basePath, distDir); err != nil {
-		t.Fatalf("installToPlatform: %v", err)
+	if err := InstallToPlatform(manifest, bundle, plat, basePath); err != nil {
+		t.Fatalf("InstallToPlatform: %v", err)
 	}
 
 	// Collect installed prompt IDs. Pass nil so candidateRoleIDs checks all

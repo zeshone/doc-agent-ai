@@ -15,18 +15,7 @@ func TestFreshInstall_NoModeChangedNotice(t *testing.T) {
 	restoreHome := mockHomeEnv(t, tmpHome)
 	defer restoreHome()
 
-	distDir := filepath.Join(t.TempDir(), "dist")
-	if err := generate(distDir); err != nil {
-		t.Fatalf("generate dist: %v", err)
-	}
-	manifest, err := readManifestFrom(distDir)
-	if err != nil {
-		t.Fatalf("read manifest: %v", err)
-	}
-	bundle, err := bundleFromDistDir(manifest, distDir)
-	if err != nil {
-		t.Fatalf("bundleFromDistDir: %v", err)
-	}
+	bundle := testBundle()
 
 	opencodeHome := filepath.Join(tmpHome, ".config", "opencode")
 	if err := os.MkdirAll(opencodeHome, 0755); err != nil {

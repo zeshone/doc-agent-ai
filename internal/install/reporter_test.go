@@ -130,21 +130,15 @@ func TestBufferReporter_Implements(t *testing.T) {
 }
 
 // TestInstallToPlatformWithReporter_CapturesOutput verifies that
-// installToPlatformWithReporter routes install output through the supplied
+// InstallToPlatformWithReporter routes install output through the supplied
 // Reporter rather than writing directly to stdout.
 func TestInstallToPlatformWithReporter_CapturesOutput(t *testing.T) {
 	tmpHome := t.TempDir()
 	restoreHome := mockHomeEnv(t, tmpHome)
 	defer restoreHome()
 
-	distDir := filepath.Join(t.TempDir(), "dist")
-	if err := generate(distDir); err != nil {
-		t.Fatalf("generate dist: %v", err)
-	}
-	manifest, err := readManifestFrom(distDir)
-	if err != nil {
-		t.Fatalf("read manifest: %v", err)
-	}
+	bundle := testBundle()
+	manifest := bundle.Manifest
 
 	opencodeHome := filepath.Join(tmpHome, ".config", "opencode")
 	if err := os.MkdirAll(opencodeHome, 0755); err != nil {
@@ -158,8 +152,8 @@ func TestInstallToPlatformWithReporter_CapturesOutput(t *testing.T) {
 	basePath := filepath.ToSlash(filepath.Join(tmpHome, "projects")) + "/"
 
 	r := newBufferReporter()
-	if err := installToPlatformWithReporter(manifest, plat, basePath, distDir, r, "vault"); err != nil {
-		t.Fatalf("installToPlatformWithReporter: %v", err)
+	if err := InstallToPlatformWithReporter(manifest, bundle, plat, basePath, r, "vault"); err != nil {
+		t.Fatalf("InstallToPlatformWithReporter: %v", err)
 	}
 
 	// The reporter must have captured some output (skills, prompts, commands).
@@ -173,21 +167,15 @@ func TestInstallToPlatformWithReporter_CapturesOutput(t *testing.T) {
 	}
 }
 
-// TestInstallToPlatform_BackwardCompatible verifies the original 5-arg signature
-// still compiles and functions correctly (backward-compat wrapper).
+// TestInstallToPlatform_BackwardCompatible verifies the exported Bundle-based
+// signature compiles and functions correctly.
 func TestInstallToPlatform_BackwardCompatible(t *testing.T) {
 	tmpHome := t.TempDir()
 	restoreHome := mockHomeEnv(t, tmpHome)
 	defer restoreHome()
 
-	distDir := filepath.Join(t.TempDir(), "dist")
-	if err := generate(distDir); err != nil {
-		t.Fatalf("generate dist: %v", err)
-	}
-	manifest, err := readManifestFrom(distDir)
-	if err != nil {
-		t.Fatalf("read manifest: %v", err)
-	}
+	bundle := testBundle()
+	manifest := bundle.Manifest
 
 	opencodeHome := filepath.Join(tmpHome, ".config", "opencode")
 	if err := os.MkdirAll(opencodeHome, 0755); err != nil {
@@ -200,8 +188,8 @@ func TestInstallToPlatform_BackwardCompatible(t *testing.T) {
 	plat := newPlatformForTest(t, "opencode", opencodeHome)
 	basePath := filepath.ToSlash(filepath.Join(tmpHome, "projects")) + "/"
 
-	// Original call signature must still compile and succeed.
-	if err := installToPlatform(manifest, plat, basePath, distDir, "vault"); err != nil {
-		t.Fatalf("installToPlatform (backward-compat): %v", err)
+	// Bundle-based call signature must compile and succeed.
+	if err := InstallToPlatform(manifest, bundle, plat, basePath, "vault"); err != nil {
+		t.Fatalf("InstallToPlatform: %v", err)
 	}
 }

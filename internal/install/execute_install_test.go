@@ -15,26 +15,15 @@ import (
 // ---------------------------------------------------------------------------
 
 // setupExecuteInstallFixture creates the minimal filesystem state needed for
-// executeInstall tests: temp HOME, an opencode platform, generated dist.
-// Returns: tmpHome, bundle, manifest, opencodePlatform.
-func setupExecuteInstallFixture(t *testing.T) (string, Bundle, DistManifest, Platform) {
+// executeInstall tests: temp HOME, an opencode platform, and an in-package fixture Bundle.
+// Returns: tmpHome, bundle, opencodePlatform.
+func setupExecuteInstallFixture(t *testing.T) (string, Bundle, Platform) {
 	t.Helper()
 	tmpHome := t.TempDir()
 	restoreHome := mockHomeEnv(t, tmpHome)
 	t.Cleanup(restoreHome)
 
-	distDir := filepath.Join(t.TempDir(), "dist")
-	if err := generate(distDir); err != nil {
-		t.Fatalf("generate dist: %v", err)
-	}
-	manifest, err := readManifestFrom(distDir)
-	if err != nil {
-		t.Fatalf("read manifest: %v", err)
-	}
-	bundle, err := bundleFromDistDir(manifest, distDir)
-	if err != nil {
-		t.Fatalf("bundleFromDistDir: %v", err)
-	}
+	bundle := testBundle()
 
 	opencodeHome := filepath.Join(tmpHome, ".config", "opencode")
 	if err := os.MkdirAll(opencodeHome, 0755); err != nil {
@@ -45,13 +34,13 @@ func setupExecuteInstallFixture(t *testing.T) (string, Bundle, DistManifest, Pla
 		t.Fatalf("write opencode.json: %v", err)
 	}
 	plat := newPlatformForTest(t, "opencode", opencodeHome)
-	return tmpHome, bundle, manifest, plat
+	return tmpHome, bundle, plat
 }
 
 // TestExecuteInstall_VaultMode_InstallsAndPersistsConfig verifies that
 // executeInstall runs a vault-mode install and writes AppConfig afterward.
 func TestExecuteInstall_VaultMode_InstallsAndPersistsConfig(t *testing.T) {
-	tmpHome, bundle, _, plat := setupExecuteInstallFixture(t)
+	tmpHome, bundle, plat := setupExecuteInstallFixture(t)
 
 	basePath := filepath.ToSlash(filepath.Join(tmpHome, "projects")) + "/"
 	plan := configpkg.InstallPlan{
@@ -91,7 +80,7 @@ func TestExecuteInstall_VaultMode_InstallsAndPersistsConfig(t *testing.T) {
 // TestExecuteInstall_InProjectMode_InstallsAndPersistsConfig verifies
 // in-project mode sets config.Mode and leaves Path empty.
 func TestExecuteInstall_InProjectMode_InstallsAndPersistsConfig(t *testing.T) {
-	_, bundle, _, plat := setupExecuteInstallFixture(t)
+	_, bundle, plat := setupExecuteInstallFixture(t)
 
 	plan := configpkg.InstallPlan{
 		Platforms: []string{"opencode"},
@@ -120,7 +109,7 @@ func TestExecuteInstall_InProjectMode_InstallsAndPersistsConfig(t *testing.T) {
 // TestExecuteInstall_PlatformListNilUsesDetected verifies that when plan.Platforms
 // is nil, all provided platforms are installed (nil → use provided list as "all").
 func TestExecuteInstall_PlatformListNilUsesDetected(t *testing.T) {
-	tmpHome, bundle, _, plat := setupExecuteInstallFixture(t)
+	tmpHome, bundle, plat := setupExecuteInstallFixture(t)
 
 	basePath := filepath.ToSlash(filepath.Join(tmpHome, "projects")) + "/"
 	plan := configpkg.InstallPlan{
@@ -148,7 +137,7 @@ func TestExecuteInstall_PlatformListNilUsesDetected(t *testing.T) {
 // plan.Mode is passed through to file substitution (no __DOC_AGENT_GLOBAL_MODE__
 // leaks after install).
 func TestExecuteInstall_PassesModeToInstallToPlatform(t *testing.T) {
-	tmpHome, bundle, _, plat := setupExecuteInstallFixture(t)
+	tmpHome, bundle, plat := setupExecuteInstallFixture(t)
 
 	basePath := filepath.ToSlash(filepath.Join(tmpHome, "projects")) + "/"
 	plan := configpkg.InstallPlan{
@@ -189,7 +178,7 @@ func TestExecuteInstall_PassesModeToInstallToPlatform(t *testing.T) {
 // TestExecuteInstall_ModeSwitchHook_NoopWhenSameMode verifies that the mode-switch
 // hook seam fires without error when prevMode == plan.Mode (no mode change).
 func TestExecuteInstall_ModeSwitchHook_NoopWhenSameMode(t *testing.T) {
-	tmpHome, bundle, _, plat := setupExecuteInstallFixture(t)
+	tmpHome, bundle, plat := setupExecuteInstallFixture(t)
 
 	basePath := filepath.ToSlash(filepath.Join(tmpHome, "projects")) + "/"
 	plan := configpkg.InstallPlan{
@@ -203,8 +192,7 @@ func TestExecuteInstall_ModeSwitchHook_NoopWhenSameMode(t *testing.T) {
 	if err := ExecuteInstall(bundle, plan, []Platform{plat}, r); err != nil {
 		t.Fatalf("executeInstall (no mode switch): %v", err)
 	}
-	// No mode-switch notice should appear — assert against the exact strings
-	// runModeSwitchHook emits, or this guard is a false negative.
+	// No mode-switch notice should appear.
 	if strings.Contains(r.buf.String(), "Mode changed") ||
 		strings.Contains(r.buf.String(), "not automatically migrated") {
 		t.Errorf("unexpected mode-switch notice when mode did not change; output:\n%s", r.buf.String())
@@ -214,7 +202,7 @@ func TestExecuteInstall_ModeSwitchHook_NoopWhenSameMode(t *testing.T) {
 // TestExecuteInstall_ModeSwitchHook_NoticeWhenModeChanges verifies that the
 // mode-switch hook emits a config notice when prevMode != plan.Mode.
 func TestExecuteInstall_ModeSwitchHook_NoticeWhenModeChanges(t *testing.T) {
-	tmpHome, bundle, _, plat := setupExecuteInstallFixture(t)
+	tmpHome, bundle, plat := setupExecuteInstallFixture(t)
 
 	basePath := filepath.ToSlash(filepath.Join(tmpHome, "projects")) + "/"
 	plan := configpkg.InstallPlan{
@@ -245,18 +233,7 @@ func TestExecuteInstall_FailurePath_NoConfigWritten(t *testing.T) {
 	restoreHome := mockHomeEnv(t, tmpHome)
 	t.Cleanup(restoreHome)
 
-	distDir := filepath.Join(t.TempDir(), "dist")
-	if err := generate(distDir); err != nil {
-		t.Fatalf("generate dist: %v", err)
-	}
-	manifest, err := readManifestFrom(distDir)
-	if err != nil {
-		t.Fatalf("read manifest: %v", err)
-	}
-	bundle, err := bundleFromDistDir(manifest, distDir)
-	if err != nil {
-		t.Fatalf("bundleFromDistDir: %v", err)
-	}
+	bundle := testBundle()
 
 	// Create a platform whose SkillsDir() path is blocked by a file so that
 	// copyDir → ensureDir → os.MkdirAll fails with "not a directory".
@@ -297,7 +274,7 @@ func TestExecuteInstall_FailurePath_NoConfigWritten(t *testing.T) {
 // TestExecuteInstall_ConfigPersistsSelectedPlatforms verifies that the
 // platforms list from the plan is saved in AppConfig after a successful install.
 func TestExecuteInstall_ConfigPersistsSelectedPlatforms(t *testing.T) {
-	tmpHome, bundle, _, plat := setupExecuteInstallFixture(t)
+	tmpHome, bundle, plat := setupExecuteInstallFixture(t)
 
 	basePath := filepath.ToSlash(filepath.Join(tmpHome, "projects")) + "/"
 	plan := configpkg.InstallPlan{

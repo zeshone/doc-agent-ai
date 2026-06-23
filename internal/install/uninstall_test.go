@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	configpkg "github.com/zeshone/doc-agent-ai/internal/config"
 )
 
 // ---------------------------------------------------------------------------
@@ -19,14 +21,7 @@ func TestUninstallSweep_RemovesCurrentAndLegacy(t *testing.T) {
 	restoreHome := mockHomeEnv(t, tmpHome)
 	defer restoreHome()
 
-	distDir := filepath.Join(t.TempDir(), "dist")
-	if err := generate(distDir); err != nil {
-		t.Fatalf("generate dist: %v", err)
-	}
-	manifest, err := readManifestFrom(distDir)
-	if err != nil {
-		t.Fatalf("read manifest: %v", err)
-	}
+	manifest := testBundle().Manifest
 
 	opencodeHome := filepath.Join(tmpHome, ".config", "opencode")
 	if err := os.MkdirAll(opencodeHome, 0755); err != nil {
@@ -45,9 +40,9 @@ func TestUninstallSweep_RemovesCurrentAndLegacy(t *testing.T) {
 	}
 
 	// Seed: one current file + one legacy file.
-	currentFile := filepath.Join(cmdsDir, "doc-prd.md")
+	currentFile := filepath.Join(cmdsDir, "doc-arch.md")
 	legacyFile := filepath.Join(cmdsDir, "prd.md")
-	if err := os.WriteFile(currentFile, []byte("# doc-prd"), 0644); err != nil {
+	if err := os.WriteFile(currentFile, []byte("# doc-arch"), 0644); err != nil {
 		t.Fatalf("seed current file: %v", err)
 	}
 	if err := os.WriteFile(legacyFile, []byte("# prd legacy"), 0644); err != nil {
@@ -56,33 +51,26 @@ func TestUninstallSweep_RemovesCurrentAndLegacy(t *testing.T) {
 
 	details := InstalledDetails{
 		Platform: plat,
-		Commands: []string{"doc-prd"},
+		Commands: []string{"doc-arch"},
 	}
 	uninstallPlatform(details, manifest)
 
 	if _, err := os.Stat(currentFile); err == nil {
-		t.Error("doc-prd.md (current) should have been removed by uninstall")
+		t.Error("doc-arch.md (current) should have been removed by uninstall")
 	}
 	if _, err := os.Stat(legacyFile); err == nil {
 		t.Error("prd.md (legacy) should have been removed by uninstall sweep")
 	}
 }
 
-// TestUninstallSweep_OnlyCurrentPresent seeds only the 11 doc-* files and
+// TestUninstallSweep_OnlyCurrentPresent seeds only the doc-* files and
 // verifies they are all removed with no error.
 func TestUninstallSweep_OnlyCurrentPresent(t *testing.T) {
 	tmpHome := t.TempDir()
 	restoreHome := mockHomeEnv(t, tmpHome)
 	defer restoreHome()
 
-	distDir := filepath.Join(t.TempDir(), "dist")
-	if err := generate(distDir); err != nil {
-		t.Fatalf("generate dist: %v", err)
-	}
-	manifest, err := readManifestFrom(distDir)
-	if err != nil {
-		t.Fatalf("read manifest: %v", err)
-	}
+	manifest := testBundle().Manifest
 
 	opencodeHome := filepath.Join(tmpHome, ".config", "opencode")
 	if err := os.MkdirAll(opencodeHome, 0755); err != nil {
@@ -132,14 +120,7 @@ func TestUninstallSweep_OnlyLegacyPresent(t *testing.T) {
 	restoreHome := mockHomeEnv(t, tmpHome)
 	defer restoreHome()
 
-	distDir := filepath.Join(t.TempDir(), "dist")
-	if err := generate(distDir); err != nil {
-		t.Fatalf("generate dist: %v", err)
-	}
-	manifest, err := readManifestFrom(distDir)
-	if err != nil {
-		t.Fatalf("read manifest: %v", err)
-	}
+	manifest := testBundle().Manifest
 
 	opencodeHome := filepath.Join(tmpHome, ".config", "opencode")
 	if err := os.MkdirAll(opencodeHome, 0755); err != nil {
@@ -200,16 +181,8 @@ func TestUninstallMixedContent(t *testing.T) {
 	restoreHome := mockHomeEnv(t, tmpHome)
 	defer restoreHome()
 
-	// Generate dist into a temp location
-	distDir := filepath.Join(t.TempDir(), "dist")
-	if err := generate(distDir); err != nil {
-		t.Fatalf("generate dist: %v", err)
-	}
-
-	manifest, err := readManifestFrom(distDir)
-	if err != nil {
-		t.Fatalf("read manifest: %v", err)
-	}
+	bundle := testBundle()
+	manifest := bundle.Manifest
 
 	// ======== Create opencode platform ========
 	opencodeHome := filepath.Join(tmpHome, ".config", "opencode")
@@ -248,9 +221,11 @@ func TestUninstallMixedContent(t *testing.T) {
 
 	basePath := filepath.ToSlash(filepath.Join(tmpHome, "projects")) + "/"
 
-	// ======== Install doc-agent-ai to both platforms ========
-	if err := installPlatforms(manifest, []Platform{opencode, claude}, basePath, distDir); err != nil {
-		t.Fatalf("installPlatforms: %v", err)
+	// ======== Install doc-agent-ai to both platforms using Bundle ========
+	for _, plat := range []Platform{opencode, claude} {
+		if err := InstallToPlatform(manifest, bundle, plat, basePath, string(configpkg.ModeVault)); err != nil {
+			t.Fatalf("InstallToPlatform [%s]: %v", plat.ID(), err)
+		}
 	}
 
 	// ======== Plant non-doc-agent-ai noise ========
@@ -522,16 +497,8 @@ func TestUninstallEmptyDirPruning(t *testing.T) {
 	restoreHome := mockHomeEnv(t, tmpHome)
 	defer restoreHome()
 
-	// Generate dist
-	distDir := filepath.Join(t.TempDir(), "dist")
-	if err := generate(distDir); err != nil {
-		t.Fatalf("generate dist: %v", err)
-	}
-
-	manifest, err := readManifestFrom(distDir)
-	if err != nil {
-		t.Fatalf("read manifest: %v", err)
-	}
+	bundle := testBundle()
+	manifest := bundle.Manifest
 
 	// Create qwen platform (no opencode.json noise, just install)
 	qwenHome := filepath.Join(tmpHome, ".qwen")
@@ -543,8 +510,8 @@ func TestUninstallEmptyDirPruning(t *testing.T) {
 	basePath := filepath.ToSlash(filepath.Join(tmpHome, "projects")) + "/"
 
 	// Install to qwen only (skills, prompts, agents)
-	if err := installPlatforms(manifest, []Platform{qwen}, basePath, distDir); err != nil {
-		t.Fatalf("installPlatforms: %v", err)
+	if err := InstallToPlatform(manifest, bundle, qwen, basePath, string(configpkg.ModeVault)); err != nil {
+		t.Fatalf("InstallToPlatform [qwen]: %v", err)
 	}
 
 	// Verify pre-uninstall: all dirs exist
