@@ -1,4 +1,4 @@
-package main
+package tui
 
 import (
 	"fmt"
@@ -448,16 +448,16 @@ func TestUninstallModel_EnterDefaultNo(t *testing.T) {
 // isTerminal unit test
 // ---------------------------------------------------------------------------
 
-// TestIsTerminal_FalseInTests verifies that isTerminal() returns false in the
+// TestIsTerminal_FalseInTests verifies that IsTerminal() returns false in the
 // test environment (tests run without a TTY — CI determinism).
 func TestIsTerminal_FalseInTests(t *testing.T) {
 	// In CI and `go test` the stdin/stdout are not real TTYs.
 	// This test documents the expected behaviour; it will pass in CI and in
 	// most developer environments when running `go test ./...` from a shell.
 	// If your shell pipes stdin to go test it may also be false.
-	got := isTerminal()
+	got := IsTerminal()
 	if got {
-		t.Log("isTerminal() = true (running in a real TTY — this is OK in interactive shells)")
+		t.Log("IsTerminal() = true (running in a real TTY — this is OK in interactive shells)")
 	}
 	// We do not assert false here — the value depends on the test runner environment.
 	// The TTY-error path is tested separately via TestTTYErrorPath.

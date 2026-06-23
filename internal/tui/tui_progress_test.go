@@ -1,4 +1,4 @@
-package main
+package tui
 
 // tui_progress_test.go — TDD tests for slice-5 progress screen.
 // Written RED-first: these tests reference types and fields that do not exist

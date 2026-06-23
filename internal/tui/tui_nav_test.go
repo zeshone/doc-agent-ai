@@ -1,4 +1,4 @@
-package main
+package tui
 
 // ---------------------------------------------------------------------------
 // nav-adjustment tests — TDD RED first

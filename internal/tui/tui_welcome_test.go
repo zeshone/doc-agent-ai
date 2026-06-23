@@ -1,4 +1,4 @@
-package main
+package tui
 
 // ---------------------------------------------------------------------------
 // Slice 1 unit tests — TDD RED first

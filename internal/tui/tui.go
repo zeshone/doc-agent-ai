@@ -1,4 +1,4 @@
-package main
+package tui
 
 import (
 	"fmt"
@@ -12,10 +12,10 @@ import (
 // TTY detection
 // ---------------------------------------------------------------------------
 
-// isTerminal returns true if both stdin and stdout refer to a real TTY.
+// IsTerminal returns true if both stdin and stdout refer to a real TTY.
 // Uses golang.org/x/term which works on all supported OSes (Linux, macOS,
 // Windows) without cgo.
-func isTerminal() bool {
+func IsTerminal() bool {
 	return term.IsTerminal(int(os.Stdin.Fd())) &&
 		term.IsTerminal(int(os.Stdout.Fd()))
 }
@@ -33,12 +33,7 @@ func isTerminal() bool {
 //
 // Returns an error if dist cannot be loaded or the install engine fails.
 // Returns (nil) when the user cancels (tea.Quit without error).
-func runInstallTUI() error {
-	bundle, err := BuildBundle()
-	if err != nil {
-		return fmt.Errorf("build content: %w", err)
-	}
-
+func RunInstallTUI(bundle Bundle) error {
 	manifest := bundle.Manifest
 	if missing := ValidateBundle(bundle); len(missing) > 0 {
 		return fmt.Errorf("incomplete bundle: %d missing artifacts", len(missing))
@@ -83,11 +78,7 @@ func runInstallTUI() error {
 
 // runUninstallTUI bootstraps the Bubbletea uninstall wizard and blocks until
 // the user completes or cancels it.
-func runUninstallTUI() error {
-	bundle, err := BuildBundle()
-	if err != nil {
-		return fmt.Errorf("build content: %w", err)
-	}
+func RunUninstallTUI(bundle Bundle) error {
 	manifest := bundle.Manifest
 
 	// Step 2: Detect platforms.
@@ -119,11 +110,8 @@ func runUninstallTUI() error {
 	return nil
 }
 
-func RunApp() error {
-	bundle, err := BuildBundle()
-	if err != nil {
-		return fmt.Errorf("build content: %w", err)
-	}
+func RunApp(bundle Bundle) error {
+	var err error
 	model := RootModel{screen: screenHome, bundle: bundle, styles: NewStyles(), width: 80, height: 24}
 	p := tea.NewProgram(model, tea.WithAltScreen())
 	_, err = p.Run()

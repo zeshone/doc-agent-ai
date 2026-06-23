@@ -5,6 +5,7 @@ import (
 	"os"
 
 	buildpkg "github.com/zeshone/doc-agent-ai/internal/build"
+	tuipkg "github.com/zeshone/doc-agent-ai/internal/tui"
 )
 
 func main() {
@@ -40,8 +41,13 @@ func main() {
 	installFlags, args := parseInstallFlags(args)
 
 	if len(args) == 0 {
-		if isTerminal() {
-			if err := RunApp(); err != nil {
+		if tuipkg.IsTerminal() {
+			bundle, err := BuildBundle()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
+			if err := tuipkg.RunApp(bundle); err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 				os.Exit(1)
 			}
@@ -71,9 +77,14 @@ func main() {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 				os.Exit(1)
 			}
-		} else if isTerminal() {
+		} else if tuipkg.IsTerminal() {
 			// No flags, TTY present: launch the Bubbletea install wizard.
-			if err := runInstallTUI(); err != nil {
+			bundle, err := BuildBundle()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
+			if err := tuipkg.RunInstallTUI(bundle); err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 				os.Exit(1)
 			}
@@ -93,8 +104,13 @@ func main() {
 		// needs user input (mode, path) that cannot be reasonably defaulted.
 		// Uninstall only needs a yes/no confirmation, so the bufio fallback is safe
 		// and avoids breaking automated environments that call uninstall directly.
-		if isTerminal() {
-			if err := runUninstallTUI(); err != nil {
+		if tuipkg.IsTerminal() {
+			bundle, err := BuildBundle()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
+			if err := tuipkg.RunUninstallTUI(bundle); err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 				os.Exit(1)
 			}

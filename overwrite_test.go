@@ -21,41 +21,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	tea "github.com/charmbracelet/bubbletea"
 )
-
-// TestInstallModel_OverwriteStep_NotShownForFreshInstall verifies that when no
-// selected platform is already installed, the overwrite step is skipped
-// entirely and the wizard proceeds directly to stepProgress.
-func TestInstallModel_OverwriteStep_NotShownForFreshInstall(t *testing.T) {
-	// No pre-existing agent files → alreadyInstalled will be empty.
-	dir := t.TempDir()
-	plat := newPlatformForTest(t, "claude", dir+"/claude")
-
-	m := newInstallModelForTest(AppConfig{}, false, []Platform{plat})
-	m.manifest.Roles = []DistRole{{ID: "doc-arch"}}
-	// Force empty alreadyInstalled — no agents on disk in t.TempDir().
-	m.alreadyInstalled = map[string]bool{}
-
-	// Platform select → DocsMode.
-	m = sendSpecialKey(t, m, tea.KeyEnter)
-	if m.step != stepDocsMode {
-		t.Fatalf("expected stepDocsMode, got %v", m.step)
-	}
-
-	// DocsMode: in-project (modeCursor=1), Enter (Continue is default focus=0) → stepProgress.
-	m.modeCursor = 1
-	m.docsModeButtons.focus = 0 // Continue
-	m = sendSpecialKey(t, m, tea.KeyEnter)
-
-	if m.step == stepOverwrite {
-		t.Fatal("fresh install (no already-installed) should skip stepOverwrite, but wizard is at stepOverwrite")
-	}
-	if m.step != stepProgress {
-		t.Fatalf("expected stepProgress for fresh in-project install, got %v", m.step)
-	}
-}
 
 // ---------------------------------------------------------------------------
 // Headless overwrite semantics
@@ -249,25 +215,4 @@ func containsAny(s string, subs ...string) bool {
 		}
 	}
 	return false
-}
-
-// TestRunInstall_NoPlatformsSelected_Errors is the defense-in-depth guard:
-// runInstall must never hand executeInstall a nil Platforms list (which the
-// engine interprets as "install to all detected").
-func TestRunInstall_NoPlatformsSelected_Errors(t *testing.T) {
-	m := InstallModel{
-		platforms: []platformItem{{id: "opencode", label: "opencode", selected: false}},
-		mode:      ModeVault,
-		styles:    NoColor(),
-	}
-
-	cmd := m.runInstall()
-	msg := cmd()
-	rm, ok := msg.(installResultMsg)
-	if !ok {
-		t.Fatalf("cmd returned %T, want installResultMsg", msg)
-	}
-	if rm.err == nil || !strings.Contains(rm.err.Error(), "no platforms selected") {
-		t.Errorf("err = %v, want 'no platforms selected' guard error", rm.err)
-	}
 }

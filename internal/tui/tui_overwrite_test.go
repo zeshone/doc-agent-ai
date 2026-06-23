@@ -1,4 +1,4 @@
-package main
+package tui
 
 // ---------------------------------------------------------------------------
 // Slice 4 — Consolidated overwrite screen tests (TDD RED first)
