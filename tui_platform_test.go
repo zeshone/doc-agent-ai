@@ -107,7 +107,7 @@ func TestPlatformSelect_AlreadyInstalled_ShowsMark(t *testing.T) {
 		t.Fatalf("write dummy agent: %v", err)
 	}
 
-	m := newInstallModel(AppConfig{}, false, testManifest(), "dist", []Platform{plat}, NoColor())
+	m := newInstallModel(AppConfig{}, false, testBundle(), []Platform{plat}, NoColor())
 	m.manifest.Roles = []DistRole{{ID: "doc-arch"}}
 	m.step = stepPlatformSelect
 	m.width = 80
@@ -311,7 +311,7 @@ func TestGolden_PlatformSelectWithInstalled(t *testing.T) {
 		t.Fatalf("write dummy agent: %v", err)
 	}
 
-	m := newInstallModel(AppConfig{}, false, testManifest(), "dist", []Platform{plat}, NoColor())
+	m := newInstallModel(AppConfig{}, false, testBundle(), []Platform{plat}, NoColor())
 	m.manifest.Roles = []DistRole{{ID: "doc-arch"}}
 	m.step = stepPlatformSelect
 	m.width = 80

@@ -256,31 +256,13 @@ func uninstallPlatform(details installedDetails, manifest DistManifest) {
 // uninstallInteractive runs the full interactive uninstall command.
 // It mirrors uninstall.js exactly: banner → detect → check installed →
 // show summary → confirm → remove → done.
-func uninstallInteractive() error {
+func uninstallInteractive(manifest DistManifest) error {
 	// Banner
 	fmt.Println()
 	fmt.Printf("%s%s  doc-agent-ai%s %sv%s — uninstaller%s\n", ansiBold, ansiCyan, ansiReset, ansiGray, version, ansiReset)
 	fmt.Println()
 
-	// Step 0: Ensure dist/ exists (auto-generate if missing)
-	distDir := "dist"
-	if _, err := os.Stat(filepath.Join(distDir, "manifest.json")); os.IsNotExist(err) {
-		info("Auto-generating dist/ from embedded source...")
-		if err := generate(distDir); err != nil {
-			return fmt.Errorf("auto-generate dist: %w", err)
-		}
-		ok("dist/ generated")
-	}
-
-	// Step 1: Read manifest
-	manifest, err := readManifestFrom(distDir)
-	if err != nil {
-		errOut("dist/manifest.json is missing or invalid JSON.")
-		errOut("Run `doc-agent-ai generate` before uninstalling.")
-		return err
-	}
-
-	// Step 2: Detect platforms
+	// Step 1: Detect platforms
 	head("Detecting platforms...")
 	allPlatforms := detectAllPlatforms(manifest)
 	detected := detectedSet(allPlatforms)
@@ -301,7 +283,7 @@ func uninstallInteractive() error {
 		return nil
 	}
 
-	// Step 3: Check what's installed
+	// Step 2: Check what's installed
 	installed := checkWhatIsInstalled(manifest, allPlatforms)
 
 	if len(installed) == 0 {
@@ -311,7 +293,7 @@ func uninstallInteractive() error {
 		return nil
 	}
 
-	// Step 4: Show what will be removed
+	// Step 3: Show what will be removed
 	head("The following will be removed:")
 	fmt.Printf("%s  ─────────────────────────────────%s\n", ansiGray, ansiReset)
 
@@ -344,7 +326,7 @@ func uninstallInteractive() error {
 	warn("Your documentation files are NOT affected.")
 	fmt.Println()
 
-	// Step 5: Confirm
+	// Step 4: Confirm
 	scanner := bufio.NewScanner(os.Stdin)
 	confirm := ask(scanner, fmt.Sprintf("  %s%sUninstall from all detected platforms?%s (y/N) ", ansiBold, ansiRed, ansiReset))
 	if strings.TrimSpace(strings.ToLower(confirm)) != "y" {
@@ -352,7 +334,7 @@ func uninstallInteractive() error {
 		return nil
 	}
 
-	// Step 6: Remove
+	// Step 5: Remove
 	for _, details := range installed {
 		uninstallPlatform(details, manifest)
 	}

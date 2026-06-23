@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"golang.org/x/term"
@@ -35,27 +34,14 @@ func isTerminal() bool {
 // Returns an error if dist cannot be loaded or the install engine fails.
 // Returns (nil) when the user cancels (tea.Quit without error).
 func runInstallTUI() error {
-	// Step 0: Ensure dist/ exists (auto-generate if missing).
-	distDir := "dist"
-	if _, err := os.Stat(filepath.Join(distDir, "manifest.json")); os.IsNotExist(err) {
-		fmt.Fprintf(os.Stdout, "  Auto-generating dist/ from embedded source...\n")
-		if err := generate(distDir); err != nil {
-			return fmt.Errorf("auto-generate dist: %w", err)
-		}
-	}
-
-	// Step 1: Read and validate manifest.
-	manifest, err := readManifestFrom(distDir)
+	bundle, err := BuildBundle()
 	if err != nil {
-		return fmt.Errorf("read manifest: %w", err)
+		return fmt.Errorf("build content: %w", err)
 	}
 
-	if missing := validateDist(manifest, distDir); len(missing) > 0 {
-		fmt.Fprintln(os.Stderr, "  dist/ is incomplete — run `doc-agent-ai generate` first.")
-		for _, m := range missing {
-			fmt.Fprintln(os.Stderr, "    missing: "+m)
-		}
-		return fmt.Errorf("incomplete dist: %d missing artifacts", len(missing))
+	manifest := bundle.Manifest
+	if missing := ValidateBundle(bundle); len(missing) > 0 {
+		return fmt.Errorf("incomplete bundle: %d missing artifacts", len(missing))
 	}
 
 	// Step 2: Load config for pre-fill defaults.
@@ -74,7 +60,7 @@ func runInstallTUI() error {
 	}
 
 	// Step 4: Launch the Bubbletea program.
-	model := newInstallModel(cfg, cfgExisted, manifest, distDir, allPlatforms, NewStyles())
+	model := newInstallModel(cfg, cfgExisted, bundle, allPlatforms, NewStyles())
 	p := tea.NewProgram(model, tea.WithAltScreen())
 	finalModel, err := p.Run()
 	if err != nil {
@@ -98,20 +84,11 @@ func runInstallTUI() error {
 // runUninstallTUI bootstraps the Bubbletea uninstall wizard and blocks until
 // the user completes or cancels it.
 func runUninstallTUI() error {
-	// Step 0: Ensure dist/ exists.
-	distDir := "dist"
-	if _, err := os.Stat(filepath.Join(distDir, "manifest.json")); os.IsNotExist(err) {
-		fmt.Fprintf(os.Stdout, "  Auto-generating dist/ from embedded source...\n")
-		if err := generate(distDir); err != nil {
-			return fmt.Errorf("auto-generate dist: %w", err)
-		}
-	}
-
-	// Step 1: Read manifest.
-	manifest, err := readManifestFrom(distDir)
+	bundle, err := BuildBundle()
 	if err != nil {
-		return fmt.Errorf("read manifest: %w", err)
+		return fmt.Errorf("build content: %w", err)
 	}
+	manifest := bundle.Manifest
 
 	// Step 2: Detect platforms.
 	allPlatforms := detectAllPlatforms(manifest)

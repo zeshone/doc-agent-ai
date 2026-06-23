@@ -47,11 +47,15 @@ func main() {
 
 	switch args[0] {
 	case "generate":
-		if err := generate("dist"); err != nil {
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "Usage: doc-agent-ai generate <dir>")
+			os.Exit(1)
+		}
+		if err := Generate(args[1]); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
-		fmt.Println("dist generated from src canonical content")
+		fmt.Printf("bundle generated at %s\n", args[1])
 
 	case "install":
 		// Decision order (spec F1): explicit install flags > TTY-interactive > error.
@@ -89,7 +93,12 @@ func main() {
 				os.Exit(1)
 			}
 		} else {
-			if err := uninstallInteractive(); err != nil {
+			bundle, err := BuildBundle()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+				os.Exit(1)
+			}
+			if err := uninstallInteractive(bundle.Manifest); err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 				os.Exit(1)
 			}
@@ -115,7 +124,7 @@ Usage:
   doc-agent-ai [flags] <subcommand>
 
 Subcommands:
-  generate    Generate dist/ from embedded src/ + skills/
+  generate    Generate bundle output to an explicit directory
   install     Install doc-agent-ai to detected platforms
   uninstall   Remove doc-agent-ai from detected platforms
 

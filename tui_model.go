@@ -71,11 +71,11 @@ type InstallModel struct {
 	// cfgExisted is true when a config file was found (enables PrevMode tracking).
 	cfgExisted bool
 
-	// manifest is the DistManifest loaded from dist/.
-	manifest DistManifest
+	// bundle is the fully rendered install content.
+	bundle Bundle
 
-	// distDir is the path to the dist/ directory.
-	distDir string
+	// manifest is cached from bundle.Manifest for read-only detection logic.
+	manifest DistManifest
 
 	// allPlatforms is the full detected platform list (passed to executeInstall).
 	allPlatforms []Platform
@@ -117,7 +117,8 @@ type InstallModel struct {
 
 // newInstallModel constructs an InstallModel with defaults pre-filled from cfg.
 // allPlatforms is the detected platform list; it is passed through to executeInstall.
-func newInstallModel(cfg AppConfig, cfgExisted bool, manifest DistManifest, distDir string, allPlatforms []Platform, styles Styles) InstallModel {
+func newInstallModel(cfg AppConfig, cfgExisted bool, bundle Bundle, allPlatforms []Platform, styles Styles) InstallModel {
+	manifest := bundle.Manifest
 	// Build checkbox list: all detected platforms, pre-select from config if any.
 	cfgPlatSet := make(map[string]bool, len(cfg.Platforms))
 	for _, id := range cfg.Platforms {
@@ -188,8 +189,8 @@ func newInstallModel(cfg AppConfig, cfgExisted bool, manifest DistManifest, dist
 		overwriteChoice:       0,
 		cfg:                   cfg,
 		cfgExisted:            cfgExisted,
+		bundle:                bundle,
 		manifest:              manifest,
-		distDir:               distDir,
 		allPlatforms:          allPlatforms,
 		progressBar:           pb,
 		styles:                styles,
@@ -403,8 +404,7 @@ func (m InstallModel) runInstall() tea.Cmd {
 		Overwrite: overwrite,
 	}
 
-	manifest := m.manifest
-	distDir := m.distDir
+	bundle := m.bundle
 	allPlatforms := m.allPlatforms
 
 	return func() tea.Msg {
@@ -416,7 +416,7 @@ func (m InstallModel) runInstall() tea.Cmd {
 		// installResultMsg and the Update method merges them into the live model.
 		var lines []string
 		collector := &collectingReporter{lines: &lines}
-		err := executeInstall(manifest, plan, distDir, allPlatforms, collector)
+		err := ExecuteInstall(bundle, plan, allPlatforms, collector)
 		return installResultMsg{err: err, progressLines: lines}
 	}
 }

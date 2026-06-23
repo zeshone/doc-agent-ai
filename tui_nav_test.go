@@ -381,7 +381,7 @@ func TestNav_Overwrite_TabIsNoOp(t *testing.T) {
 // TestNav_Welcome_LeftRightMoveButtonFocus asserts ←/→ move welcomeButtons focus.
 func TestNav_Welcome_LeftRightMoveButtonFocus(t *testing.T) {
 	plats := testPlatformsFromTempDir(t)
-	m := newInstallModel(AppConfig{}, false, testManifest(), "dist", plats, NoColor())
+	m := newInstallModel(AppConfig{}, false, testBundle(), plats, NoColor())
 	m.step = stepWelcome
 	m.width = 80
 	m.height = 24
@@ -405,7 +405,7 @@ func TestNav_Welcome_LeftRightMoveButtonFocus(t *testing.T) {
 // advances to stepPlatformSelect.
 func TestNav_Welcome_EnterActivatesContinue(t *testing.T) {
 	plats := testPlatformsFromTempDir(t)
-	m := newInstallModel(AppConfig{}, false, testManifest(), "dist", plats, NoColor())
+	m := newInstallModel(AppConfig{}, false, testBundle(), plats, NoColor())
 	m.step = stepWelcome
 	m.width = 80
 	m.height = 24
@@ -419,7 +419,7 @@ func TestNav_Welcome_EnterActivatesContinue(t *testing.T) {
 // TestNav_Welcome_UpDownNoOp asserts ↑/↓ do not change state on the welcome screen.
 func TestNav_Welcome_UpDownNoOp(t *testing.T) {
 	plats := testPlatformsFromTempDir(t)
-	m := newInstallModel(AppConfig{}, false, testManifest(), "dist", plats, NoColor())
+	m := newInstallModel(AppConfig{}, false, testBundle(), plats, NoColor())
 	m.step = stepWelcome
 	m.width = 80
 	m.height = 24

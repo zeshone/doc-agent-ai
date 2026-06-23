@@ -1,9 +1,6 @@
 package main
 
-import (
-	"fmt"
-	"os"
-)
+import "fmt"
 
 // ---------------------------------------------------------------------------
 // Headless install flags — parsed in the main pre-scan before subcommand dispatch
@@ -65,17 +62,21 @@ func hasInstallFlags(f FlagSet) bool {
 // runHeadlessInstall executes a full install without a TTY or TUI.
 // It is called from main when any install flag is present.
 //
-// distDirOverride allows tests to inject a pre-generated dist directory
-// instead of the default "dist/" path used in production.
-//
 // Steps:
 //  1. Load AppConfig for defaults.
 //  2. parsePlanFromFlags to validate flags and build InstallPlan.
-//  3. Auto-generate dist if missing.
-//  4. Read and validate manifest.
-//  5. Detect platforms; filter to plan.Platforms.
-//  6. executeInstall with a stdout Reporter.
-func runHeadlessInstall(flags FlagSet, distDirOverride string) error {
+//  3. Build the in-memory bundle.
+//  4. Detect platforms; filter to plan.Platforms.
+//  5. ExecuteInstall with a stdout Reporter.
+func runHeadlessInstall(flags FlagSet, _ string) error {
+	bundle, err := BuildBundle()
+	if err != nil {
+		return fmt.Errorf("build content: %w", err)
+	}
+	return runHeadlessInstallWithBundle(flags, bundle)
+}
+
+func runHeadlessInstallWithBundle(flags FlagSet, bundle Bundle) error {
 	r := defaultReporter
 
 	// --- Step 1: Load config for defaults ---
@@ -91,35 +92,16 @@ func runHeadlessInstall(flags FlagSet, distDirOverride string) error {
 		return fmt.Errorf("invalid flags: %w", err)
 	}
 
-	// --- Step 3: Resolve dist directory ---
-	distDir := distDirOverride
-	if distDir == "" {
-		distDir = "dist"
+	manifest := bundle.Manifest
+	if missing := ValidateBundle(bundle); len(missing) > 0 {
+		return fmt.Errorf("incomplete bundle: %d missing artifacts", len(missing))
 	}
 
-	// Auto-generate dist if missing.
-	if _, err := os.Stat(distDir + "/manifest.json"); os.IsNotExist(err) {
-		r.Info("Auto-generating dist/ from embedded source...")
-		if err := generate(distDir); err != nil {
-			return fmt.Errorf("auto-generate dist: %w", err)
-		}
-		r.Ok("dist/ generated")
-	}
-
-	// --- Step 4: Read and validate manifest ---
-	manifest, err := readManifestFrom(distDir)
-	if err != nil {
-		return fmt.Errorf("read manifest: %w", err)
-	}
-	if missing := validateDist(manifest, distDir); len(missing) > 0 {
-		return fmt.Errorf("incomplete dist: %d missing artifacts", len(missing))
-	}
-
-	// --- Step 5: Detect platforms ---
+	// --- Step 3: Detect platforms ---
 	// Platform filtering to plan.Platforms is executeInstall's responsibility —
 	// pass the full detected universe and let the engine resolve.
 	allDetected := detectAllPlatforms(manifest)
 
-	// --- Step 6: Execute install ---
-	return executeInstall(manifest, plan, distDir, allDetected, r)
+	// --- Step 4: Execute install ---
+	return ExecuteInstall(bundle, plan, allDetected, r)
 }

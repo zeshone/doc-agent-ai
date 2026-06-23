@@ -48,7 +48,7 @@ func newOverwriteModelWithInstalled(t *testing.T, allIDs []string, installedIDs 
 		installed[id] = true
 	}
 
-	m := newInstallModel(AppConfig{}, false, testManifest(), "dist", plats, NoColor())
+	m := newInstallModel(AppConfig{}, false, testBundle(), plats, NoColor())
 	// Override the computed alreadyInstalled map with our test fixture.
 	m.alreadyInstalled = installed
 	// Start on stepOverwrite with all platforms selected.

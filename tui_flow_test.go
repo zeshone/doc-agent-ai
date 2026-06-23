@@ -46,7 +46,7 @@ func TestGolden_WelcomeScreen(t *testing.T) {
 	plats := testPlatformsFromTempDir(t)
 	// Use newInstallModel directly so the step stays at stepWelcome (the
 	// production default) rather than being overridden to stepPlatformSelect.
-	m := newInstallModel(AppConfig{}, false, testManifest(), "dist", plats, NoColor())
+	m := newInstallModel(AppConfig{}, false, testBundle(), plats, NoColor())
 	m.width = 80
 	m.height = 24
 	view := m.View()
@@ -352,7 +352,7 @@ func TestTUIFlow_PlatformSelect_BackReturnsToWelcome(t *testing.T) {
 // button advancing to stepPlatformSelect.
 func TestTUIFlow_Welcome_Continue_ToPlatformSelect(t *testing.T) {
 	plats := testPlatformsFromTempDir(t)
-	m := newInstallModel(AppConfig{}, false, testManifest(), "dist", plats, NoColor())
+	m := newInstallModel(AppConfig{}, false, testBundle(), plats, NoColor())
 	m.width = 80
 	m.height = 24
 	// Start at Welcome (production default).
