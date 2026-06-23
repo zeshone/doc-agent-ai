@@ -168,11 +168,11 @@ func errForGolden(msg string) error { return goldenErr{msg} }
 func TestGolden_UninstallConfirm(t *testing.T) {
 	dir := t.TempDir()
 	plat := newPlatformForTest(t, "opencode", dir+"/opencode")
-	installed := []installedDetails{
+	installed := []InstalledDetails{
 		{
-			platform: plat,
-			skills:   []string{"doc-prd", "doc-arch"},
-			prompts:  []string{"doc-prd"},
+			Platform: plat,
+			Skills:   []string{"doc-prd", "doc-arch"},
+			Prompts:  []string{"doc-prd"},
 		},
 	}
 	m := newUninstallModel(installed, testManifest(), NoColor())
@@ -305,7 +305,7 @@ func TestTUIFlow_ConfigPrefilled(t *testing.T) {
 func TestTUIFlow_UninstallCancel(t *testing.T) {
 	dir := t.TempDir()
 	plat := newPlatformForTest(t, "opencode", dir+"/opencode")
-	installed := []installedDetails{{platform: plat, skills: []string{"doc-prd"}}}
+	installed := []InstalledDetails{{Platform: plat, Skills: []string{"doc-prd"}}}
 	m := newUninstallModel(installed, testManifest(), NoColor())
 	m.width = 80
 	m.height = 24

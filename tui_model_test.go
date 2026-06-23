@@ -405,7 +405,7 @@ func TestInstallResultMsg_DoesNotAutoQuit(t *testing.T) {
 
 // TestUninstallModel_ConfirmY advances to progress step on 'y'.
 func TestUninstallModel_ConfirmY(t *testing.T) {
-	m := newUninstallModel([]installedDetails{}, testManifest(), NoColor())
+	m := newUninstallModel([]InstalledDetails{}, testManifest(), NoColor())
 	m.width = 80
 	m.height = 24
 
@@ -421,7 +421,7 @@ func TestUninstallModel_ConfirmY(t *testing.T) {
 
 // TestUninstallModel_ConfirmN stays on confirm step (model quits via tea.Quit cmd).
 func TestUninstallModel_ConfirmN(t *testing.T) {
-	m := newUninstallModel([]installedDetails{}, testManifest(), NoColor())
+	m := newUninstallModel([]InstalledDetails{}, testManifest(), NoColor())
 	m.width = 80
 	m.height = 24
 
@@ -434,7 +434,7 @@ func TestUninstallModel_ConfirmN(t *testing.T) {
 // TestUninstallModel_EnterDefaultNo verifies that Enter does not trigger uninstall
 // (destructive action requires explicit 'y').
 func TestUninstallModel_EnterDefaultNo(t *testing.T) {
-	m := newUninstallModel([]installedDetails{}, testManifest(), NoColor())
+	m := newUninstallModel([]InstalledDetails{}, testManifest(), NoColor())
 	m.width = 80
 	m.height = 24
 

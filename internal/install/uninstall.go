@@ -1,4 +1,4 @@
-package main
+package install
 
 import (
 	"bufio"
@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	buildpkg "github.com/zeshone/doc-agent-ai/internal/build"
 )
 
 // ---------------------------------------------------------------------------
@@ -26,40 +28,40 @@ func subInfo(msg string) {
 // What-is-installed data
 // ---------------------------------------------------------------------------
 
-// installedDetails describes what doc-agent-ai artifacts are present
+// InstalledDetails describes what doc-agent-ai artifacts are present
 // on a single platform.
-type installedDetails struct {
-	platform Platform
-	skills   []string
-	prompts  []string
-	agents   []string
-	commands []string
-	registry bool
+type InstalledDetails struct {
+	Platform Platform
+	Skills   []string
+	Prompts  []string
+	Agents   []string
+	Commands []string
+	Registry bool
 }
 
 // hasAny returns true if any artifact is present.
-func (d *installedDetails) hasAny() bool {
-	return len(d.skills) > 0 || len(d.prompts) > 0 || len(d.agents) > 0 || len(d.commands) > 0 || d.registry
+func (d *InstalledDetails) hasAny() bool {
+	return len(d.Skills) > 0 || len(d.Prompts) > 0 || len(d.Agents) > 0 || len(d.Commands) > 0 || d.Registry
 }
 
 // checkWhatIsInstalled scans every detected platform and returns only
 // those that have at least one doc-agent-ai artifact.
-func checkWhatIsInstalled(manifest DistManifest, platforms []Platform) []installedDetails {
-	var result []installedDetails
+func checkWhatIsInstalled(manifest DistManifest, platforms []Platform) []InstalledDetails {
+	var result []InstalledDetails
 
 	for _, p := range platforms {
-		details := installedDetails{platform: p}
+		details := InstalledDetails{Platform: p}
 
-		details.skills = p.GetSkillIDs(manifest)
+		details.Skills = p.GetSkillIDs(manifest)
 
 		promptIDs, err := p.GetPromptIDs(manifest, nil)
 		if err == nil {
-			details.prompts = promptIDs
+			details.Prompts = promptIDs
 		}
 
 		agentIDs, err := p.GetAgentIDs(manifest, nil)
 		if err == nil {
-			details.agents = agentIDs
+			details.Agents = agentIDs
 		} else {
 			warn("Cannot read agent config — detection skipped for " + platformDisplayName(p.ID()) + ".")
 		}
@@ -67,7 +69,7 @@ func checkWhatIsInstalled(manifest DistManifest, platforms []Platform) []install
 		if p.ID() == "opencode" {
 			cmdIDs, err := p.GetCommandIDs(manifest)
 			if err == nil {
-				details.commands = cmdIDs
+				details.Commands = cmdIDs
 			}
 		}
 
@@ -75,7 +77,7 @@ func checkWhatIsInstalled(manifest DistManifest, platforms []Platform) []install
 		if p.ID() == "opencode" || p.ID() == "claude" {
 			registryPath := filepath.Join(p.HomeDir(), ".atl", "skill-registry.md")
 			if _, err := os.Stat(registryPath); err == nil {
-				details.registry = true
+				details.Registry = true
 			}
 		}
 
@@ -210,41 +212,41 @@ func removeSkillRegistryForPlatform(plat Platform) {
 }
 
 // uninstallPlatform removes all detected artifacts from a single platform.
-func uninstallPlatform(details installedDetails, manifest DistManifest) {
-	plat := details.platform
+func uninstallPlatform(details InstalledDetails, manifest DistManifest) {
+	plat := details.Platform
 	head("Removing from " + plat.ID() + "...")
 
-	if len(details.skills) > 0 {
-		removeSkillsForPlatform(plat, details.skills)
+	if len(details.Skills) > 0 {
+		removeSkillsForPlatform(plat, details.Skills)
 	}
-	if len(details.prompts) > 0 {
-		removePromptFilesForPlatform(plat, details.prompts, manifest)
+	if len(details.Prompts) > 0 {
+		removePromptFilesForPlatform(plat, details.Prompts, manifest)
 	}
 
 	if plat.ID() == "opencode" {
-		if len(details.commands) > 0 {
-			removeCommandFiles(plat, details.commands, manifest)
+		if len(details.Commands) > 0 {
+			removeCommandFiles(plat, details.Commands, manifest)
 		}
 		sweepLegacyCommands(plat.HomeDir(), manifest.LegacyCommandIds)
-		if len(details.agents) > 0 {
+		if len(details.Agents) > 0 {
 			if err := plat.RemoveConfig(manifest, nil); err != nil {
 				errOut("Failed to clean opencode.json: " + err.Error())
 			} else {
-				for _, id := range details.agents {
+				for _, id := range details.Agents {
 					ok("agent removed: " + id)
 				}
 			}
 		}
-		if details.registry {
+		if details.Registry {
 			removeSkillRegistryForPlatform(plat)
 		}
 		return
 	}
 
-	if len(details.agents) > 0 {
-		removeAgentFilesForPlatform(plat, details.agents, manifest)
+	if len(details.Agents) > 0 {
+		removeAgentFilesForPlatform(plat, details.Agents, manifest)
 	}
-	if details.registry {
+	if details.Registry {
 		removeSkillRegistryForPlatform(plat)
 	}
 }
@@ -259,7 +261,7 @@ func uninstallPlatform(details installedDetails, manifest DistManifest) {
 func uninstallInteractive(manifest DistManifest) error {
 	// Banner
 	fmt.Println()
-	fmt.Printf("%s%s  doc-agent-ai%s %sv%s — uninstaller%s\n", ansiBold, ansiCyan, ansiReset, ansiGray, version, ansiReset)
+	fmt.Printf("%s%s  doc-agent-ai%s %sv%s — uninstaller%s\n", ansiBold, ansiCyan, ansiReset, ansiGray, buildpkg.Version, ansiReset)
 	fmt.Println()
 
 	// Step 1: Detect platforms
@@ -298,26 +300,26 @@ func uninstallInteractive(manifest DistManifest) error {
 	fmt.Printf("%s  ─────────────────────────────────%s\n", ansiGray, ansiReset)
 
 	for _, details := range installed {
-		platID := details.platform.ID()
+		platID := details.Platform.ID()
 		fmt.Printf("  %s:\n", platID)
-		if len(details.skills) > 0 {
-			subInfo("Skills: " + strings.Join(details.skills, ", "))
+		if len(details.Skills) > 0 {
+			subInfo("Skills: " + strings.Join(details.Skills, ", "))
 		}
-		if len(details.prompts) > 0 {
+		if len(details.Prompts) > 0 {
 			relPrompts := fmt.Sprintf("prompts/%s/", "doc")
 			subInfo("Prompts: " + relPrompts)
 		}
-		if len(details.commands) > 0 {
-			cmdNames := make([]string, len(details.commands))
-			for i, id := range details.commands {
+		if len(details.Commands) > 0 {
+			cmdNames := make([]string, len(details.Commands))
+			for i, id := range details.Commands {
 				cmdNames[i] = "/" + id
 			}
 			subInfo("Commands: " + strings.Join(cmdNames, ", "))
 		}
-		if len(details.agents) > 0 {
-			subInfo("Agents: " + strings.Join(details.agents, ", "))
+		if len(details.Agents) > 0 {
+			subInfo("Agents: " + strings.Join(details.Agents, ", "))
 		}
-		if details.registry {
+		if details.Registry {
 			subInfo("Registry: .atl/skill-registry.md")
 		}
 	}

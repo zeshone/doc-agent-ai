@@ -696,9 +696,7 @@ func TestInstallNoRawTokenLeak(t *testing.T) {
 
 	// Check prompts dir and commands dir (the two install targets for roles/commands).
 	walkDir(plat.PromptsDir())
-	if oc, ok := plat.(*opencodePlatform); ok {
-		walkDir(filepath.Join(oc.HomeDir(), "commands"))
-	}
+	walkDir(filepath.Join(plat.HomeDir(), "commands"))
 
 	if len(leaks) > 0 {
 		for _, f := range leaks {

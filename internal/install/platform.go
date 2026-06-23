@@ -1,4 +1,4 @@
-package main
+package install
 
 import (
 	"encoding/json"
@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	buildpkg "github.com/zeshone/doc-agent-ai/internal/build"
 )
 
 // copilotPathOverride holds the value of --copilot-path when provided on the
@@ -16,6 +18,11 @@ var copilotPathOverride string
 // piPathOverride holds the value of --pi-path when provided on the command
 // line.  Set in main() before any platform construction occurs.
 var piPathOverride string
+
+func SetCopilotPathOverride(path string) { copilotPathOverride = path }
+func CopilotPathOverride() string        { return copilotPathOverride }
+func SetPiPathOverride(path string)      { piPathOverride = path }
+func PiPathOverride() string             { return piPathOverride }
 
 // ---------------------------------------------------------------------------
 // Platform interface
@@ -848,7 +855,7 @@ func registryTemplate(basePath, skillsDir, triggerStyle string) string {
 - EXCLUDED from agent context: `+"`_prd.md`"+`, `+"`_tech-spec.md`"+`, and all other files under `+"`docs/doc-agent/`"+`
 - If context files absent, suggest running `+"`/doc-to-sdd`"+` once — do NOT fall back to the full docs tree
 `,
-		version,
+		buildpkg.Version,
 		basePath,
 		docArchTrigger,
 		filepath.Join(skillsDir, "doc-arch", "SKILL.md"),

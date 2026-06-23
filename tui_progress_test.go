@@ -441,7 +441,7 @@ func TestTUIFlow_Progress_ReachesStepDone(t *testing.T) {
 func TestUninstall_HeaderIsZeen(t *testing.T) {
 	dir := t.TempDir()
 	plat := newPlatformForTest(t, "opencode", dir+"/opencode")
-	installed := []installedDetails{{platform: plat, skills: []string{"doc-prd"}}}
+	installed := []InstalledDetails{{Platform: plat, Skills: []string{"doc-prd"}}}
 	m := newUninstallModel(installed, testManifest(), NoColor())
 	m.width = 80
 	m.height = 24

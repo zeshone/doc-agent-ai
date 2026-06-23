@@ -21,9 +21,9 @@ func main() {
 		for i := 0; i < len(args)-1; i++ {
 			switch args[i] {
 			case "--copilot-path":
-				copilotPathOverride = args[i+1]
+				setCopilotPathOverride(args[i+1])
 			case "--pi-path":
-				piPathOverride = args[i+1]
+				setPiPathOverride(args[i+1])
 			default:
 				continue
 			}

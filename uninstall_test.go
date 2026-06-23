@@ -54,9 +54,9 @@ func TestUninstallSweep_RemovesCurrentAndLegacy(t *testing.T) {
 		t.Fatalf("seed legacy file: %v", err)
 	}
 
-	details := installedDetails{
-		platform: plat,
-		commands: []string{"doc-prd"},
+	details := InstalledDetails{
+		Platform: plat,
+		Commands: []string{"doc-prd"},
 	}
 	uninstallPlatform(details, manifest)
 
@@ -110,9 +110,9 @@ func TestUninstallSweep_OnlyCurrentPresent(t *testing.T) {
 		currentCmdIDs = append(currentCmdIDs, cmd.ID)
 	}
 
-	details := installedDetails{
-		platform: plat,
-		commands: currentCmdIDs,
+	details := InstalledDetails{
+		Platform: plat,
+		Commands: currentCmdIDs,
 	}
 	// Must not error even if no legacy files exist.
 	uninstallPlatform(details, manifest)
@@ -167,9 +167,9 @@ func TestUninstallSweep_OnlyLegacyPresent(t *testing.T) {
 	}
 
 	// No current commands present — commands list is empty; sweep runs anyway via LegacyCommandIds.
-	details := installedDetails{
-		platform: plat,
-		commands: nil,
+	details := InstalledDetails{
+		Platform: plat,
+		Commands: nil,
 	}
 	uninstallPlatform(details, manifest)
 

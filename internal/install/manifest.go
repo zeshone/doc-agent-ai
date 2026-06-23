@@ -1,4 +1,4 @@
-package main
+package install
 
 // ContentManifest matches the schema of src/manifests/content.json.
 type ContentManifest struct {

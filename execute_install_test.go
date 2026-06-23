@@ -174,9 +174,7 @@ func TestExecuteInstall_PassesModeToInstallToPlatform(t *testing.T) {
 		}
 	}
 	walkForLeaks(plat.PromptsDir())
-	if oc, ok := plat.(*opencodePlatform); ok {
-		walkForLeaks(filepath.Join(oc.HomeDir(), "commands"))
-	}
+	walkForLeaks(filepath.Join(plat.HomeDir(), "commands"))
 	if len(leaks) > 0 {
 		t.Errorf("executeInstall left %d unresolved token(s): %v", len(leaks), leaks)
 	}

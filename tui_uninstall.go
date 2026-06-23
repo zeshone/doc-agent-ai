@@ -48,7 +48,7 @@ type UninstallModel struct {
 	step uninstallStep
 
 	// installed is the list of platforms that have doc-agent-ai artifacts.
-	installed []installedDetails
+	installed []InstalledDetails
 
 	// manifest is the DistManifest loaded from dist/.
 	manifest DistManifest
@@ -68,7 +68,7 @@ type UninstallModel struct {
 }
 
 // newUninstallModel constructs an UninstallModel ready for use.
-func newUninstallModel(installed []installedDetails, manifest DistManifest, styles Styles) UninstallModel {
+func newUninstallModel(installed []InstalledDetails, manifest DistManifest, styles Styles) UninstallModel {
 	return UninstallModel{
 		step:      uninstallStepConfirm,
 		installed: installed,
@@ -144,7 +144,7 @@ func (m UninstallModel) runUninstall() tea.Cmd {
 	return func() tea.Msg {
 		var lines []string
 		for _, details := range installed {
-			lines = append(lines, "  Removing from "+details.platform.ID()+"...")
+			lines = append(lines, "  Removing from "+details.Platform.ID()+"...")
 			uninstallPlatform(details, manifest)
 		}
 		return uninstallResultMsg{err: nil, progressLines: lines}
@@ -179,25 +179,25 @@ func (m UninstallModel) viewConfirm(sb *strings.Builder) {
 	sb.WriteString(m.styles.Dim.Render("  ─────────────────────────────────") + "\n\n")
 
 	for _, details := range m.installed {
-		sb.WriteString(m.styles.Subtitle.Render("  "+details.platform.ID()+":") + "\n")
+		sb.WriteString(m.styles.Subtitle.Render("  "+details.Platform.ID()+":") + "\n")
 
-		if len(details.skills) > 0 {
-			sb.WriteString(m.styles.Dim.Render("    → Skills: "+strings.Join(details.skills, ", ")) + "\n")
+		if len(details.Skills) > 0 {
+			sb.WriteString(m.styles.Dim.Render("    → Skills: "+strings.Join(details.Skills, ", ")) + "\n")
 		}
-		if len(details.prompts) > 0 {
+		if len(details.Prompts) > 0 {
 			sb.WriteString(m.styles.Dim.Render("    → Prompts: prompts/doc/") + "\n")
 		}
-		if len(details.commands) > 0 {
-			cmdNames := make([]string, len(details.commands))
-			for i, id := range details.commands {
+		if len(details.Commands) > 0 {
+			cmdNames := make([]string, len(details.Commands))
+			for i, id := range details.Commands {
 				cmdNames[i] = "/" + id
 			}
 			sb.WriteString(m.styles.Dim.Render("    → Commands: "+strings.Join(cmdNames, ", ")) + "\n")
 		}
-		if len(details.agents) > 0 {
-			sb.WriteString(m.styles.Dim.Render("    → Agents: "+strings.Join(details.agents, ", ")) + "\n")
+		if len(details.Agents) > 0 {
+			sb.WriteString(m.styles.Dim.Render("    → Agents: "+strings.Join(details.Agents, ", ")) + "\n")
 		}
-		if details.registry {
+		if details.Registry {
 			sb.WriteString(m.styles.Dim.Render("    → Registry: .atl/skill-registry.md") + "\n")
 		}
 	}
