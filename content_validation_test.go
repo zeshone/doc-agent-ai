@@ -338,6 +338,31 @@ func TestContentManifest_LegacyCommandIds(t *testing.T) {
 	}
 }
 
+// TestDocArchOpenCodeTools_HasQuestion guards that the doc-arch orchestrator
+// can invoke OpenCode's interactive-question tool. doc-arch is the only
+// mode:primary role — it runs the Phase 0 preflight and asks the closed-ended
+// questions (language, destination, feature offer, ddd) that Global Agent
+// Rule #13 requires be rendered via the native option-selection tool. OpenCode
+// treats an explicit opencodeTools map as an allowlist, so without "question"
+// the agent cannot call the tool and falls back to plain-text options.
+func TestDocArchOpenCodeTools_HasQuestion(t *testing.T) {
+	cm := loadContentManifest(t)
+
+	var docArch *RoleConfig
+	for i := range cm.Roles {
+		if cm.Roles[i].ID == "doc-arch" {
+			docArch = &cm.Roles[i]
+			break
+		}
+	}
+	if docArch == nil {
+		t.Fatal("doc-arch role not found in content.json roles array")
+	}
+	if !docArch.OpenCodeTools["question"] {
+		t.Errorf("doc-arch opencodeTools must include \"question\" so the orchestrator can use the interactive-question tool per Rule #13; got %v", docArch.OpenCodeTools)
+	}
+}
+
 // TestDocArchCopilotChildren_CoversDocArchSubagents guards Copilot routing:
 // every doc-arch-managed subagent role must be declared in doc-arch.copilotChildren.
 func TestDocArchCopilotChildren_CoversDocArchSubagents(t *testing.T) {
