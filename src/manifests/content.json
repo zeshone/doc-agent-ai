@@ -34,7 +34,8 @@
         "edit": true,
         "read": true,
         "task": true,
-        "write": true
+        "write": true,
+        "question": true
       },
       "copilotChildren": ["doc-idea", "doc-rec", "doc-prd", "doc-refinement", "doc-tech", "doc-ddd", "doc-pti", "doc-feat", "doc-scope", "doc-rec-lite", "doc-prd-lite", "doc-to-sdd"]
     },
