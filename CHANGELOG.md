@@ -6,6 +6,22 @@ For older releases without a section here, the GitHub Release notes have the det
 
 ---
 
+## v4.1.1 — 2026-07-23
+
+### Added
+
+- Phase 0 startup preflight for the documentation agent (`arch`/`mod`): existing-project detection (engram probe with a filesystem fallback), destination confirmation (vault vs in-project), and a free-form brain-dump antechamber before the structured questions begin.
+- Closed-ended questions (documentation language, destination, existing-project feature offer, optional database design) are now presented through the host platform's native interactive option selector instead of free-text prompts, on platforms that expose one (OpenCode, Claude Code).
+
+### Changed
+
+- SDD-context filenames are now mode-aware: vault mode prefixes both files with `<system>_` (system-level) or `<system>_<module>_` (feature/module-level); in-project mode keeps the bare `_sdd-context.md` / `_sdd-tech-context.md` names.
+- Spanish agent prompts now use neutral Spanish (removed voseo).
+
+### Fixed
+
+- OpenCode: the `doc-arch` orchestrator now has the `question` tool enabled, so closed-ended prompts render as the native selector rather than emulated plain text.
+
 ## v4.1.0 — 2026-06-23
 
 ### Fixed
