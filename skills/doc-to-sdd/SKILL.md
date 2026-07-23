@@ -43,14 +43,46 @@ license: MIT
 
 ## Exit Contract
 
-**Output files** (written to `<BASE_PATH><system>/agent_sdd_context_project/`):
+**Output files** (written to `agent_sdd_context_project/` under the resolved docs root — `<BASE_PATH><system>/` in vault mode, `docs/doc-agent/` in in-project mode):
 
 | File | Layer | Sources |
 |------|-------|---------|
-| `_sdd-context.md` | Business | idea + rec + prd |
-| `_sdd-tech-context.md` | Technical | tech + ddd |
+| SDD context | Business | idea + rec + prd |
+| SDD tech context | Technical | tech + ddd |
 
-**Index update:** Add or replace `## SDD Context` section in `<BASE_PATH><system>/<system>.md` with:
+**Naming is mode-aware:**
+
+| Mode | Scope | Business file | Technical file |
+|------|-------|----------------|-----------------|
+| Vault | System-level (`to-sdd <system>`) | `<system>_sdd-context.md` | `<system>_sdd-tech-context.md` |
+| Vault | Feature/module-level (`<module>` = doc-arch node short name) | `<system>_<module>_sdd-context.md` | `<system>_<module>_sdd-tech-context.md` |
+| In-project | Any | `_sdd-context.md` (unchanged, bare) | `_sdd-tech-context.md` (unchanged, bare) |
+
+Feature/module-level naming is a forward-compatible convention — the rule applies regardless of whether module-scoped invocation is currently exercised.
+
+**Index update:** Add or replace `## SDD Context` section in `<BASE_PATH><system>/<system>.md` (vault) or the project index (in-project) with the mode-appropriate block, using the same filenames from the naming table above:
+
+Vault, system-level:
+
+```markdown
+## SDD Context
+
+LLM-optimized context files for agentic SDD programming:
+- `agent_sdd_context_project/<system>_sdd-context.md` — Business layer (problem, requirements, stories, decisions)
+- `agent_sdd_context_project/<system>_sdd-tech-context.md` — Technical layer (architecture, stack, contracts, data model)
+```
+
+Vault, feature/module-level:
+
+```markdown
+## SDD Context
+
+LLM-optimized context files for agentic SDD programming:
+- `agent_sdd_context_project/<system>_<module>_sdd-context.md` — Business layer (problem, requirements, stories, decisions)
+- `agent_sdd_context_project/<system>_<module>_sdd-tech-context.md` — Technical layer (architecture, stack, contracts, data model)
+```
+
+In-project (bare, unchanged):
 
 ```markdown
 ## SDD Context

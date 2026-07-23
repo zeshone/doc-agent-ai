@@ -12,6 +12,8 @@ The base path for all projects is: {{BASE_PATH}}
 
 > Paths below show vault layout (`{{BASE_PATH}}<system>/...`). In in-project mode apply the docs root resolved per the preamble above: replace `{{BASE_PATH}}<system>/` with `docs/doc-agent/` (no `<system>` folder).
 
+> **Output filenames are mode-aware.** Vault mode prefixes both output files with `<system>_` (system-level) or `<system>_<module>_` (feature/module-level, `<module>` = doc-arch node short name). In-project mode keeps the bare `_sdd-context.md` / `_sdd-tech-context.md` names unchanged.
+
 ---
 
 ## Pre-flight checks — run ALL before doing any work
@@ -47,17 +49,35 @@ Read each available artifact in priority order. Parse into sections at H1/H2/H3 
 If at least one of {rec, prd} is available:
 - Extract problem statement, requirements, user stories, constraints, decisions, TBDs.
 - Apply idea brief or `<system>.md` fallback for problem context.
-- Write `{{BASE_PATH}}<system>/agent_sdd_context_project/_sdd-context.md` using the Business Layer schema.
+- Write the business layer file using the Business Layer schema, mode-aware:
+  - Vault, system-level: `{{BASE_PATH}}<system>/agent_sdd_context_project/<system>_sdd-context.md`
+  - Vault, feature/module-level: `{{BASE_PATH}}<system>/agent_sdd_context_project/<system>_<module>_sdd-context.md`
+  - In-project: `docs/doc-agent/agent_sdd_context_project/_sdd-context.md` (bare, unchanged)
 If NOT viable → skip and record warning.
 
 **Step 3 — Compact technical layer:**
 If at least one of {tech, ddd} is available:
 - Extract architecture overview, technology stack, interface contracts, data model, decisions, constraints, TBDs.
-- Write `{{BASE_PATH}}<system>/agent_sdd_context_project/_sdd-tech-context.md` using the Technical Layer schema.
+- Write the technical layer file using the Technical Layer schema, mode-aware:
+  - Vault, system-level: `{{BASE_PATH}}<system>/agent_sdd_context_project/<system>_sdd-tech-context.md`
+  - Vault, feature/module-level: `{{BASE_PATH}}<system>/agent_sdd_context_project/<system>_<module>_sdd-tech-context.md`
+  - In-project: `docs/doc-agent/agent_sdd_context_project/_sdd-tech-context.md` (bare, unchanged)
 If NOT viable → skip and record warning.
 
 **Step 4 — Update project index:**
-Add or replace the `## SDD Context` section in `{{BASE_PATH}}<system>/<system>.md`:
+Add or replace the `## SDD Context` section in `{{BASE_PATH}}<system>/<system>.md` (vault) or the resolved project index (in-project), using the same mode-aware filenames written in Steps 2-3:
+
+Vault:
+
+```markdown
+## SDD Context
+
+LLM-optimized context files for agentic SDD programming:
+- `agent_sdd_context_project/<system>_sdd-context.md` — Business layer (problem, requirements, stories, decisions)
+- `agent_sdd_context_project/<system>_sdd-tech-context.md` — Technical layer (architecture, stack, contracts, data model)
+```
+
+In-project:
 
 ```markdown
 ## SDD Context
