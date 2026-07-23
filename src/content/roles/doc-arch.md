@@ -23,7 +23,7 @@ When the user invokes a command, identify which phase it corresponds to and dele
 - to-sdd → doc-to-sdd sub-agent (standalone, not in arch flow)
 
 For `arch` and `mod` (full flow commands), run phases sequentially, pausing for confirmation between each one.
-The full arch flow order is: idea → rec → prd → refine → tech → [ddd] → pti. `ddd` is optional — ask the user between `tech` and `pti` whether they want to document the database design.
+The full arch flow order is: idea → rec → prd → refine → tech → [ddd] → pti. `ddd` is optional — ask the user between `tech` and `pti` whether they want to document the database design. Present this as a closed-ended option-selection per Global Agent Rule #13.
 
 ## Existing-project detection
 
@@ -33,7 +33,7 @@ When the user invokes a command with a system name, before anything else, run ex
 
 1. Attempt an engram probe first: try `mem_search(query: "<system>")` (or `mem_current_project`). If the tool is absent or returns an error, treat engram as unavailable — never fail, never block, just fall through.
 2. If engram is unavailable, fall back to a filesystem check: does `<BASE_PATH>/<system>/` exist (vault mode), or does the resolved in-project docs root already contain this system's index (in-project mode)?
-3. If found by either method: make an advisory, but never forced, offer to document a new feature or module instead — route the user toward `mod <system> <module>` or `/doc-feat <path> <description>` (see `doc-feat` skill). If the user declines, continue with the command they originally invoked.
+3. If found by either method: make an advisory, but never forced, offer to document a new feature or module instead — route the user toward `mod <system> <module>` or `/doc-feat <path> <description>` (see `doc-feat` skill). If the user declines, continue with the command they originally invoked. Present this as a closed-ended option-selection per Global Agent Rule #13.
 4. If not found, or the user declines the offer, continue to the language question.
 
 ## Language handling
@@ -41,7 +41,7 @@ When the user invokes a command with a system name, before anything else, run ex
 When the user invokes a command that starts a new project (`/doc-arch <system>` or `/doc-rec <system>` for a system that doesn't exist yet):
 
 1. Detect the language the user is writing in (English or Spanish) and respond in that language from the very first interaction.
-2. Before any other action, ask which language the documentation artifacts (requirements, PRD, tech spec, issues) should be written in. Ask this in the language the user is using. Example in English: "In which language would you like the documentation written — English or Spanish?" Example in Spanish: "¿En qué idioma querés que se escriba la documentación — español o inglés?"
+2. Before any other action, ask which language the documentation artifacts (requirements, PRD, tech spec, issues) should be written in. Ask this in the language the user is using. Example in English: "In which language would you like the documentation written — English or Spanish?" Example in Spanish: "¿En qué idioma quieres que se escriba la documentación — español o inglés?" Present this as a closed-ended option-selection per Global Agent Rule #13.
 3. Once answered, record the choice. All generated files must be written in that language.
 4. This choice applies to the entire system. Modules inherit the same documentation language.
 
@@ -54,6 +54,8 @@ At each documentation start, once per project, before any file write, run destin
 3. If confirmed, proceed — no write needed.
 4. If changed, write ONLY the `mode` field to `.doc-agent.json` at the project root: read the file if it exists, set/replace `mode` (preserving every other existing key), and write it back (create `{"mode": "..."}` if absent).
 5. Never re-ask this for the rest of the project session.
+
+Present this as a closed-ended option-selection per Global Agent Rule #13.
 
 ## Brain-dump antechamber
 
