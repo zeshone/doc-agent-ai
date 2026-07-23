@@ -400,3 +400,134 @@ func TestDocArchRoleMD_Phase0ScopedToOrchestrator(t *testing.T) {
 		}
 	}
 }
+
+// ---------------------------------------------------------------------------
+// structured-option-selection — Phase 1: Global Agent Rule #13
+//
+// Closed-ended questions (small, fixed answer sets the agent already knows)
+// must be presented through the host platform's native option-selection UI
+// (arrow-key navigation plus Enter), falling back to a clearly enumerated
+// list where no such widget exists. This governs FORM ONLY — the question
+// stays mandatory and non-skippable. Open-ended questions (free product
+// discovery, requirements elicitation, the brain-dump) are exempt.
+//
+// Rule #13's text lives only in skills/doc-arch/SKILL.md's Global Agent
+// Rules list (single-tree — role.md has no such numbered list and reaches
+// the rules via {{RULES_SKILL_PATH}}). doc-arch's 4 closed-ended question
+// sections in BOTH trees must reference "Global Agent Rule #13". Two
+// pre-existing voseo strings ("querés"/"Querés") are neutralized.
+// ---------------------------------------------------------------------------
+
+// TestDocArchSkillMD_Rule13OptionSelection verifies
+// skills/doc-arch/SKILL.md's Global Agent Rules list defines Rule #13:
+// closed-ended questions must use native option-selection UI with an
+// enumerated-list fallback, form-only, never skippable, open-ended exempt.
+func TestDocArchSkillMD_Rule13OptionSelection(t *testing.T) {
+	data, err := embedded.ReadFile("skills/doc-arch/SKILL.md")
+	if err != nil {
+		t.Fatalf("cannot read SKILL.md: %v", err)
+	}
+	content := string(data)
+
+	required := []string{
+		"Closed-ended questions use option-selection.",
+		"native option-selection UI",
+		"arrow-key navigation plus Enter",
+		"enumerated list",
+		"mandatory and non-skippable",
+		"Open-ended questions",
+		"exempt",
+	}
+	for _, r := range required {
+		if !strings.Contains(content, r) {
+			t.Errorf("SKILL.md missing Rule #13 reference: %q", r)
+		}
+	}
+}
+
+// TestDocArchSkillMD_ClosedEndedSectionsReferenceRule13 verifies
+// skills/doc-arch/SKILL.md's 4 closed-ended question sections (language,
+// destination confirmation, existing-project offer, ddd yes/no) each
+// reference "Global Agent Rule #13".
+func TestDocArchSkillMD_ClosedEndedSectionsReferenceRule13(t *testing.T) {
+	data, err := embedded.ReadFile("skills/doc-arch/SKILL.md")
+	if err != nil {
+		t.Fatalf("cannot read SKILL.md: %v", err)
+	}
+	content := string(data)
+
+	if n := strings.Count(content, "Global Agent Rule #13"); n < 4 {
+		t.Errorf("SKILL.md expected at least 4 references to \"Global Agent Rule #13\" (one per closed-ended section), found %d", n)
+	}
+}
+
+// TestDocArchRoleMD_ClosedEndedSectionsReferenceRule13 verifies
+// src/content/roles/doc-arch.md's 4 closed-ended question sections each
+// reference "Global Agent Rule #13".
+func TestDocArchRoleMD_ClosedEndedSectionsReferenceRule13(t *testing.T) {
+	data, err := embedded.ReadFile("src/content/roles/doc-arch.md")
+	if err != nil {
+		t.Fatalf("cannot read role file: %v", err)
+	}
+	content := string(data)
+
+	if n := strings.Count(content, "Global Agent Rule #13"); n < 4 {
+		t.Errorf("role file expected at least 4 references to \"Global Agent Rule #13\" (one per closed-ended section), found %d", n)
+	}
+}
+
+// TestDocArchRoleMD_LanguageQuestionNeutralSpanish verifies
+// src/content/roles/doc-arch.md's language-choice Spanish example uses
+// neutral Spanish ("quieres") instead of voseo ("querés"/"Querés").
+func TestDocArchRoleMD_LanguageQuestionNeutralSpanish(t *testing.T) {
+	data, err := embedded.ReadFile("src/content/roles/doc-arch.md")
+	if err != nil {
+		t.Fatalf("cannot read role file: %v", err)
+	}
+	content := string(data)
+
+	if !strings.Contains(content, "¿En qué idioma quieres") {
+		t.Errorf("role file missing neutral-Spanish language question: %q", "¿En qué idioma quieres")
+	}
+	if strings.Contains(strings.ToLower(content), "uerés") {
+		t.Errorf("role file still contains voseo form (\"querés\"/\"Querés\")")
+	}
+}
+
+// TestDocArchSkillMD_DddQuestionNeutralSpanish verifies
+// skills/doc-arch/SKILL.md's ddd yes/no Spanish example uses neutral Spanish
+// ("quieres") instead of voseo ("querés"/"Querés").
+func TestDocArchSkillMD_DddQuestionNeutralSpanish(t *testing.T) {
+	data, err := embedded.ReadFile("skills/doc-arch/SKILL.md")
+	if err != nil {
+		t.Fatalf("cannot read SKILL.md: %v", err)
+	}
+	content := string(data)
+
+	if !strings.Contains(content, "¿Quieres documentar el diseño de la base de datos?") {
+		t.Errorf("SKILL.md missing neutral-Spanish ddd question: %q", "¿Quieres documentar el diseño de la base de datos?")
+	}
+	if strings.Contains(strings.ToLower(content), "uerés") {
+		t.Errorf("SKILL.md still contains voseo form (\"querés\"/\"Querés\")")
+	}
+}
+
+// TestDocArchCommandMD_DddQuestionNeutralSpanish verifies
+// src/content/commands/doc-arch.md's ddd yes/no Spanish example uses neutral
+// Spanish ("quieres") instead of voseo ("querés"/"Querés"). This command file
+// ships into the doc-arch command bundle, so its Spanish output must be neutral
+// too — the skill and role trees are not the only user-facing surface.
+func TestDocArchCommandMD_DddQuestionNeutralSpanish(t *testing.T) {
+	data, err := embedded.ReadFile("src/content/commands/doc-arch.md")
+	if err != nil {
+		t.Fatalf("cannot read command file: %v", err)
+	}
+	content := string(data)
+
+	if !strings.Contains(content, "¿Quieres documentar el diseño de la base de datos?") {
+		t.Errorf("command file missing neutral-Spanish ddd question: %q", "¿Quieres documentar el diseño de la base de datos?")
+	}
+	if strings.Contains(strings.ToLower(content), "uerés") {
+		t.Errorf("command file still contains voseo form (\"querés\"/\"Querés\")")
+	}
+}

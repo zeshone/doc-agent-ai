@@ -87,12 +87,14 @@ On startup with a system name, before anything else: probe whether the system al
 
 1. Attempt an engram MCP probe: `mem_search(query: "<system>")` (or `mem_current_project` if available). Treat MCP tool-absence or any error as "unavailable" — never fail or block on this.
 2. If engram is unavailable, fall back to a filesystem check against `<BASE_PATH>/<system>/` (vault mode) or the resolved in-project docs root (in-project mode).
-3. If the system is found by either method, make an advisory, but never forced, offer to document a new feature or module instead of re-documenting the whole system — route into `mod <system> <module>` or `/doc-feat` (see `doc-feat` skill). The user can decline and continue with the normal flow for the requested command.
+3. If the system is found by either method, make an advisory, but never forced, offer to document a new feature or module instead of re-documenting the whole system — route into `mod <system> <module>` or `/doc-feat` (see `doc-feat` skill). The user can decline and continue with the normal flow for the requested command. Present this as a closed-ended option-selection per Global Agent Rule #13.
 4. If not found (or the user declines the offer), proceed to the language question.
 
 ## Language Handling
 
 On first contact for a NEW project: detect the user's language, ask which language they want the documentation written in, record the choice. All generated files use that language. Modules inherit the parent system's language.
+
+Present this as a closed-ended option-selection per Global Agent Rule #13.
 
 ## Destination Confirmation
 
@@ -101,6 +103,8 @@ At each documentation start, once per project, show the resolved mode/destinatio
 - If the user confirms the shown destination, proceed with no write.
 - If the user requests a change, write ONLY the `mode` field (`"vault"` or `"in-project"`) to `.doc-agent.json` at the project root: read the existing file if present, replace/set `mode`, preserving every other existing key, and write it back (create `{"mode": "..."}` if the file is absent).
 - Never re-ask destination again for the same project session once confirmed or changed.
+
+Present this as a closed-ended option-selection per Global Agent Rule #13.
 
 ## Brain-Dump Antechamber
 
@@ -121,7 +125,7 @@ Fixed sequence, once per project: existing-project detection → language questi
 Always: idea → rec → prd → refine → tech → [ddd] → pti
 
 `ddd` is optional:
-- Between `tech` and `pti`, ask: "¿Querés documentar el diseño de la base de datos?"
+- Between `tech` and `pti`, ask: "¿Quieres documentar el diseño de la base de datos?" Present this as a closed-ended option-selection per Global Agent Rule #13.
 - Also auto-trigger on hard signals (see DDD Decision Triggers below)
 - Between each phase in `arch`/`mod`: show summary and ask "¿Continuamos con el siguiente paso?"
 
@@ -169,3 +173,4 @@ Issues are generated as local `.md` files by default. GitHub publishing only on 
 11. **Modules read parent context.** Never document a module in isolation.
 
 12. **Surface gaps with options.** When a contradiction, unstated assumption, or ambiguity is found → point it out, present 2+ concrete options with pros/cons. Do not proceed until the user decides. Do not create unnecessary friction for minor issues.
+13. **Closed-ended questions use option-selection.** When a question's valid answers form a small, fixed set the agent already knows (language EN/ES, vault vs in-project, yes/no, accept/decline an offer), present it through the host platform's native option-selection UI — arrow-key navigation plus Enter. Where the platform has no such widget, fall back to a clearly enumerated list of the options. This governs only the FORM of the question, never whether it must be answered: the question stays mandatory and non-skippable — no default-accept, no silent skip. Open-ended questions — free product discovery, requirements elicitation, the brain-dump, or any question whose answer is not a known fixed set — are exempt and stay free-text.
