@@ -430,9 +430,12 @@ func TestDocArchSkillMD_Rule13OptionSelection(t *testing.T) {
 	content := string(data)
 
 	required := []string{
-		"Closed-ended questions use option-selection.",
-		"native option-selection UI",
-		"arrow-key navigation plus Enter",
+		"Closed-ended questions use the interactive-question tool",
+		"`question` tool",
+		"AskUserQuestion",
+		"never plain chat text",
+		"(Recommended)",
+		"STOP and wait",
 		"enumerated list",
 		"mandatory and non-skippable",
 		"Open-ended questions",
