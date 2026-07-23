@@ -39,6 +39,8 @@ Step 5: Capture in master index
 
 ## Step 1: Receive the Initial Idea
 
+**If the orchestrator carried forward a brain-dump** (marked as upstream intake notes — do NOT re-ask what this covers): treat that dump as the initial idea, map its content onto the 5 PO questions below, marking each one already answered by the dump, then proceed directly to asking only the **gaps** — the questions the dump did not cover. Fold the dump's content into the Step 4 reformulation together with any gap answers.
+
 Acknowledge the idea. Assess specificity.
 
 **Too broad** (go to Step 2): no specific domain, multiple unrelated areas, no user/problem implied.
