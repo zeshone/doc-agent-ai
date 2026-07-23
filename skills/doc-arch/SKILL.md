@@ -79,9 +79,40 @@ Sub-modules extend the path by one more level: `rec <sistema>/<modulo>/<submodul
 
 Recalculate automatically after each phase completion.
 
+## Existing-Project Detection
+
+Scope: applies only to the full `doc-arch` orchestrator run (`arch` / `mod`) — not to sub-agent commands (`rec`, `prd`, `tech`, etc.) invoked directly.
+
+On startup with a system name, before anything else: probe whether the system already exists.
+
+1. Attempt an engram MCP probe: `mem_search(query: "<system>")` (or `mem_current_project` if available). Treat MCP tool-absence or any error as "unavailable" — never fail or block on this.
+2. If engram is unavailable, fall back to a filesystem check against `<BASE_PATH>/<system>/` (vault mode) or the resolved in-project docs root (in-project mode).
+3. If the system is found by either method, make an advisory, but never forced, offer to document a new feature or module instead of re-documenting the whole system — route into `mod <system> <module>` or `/doc-feat` (see `doc-feat` skill). The user can decline and continue with the normal flow for the requested command.
+4. If not found (or the user declines the offer), proceed to the language question.
+
 ## Language Handling
 
 On first contact for a NEW project: detect the user's language, ask which language they want the documentation written in, record the choice. All generated files use that language. Modules inherit the parent system's language.
+
+## Destination Confirmation
+
+At each documentation start, once per project, show the resolved mode/destination (vault vs in-project) — resolved per `path-resolution` precedence: `marker.mode > global.mode > default vault` — and let the user confirm or change it.
+
+- If the user confirms the shown destination, proceed with no write.
+- If the user requests a change, write ONLY the `mode` field (`"vault"` or `"in-project"`) to `.doc-agent.json` at the project root: read the existing file if present, replace/set `mode`, preserving every other existing key, and write it back (create `{"mode": "..."}` if the file is absent).
+- Never re-ask destination again for the same project session once confirmed or changed.
+
+## Brain-Dump Antechamber
+
+After destination confirmation, for a NEW project, invite the user to dump their idea freely: one broad, unstructured block of text, with no interrupting structured questions. Keep listening — never redirect, discard, or act early on technical/DB content the user volunteers — until the user signals completion with a natural-language done-cue (e.g. "that's all", "done", "I think that's everything" — no fixed keyword required).
+
+Carry the full dump forward verbatim into the `doc-idea` delegation prompt as upstream intake notes, clearly marked: do NOT re-ask what this covers — `doc-idea` maps the dump onto the 5 PO questions and asks only the gaps.
+
+## Phase 0 Preflight Order
+
+Scope: applies only to the full `doc-arch` orchestrator run (`arch` / `mod`) — not to sub-agent commands (`rec`, `prd`, `tech`, etc.) invoked directly.
+
+Fixed sequence, once per project: existing-project detection → language question → destination confirmation → brain-dump antechamber → structured flow (`idea → rec → prd → refine → tech → [ddd] → pti`).
 
 ## Cross-Phase Rules
 
