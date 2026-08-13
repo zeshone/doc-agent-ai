@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 
 	docagent "github.com/zeshone/doc-agent-ai"
 	buildpkg "github.com/zeshone/doc-agent-ai/internal/build"
@@ -145,6 +146,10 @@ func main() {
 	case "decide-phase":
 		os.Exit(pipelinepkg.RunDecidePhase(args[1:], pipelineEnvironment(), os.Stdout, os.Stderr))
 
+	case "doctor":
+		os.Exit(pipelinepkg.RunDoctor(args[1:], pipelineEnvironment(),
+			time.Now().UTC().Format(time.RFC3339), os.Stdout, os.Stderr))
+
 	case "--version":
 		fmt.Printf("doc-agent-ai %s\n", buildpkg.Version)
 
@@ -200,6 +205,11 @@ Pipeline subcommands (typed JSON on stdout; the orchestrator routes on these):
                   question bank; --sections carries prose per topic id.
   decide-phase  Record a decision about an optional phase
                   --node <n> --phase <p> --decision <accepted|declined>
+  doctor        Align documentation written before answer records existed
+                  --node <n> [--check | --apply] [--recursive]
+                  [--archetype <bounded|evolving>]
+                  Reports by default; --apply writes. Adopted phases are
+                  documented with coverage explicitly unverified.
 
   Exit codes: 0 affirmative, 1 usage or environment error, 2 refused verdict.
 

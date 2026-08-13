@@ -189,6 +189,11 @@ func (r Resolution) AuditRecordPath(phase PhaseID) string {
 		fmt.Sprintf("%s.%s.json", r.Node.ShortName, phase))
 }
 
+// AdoptionPath is where inherited-documentation state lives.
+func (r Resolution) AdoptionPath() string {
+	return filepath.Join(r.StateDir(), "adoption.json")
+}
+
 // DecisionsPath records decisions about optional phases, so a phase the user
 // declined stays declined across sessions instead of being re-asked forever.
 func (r Resolution) DecisionsPath() string {

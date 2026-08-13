@@ -46,13 +46,7 @@ func (f *fixture) completePhase(phase PhaseID) {
 
 	var answers []Answer
 	for _, topicID := range f.bank.RequiredTopics(phase, f.node.Type) {
-		answers = append(answers, Answer{
-			TopicID:    topicID,
-			Status:     AnswerAnswered,
-			Source:     SourceUserAnswer,
-			Verbatim:   "recorded user words for " + topicID,
-			CapturedAt: "2026-08-12T18:40:12Z",
-		})
+		answers = append(answers, answerForTopic(f.bank, phase, topicID))
 	}
 	f.writeAnswers(phase, answers)
 	f.writeArtifact(phase)

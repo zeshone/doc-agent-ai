@@ -216,6 +216,55 @@ func RunDecidePhase(args []string, env Environment, out, errOut io.Writer) int {
 	return ExitOK
 }
 
+// RunDoctor aligns pre-existing documentation with the pipeline.
+//
+// Reporting is the default and writing is opt-in, because this command touches
+// documentation the user wrote by hand.
+func RunDoctor(args []string, env Environment, now string, out, errOut io.Writer) int {
+	fs := flag.NewFlagSet("doctor", flag.ContinueOnError)
+	fs.SetOutput(errOut)
+	nodeArg := fs.String("node", "", "node identifier")
+	applyArg := fs.Bool("apply", false, "write the plan; omit to report only")
+	checkArg := fs.Bool("check", false, "report only (the default)")
+	archetypeArg := fs.String("archetype", "", "bounded or evolving, when it cannot be determined")
+	recursiveArg := fs.Bool("recursive", false, "also adopt nodes nested under this one")
+	if err := fs.Parse(args); err != nil {
+		return ExitUsage
+	}
+	if *nodeArg == "" {
+		return usageError(errOut, "doctor needs --node <system[/module[/submodule]]>")
+	}
+	if *applyArg && *checkArg {
+		return usageError(errOut, "--apply and --check contradict each other; pick one")
+	}
+	if *archetypeArg != "" && *archetypeArg != ArchetypeBounded && *archetypeArg != ArchetypeEvolving {
+		return usageError(errOut, "--archetype must be %q or %q", ArchetypeBounded, ArchetypeEvolving)
+	}
+
+	node, err := ParseNode(*nodeArg)
+	if err != nil {
+		return usageError(errOut, "%v", err)
+	}
+	bank, err := LoadQuestionBank()
+	if err != nil {
+		return usageError(errOut, "%v", err)
+	}
+
+	report := Doctor(node, env, bank, DoctorOptions{
+		Apply:     *applyArg,
+		Archetype: *archetypeArg,
+		Recursive: *recursiveArg,
+		Now:       now,
+	})
+	if err := emit(out, report); err != nil {
+		return usageError(errOut, "%v", err)
+	}
+	if report.HasBlockers() {
+		return ExitVerdict
+	}
+	return ExitOK
+}
+
 // parseSubmission builds a Submission from the shared validate/commit flags.
 func parseSubmission(name string, args []string, errOut io.Writer) (Submission, QuestionBank, int) {
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)

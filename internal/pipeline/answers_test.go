@@ -295,6 +295,22 @@ func TestCoverageOnEmptyRecordReportsEverythingUnanswered(t *testing.T) {
 	}
 }
 
+// answerForTopic builds a valid answered entry, supplying the machine-readable
+// choice whenever the bank closed that topic to a fixed set.
+func answerForTopic(bank QuestionBank, phase PhaseID, topicID string) Answer {
+	answer := Answer{
+		TopicID:    topicID,
+		Status:     AnswerAnswered,
+		Source:     SourceUserAnswer,
+		Verbatim:   "recorded user words for " + topicID,
+		CapturedAt: "2026-08-12T18:40:12Z",
+	}
+	if topic, ok := bank.Topic(phase, topicID); ok && len(topic.Values) > 0 {
+		answer.Value = topic.Values[0]
+	}
+	return answer
+}
+
 func mustLoadBank(t *testing.T) QuestionBank {
 	t.Helper()
 	bank, err := LoadQuestionBank()

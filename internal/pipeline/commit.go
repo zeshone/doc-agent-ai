@@ -32,6 +32,9 @@ const (
 	NodeStatusStarted    = "started"
 	NodeStatusInProgress = "in progress"
 	NodeStatusDocumented = "documented"
+	// NodeStatusAdopted is a node whose phases are all inherited. It is not
+	// "documented", because that word would claim coverage nobody counted.
+	NodeStatusAdopted = "adopted (coverage unverified)"
 )
 
 // IndexUpdate reports what happened to the node index.
@@ -361,9 +364,14 @@ func renderIndexRegion(res Resolution, env Environment, bank QuestionBank, statu
 	b.WriteString("|---|---|---|---|\n")
 
 	for _, ps := range status.Phases {
+		// [x] asserts counted coverage. Inherited documentation has none, so it gets
+		// its own mark rather than borrowing the one that means verified.
 		done := "[ ]"
-		if ps.State == StateComplete {
+		switch ps.State {
+		case StateComplete:
 			done = "[x]"
+		case StateAdopted:
+			done = "[~]"
 		}
 		coverage := "—"
 		if ps.RequiredTopics > 0 {
@@ -381,6 +389,13 @@ func renderIndexRegion(res Resolution, env Environment, bank QuestionBank, statu
 		for _, child := range children {
 			b.WriteString(fmt.Sprintf("| [[%s]] | %s |\n", child.name, child.status))
 		}
+	}
+
+	if len(status.Adopted) > 0 {
+		b.WriteString(fmt.Sprintf(
+			"\n> `[~]` marks inherited documentation adopted from before answer records existed. "+
+				"It is present and usable, and its coverage is **unverified**: %d phase(s).\n",
+			len(status.Adopted)))
 	}
 
 	b.WriteString(fmt.Sprintf("\n**Node status:** %s\n", nodeStatus))
@@ -461,11 +476,14 @@ func deriveNodeStatus(status Status) string {
 		}
 	}
 	completed := len(status.Completed)
+	adopted := len(status.Adopted)
 
 	switch {
 	case applicable > 0 && completed == applicable:
 		return NodeStatusDocumented
-	case completed > 0:
+	case applicable > 0 && adopted == applicable:
+		return NodeStatusAdopted
+	case completed > 0 || adopted > 0:
 		return NodeStatusInProgress
 	default:
 		return NodeStatusStarted

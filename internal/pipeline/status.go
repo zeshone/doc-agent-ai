@@ -58,8 +58,12 @@ type StatusTarget struct {
 	ShortName      string   `json:"shortName"`
 	Mode           string   `json:"mode,omitempty"`
 	ModeResolvedBy string   `json:"modeResolvedBy,omitempty"`
-	DocsRoot       string   `json:"docsRoot,omitempty"`
-	DocsRootExists bool     `json:"docsRootExists"`
+	// Archetype is the machine-readable system archetype when it is known, from
+	// the recorded answer or from adoption. Empty means unknown, which callers
+	// must treat as unknown rather than assuming either value.
+	Archetype      string `json:"archetype,omitempty"`
+	DocsRoot       string `json:"docsRoot,omitempty"`
+	DocsRootExists bool   `json:"docsRootExists"`
 }
 
 // PhaseStatus is the computed condition of one phase.
@@ -98,10 +102,13 @@ type NextAction struct {
 
 // Status is the typed answer to "where is this node and what happens next".
 type Status struct {
-	SchemaName      string          `json:"schemaName"`
-	Target          StatusTarget    `json:"target"`
-	Phases          []PhaseStatus   `json:"phases"`
-	Completed       []PhaseID       `json:"completed"`
+	SchemaName string        `json:"schemaName"`
+	Target     StatusTarget  `json:"target"`
+	Phases     []PhaseStatus `json:"phases"`
+	Completed  []PhaseID     `json:"completed"`
+	// Adopted lists inherited phases: documented, but coverage unverified. They
+	// are neither completed nor missing, and saying so explicitly is the point.
+	Adopted         []PhaseID       `json:"adopted"`
 	Missing         []PhaseID       `json:"missing"`
 	NextRecommended PhaseID         `json:"nextRecommended,omitempty"`
 	BlockedReasons  []BlockedReason `json:"blockedReasons"`
@@ -123,6 +130,7 @@ func ComputeStatus(node Node, env Environment, bank QuestionBank) Status {
 			ShortName: node.ShortName,
 		},
 		Completed:      []PhaseID{},
+		Adopted:        []PhaseID{},
 		Missing:        []PhaseID{},
 		BlockedReasons: []BlockedReason{},
 	}
@@ -136,6 +144,23 @@ func ComputeStatus(node Node, env Environment, bank QuestionBank) Status {
 	status.Target.ModeResolvedBy = res.ModeResolvedBy
 	status.Target.DocsRoot = res.DocsRoot
 	status.Target.DocsRootExists = dirExists(res.DocsRoot)
+
+	adoption, _, adoptionErr := LoadAdoption(res.AdoptionPath(), bank)
+	if adoptionErr != nil {
+		// A corrupt adoption record makes inherited state unknowable. Fail closed
+		// rather than silently reporting inherited documentation as missing.
+		return undeterminedStatus(status, bank, adoptionErr)
+	}
+	status.Target.Archetype = adoption.Archetype
+	if status.Target.Archetype == "" {
+		status.Target.Archetype = recordedArchetype(res, bank)
+	}
+	if status.Target.Archetype == "" {
+		// The archetype is a property of the system, and deeper nodes inherit it.
+		// Reporting it here means a caller reading a module's status is not told
+		// "unknown" about a fact the system already recorded.
+		status.Target.Archetype = inheritedArchetype(node, env, bank)
+	}
 
 	decisions, _, decisionsErr := LoadDecisions(res.DecisionsPath(), bank)
 	if decisionsErr != nil {
@@ -205,9 +230,14 @@ func ComputeStatus(node Node, env Environment, bank QuestionBank) Status {
 			started = started || ps.ArtifactExists
 		}
 
+		_, inherited := adoption.Phases[phaseID]
+
 		switch {
 		case recordUsable && artifactSatisfied:
 			ps.State = StateComplete
+		case inherited && !recordPresent:
+			// Inherited documentation: the artifact stands, its coverage does not.
+			ps.State = StateAdopted
 		case started:
 			ps.State = StateIncomplete
 		case prerequisitesMet:
@@ -220,7 +250,7 @@ func ComputeStatus(node Node, env Environment, bank QuestionBank) Status {
 			status.BlockedReasons = append(status.BlockedReasons, reasons...)
 		}
 
-		if ps.State != StateComplete {
+		if ps.State != StateComplete && ps.State != StateAdopted {
 			if prerequisitesMet {
 				firstBlockedBy = phaseID
 			}
@@ -234,6 +264,8 @@ func ComputeStatus(node Node, env Environment, bank QuestionBank) Status {
 		switch ps.State {
 		case StateComplete:
 			status.Completed = append(status.Completed, ps.ID)
+		case StateAdopted:
+			status.Adopted = append(status.Adopted, ps.ID)
 		case StateNotApplicable:
 			// Declined work is not missing work.
 		default:
@@ -314,10 +346,17 @@ func auditState(res Resolution, bank QuestionBank, phase PhaseID) (
 // nextAction picks the single next step from the computed phase states.
 func nextAction(status Status, bank QuestionBank, decisions Decisions, node Node) NextAction {
 	if status.NextRecommended == "" {
+		reason := "every applicable phase is complete"
+		if len(status.Adopted) > 0 {
+			// Saying "complete" here would claim coverage nobody counted.
+			reason = fmt.Sprintf(
+				"no phase is outstanding, but %d of them are adopted: documented from before answer records existed, with coverage unverified",
+				len(status.Adopted))
+		}
 		return NextAction{
 			Kind:    ActionComplete,
 			Command: nil,
-			Reason:  "every applicable phase is complete",
+			Reason:  reason,
 		}
 	}
 
@@ -383,6 +422,7 @@ func nextAction(status Status, bank QuestionBank, decisions Decisions, node Node
 // undeterminedStatus marks every phase undetermined and refuses to name a step.
 func undeterminedStatus(status Status, bank QuestionBank, cause error) Status {
 	status.Phases = nil
+	status.Adopted = []PhaseID{}
 	for _, phaseID := range CanonicalPhaseOrder() {
 		status.Phases = append(status.Phases, PhaseStatus{
 			ID:               phaseID,

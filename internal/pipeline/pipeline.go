@@ -83,6 +83,11 @@ const (
 	StatePending PhaseState = "pending"
 	// StateBlocked means not started, with an earlier phase not yet complete.
 	StateBlocked PhaseState = "blocked"
+	// StateAdopted means the phase carries inherited documentation that predates
+	// answer records. Coverage is UNVERIFIED and says so. It does not block
+	// downstream phases, because requiring a re-interview of an already
+	// documented system before any new module could start would be absurd.
+	StateAdopted PhaseState = "adopted"
 	// StateNotApplicable means the phase does not apply — an optional phase the
 	// user declined, for example.
 	StateNotApplicable PhaseState = "not-applicable"
