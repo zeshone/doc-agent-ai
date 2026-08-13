@@ -70,7 +70,7 @@ func setupExecuteInstallFixture(t *testing.T) (string, Bundle, DistManifest, Pla
 
 type bufferReporter struct{ buf bytes.Buffer }
 
-func newBufferReporter() *bufferReporter { return &bufferReporter{} }
+func newBufferReporter() *bufferReporter    { return &bufferReporter{} }
 func (b *bufferReporter) Ok(msg string)     { fmt.Fprintf(&b.buf, "  ✔ %s\n", msg) }
 func (b *bufferReporter) Warn(msg string)   { fmt.Fprintf(&b.buf, "  ⚠  %s\n", msg) }
 func (b *bufferReporter) ErrOut(msg string) { fmt.Fprintf(&b.buf, "  ✖ %s\n", msg) }

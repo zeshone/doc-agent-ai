@@ -414,6 +414,7 @@ func buildDistManifest(content ContentManifest, platforms installpkg.PlatformMan
 		Platforms:           platforms,
 	}
 }
+
 // writeManifest marshals and writes dist/manifest.json.
 func writeManifest(outputDir string, manifest installpkg.DistManifest) error {
 	data, err := json.MarshalIndent(manifest, "", "  ")

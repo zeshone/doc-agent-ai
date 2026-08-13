@@ -38,9 +38,9 @@ func TestInstallToPlatformWithReporter_UsesBundleFiles(t *testing.T) {
 			}},
 		},
 		Files: map[string][]byte{
-			"skills/doc-arch/SKILL.md":           []byte("skill body\n"),
-			"prompts/opencode/doc-arch.md":       []byte("path=__DOC_AGENT_BASE_PATH__/\nmode=__DOC_AGENT_GLOBAL_MODE__\n"),
-			"commands/doc-arch.md":               []byte("command=__DOC_AGENT_GLOBAL_BASE__\n"),
+			"skills/doc-arch/SKILL.md":     []byte("skill body\n"),
+			"prompts/opencode/doc-arch.md": []byte("path=__DOC_AGENT_BASE_PATH__/\nmode=__DOC_AGENT_GLOBAL_MODE__\n"),
+			"commands/doc-arch.md":         []byte("command=__DOC_AGENT_GLOBAL_BASE__\n"),
 		},
 	}
 
