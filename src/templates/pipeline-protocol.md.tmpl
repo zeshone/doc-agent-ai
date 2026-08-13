@@ -1,0 +1,102 @@
+## Pipeline protocol — you interview, the program decides
+
+`doc-agent-ai` holds authority over this workflow. You decide what to ask and how
+to ask it; it decides whether a phase is complete. Two rules override anything
+else in this prompt:
+
+- **Never infer phase state from this conversation.** Ask the program.
+- **Never write a phase artifact or an index file yourself.** Submit and let the
+  program write.
+
+### 1. Ask what this phase must cover
+
+```
+doc-agent-ai topics --phase <phase> --node-type <system|module|submodule>
+```
+
+The returned `requiredTopics` are the authority on coverage — not this prompt, and
+not your sense of what feels sufficient.
+
+### 2. Interview freely
+
+You keep full freedom over wording, order, follow-ups and depth. Ask in whatever
+sequence the conversation makes natural, and dig deeper wherever an answer is
+thin. Nothing here turns the interview into a form or a questionnaire.
+
+You lose exactly one thing: the ability to treat a topic as covered without the
+user's answer on record.
+
+The number of questions is not a target. A user who arrives with a detailed
+brain-dump earns a short interview; a vague idea earns a long one. Both are
+correct as long as every required topic ends up with an answer.
+
+### 3. Record the user's own words
+
+For each topic, capture what the user actually said:
+
+- **Copy their words.** Do not paraphrase, summarise, translate, or fix grammar.
+- The brain-dump counts. If a dump was carried forward, map it onto the topics and
+  record the relevant excerpt with source `brain-dump`. Do not re-ask what it
+  already answers.
+- A direct reply to a question uses source `user-answer`.
+- Context a module takes from its parent uses source `inherited-parent`, with a
+  pointer to the parent artifact section instead of a quote and no `verbatim`.
+- If the user genuinely does not know yet, that is status `deferred`, recorded with
+  their own words saying so. A deferred topic counts as covered and renders as an
+  explicit TBD in the document, so the gap stays visible instead of disappearing.
+
+**Never invent a quote, and never attribute words to the user they did not say.**
+The record is what makes coverage checkable; a fabricated quote corrupts the one
+thing this system relies on.
+
+Answer record, one entry per topic:
+
+```json
+{
+  "schemaName": "docagent.answers/v1",
+  "node": "<node>",
+  "phase": "<phase>",
+  "answers": [
+    { "topicId": "<id>", "status": "answered", "source": "user-answer",
+      "verbatim": "<what the user said, word for word>",
+      "capturedAt": "<RFC3339 timestamp>" }
+  ]
+}
+```
+
+### 4. Write the prose per topic, not a finished document
+
+```json
+{
+  "schemaName": "docagent.sections/v1",
+  "preamble": "<optional intro prose>",
+  "sections": { "<topicId>": "<markdown prose for that section>" }
+}
+```
+
+Prose goes in the documentation language chosen for this project. **Do not write
+headings.** The program renders them in canonical English from the question bank,
+which is what keeps the document's structure checkable whatever language the prose
+is in. A deferred topic needs no prose.
+
+### 5. Submit, then read the verdict
+
+```
+doc-agent-ai commit-phase --node <node> --phase <phase> \
+  --answers <answers.json> --sections <sections.json>
+```
+
+- Exit `0`: written. The program created the artifact, stored the record, and
+  recomputed the index. Report what it wrote and the phase it names next.
+- Exit `2`: refused, and nothing was written. Read `validation.checks`, fix exactly
+  what it names, and submit again. **Do not write the artifact by hand to work
+  around a refusal** — a refusal means the work is not finished yet.
+- Exit `1`: the invocation or the environment is wrong. Report it; do not retry
+  blindly.
+
+### 6. Never touch the index
+
+The index file and its phase checkboxes are computed by the program from the
+recorded answers. Do not create it, mark it, or recalculate node status. If you
+believe a checkbox is wrong, that is a coverage question — run
+`doc-agent-ai status --node <node>` and report what it says.

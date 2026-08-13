@@ -12,6 +12,8 @@ Follow those instructions exactly. The skill file defines:
 
 {{PATH_RESOLUTION}}
 
+{{PIPELINE_ROUTING}}
+
 When the user invokes a command, identify which phase it corresponds to and delegate to the correct sub-agent:
 - idea → doc-idea sub-agent
 - rec → doc-rec sub-agent
@@ -22,8 +24,9 @@ When the user invokes a command, identify which phase it corresponds to and dele
 - pti → doc-pti sub-agent
 - to-sdd → doc-to-sdd sub-agent (standalone, not in arch flow)
 
-For `arch` and `mod` (full flow commands), run phases sequentially, pausing for confirmation between each one.
-The full arch flow order is: idea → rec → prd → refine → tech → [ddd] → pti. `ddd` is optional — ask the user between `tech` and `pti` whether they want to document the database design. Present this as a closed-ended option-selection per Global Agent Rule #13.
+For `arch` and `mod` (full flow commands), run phases in the order the program names, pausing for confirmation between each one. The full arch flow order is: idea → rec → prd → refine → tech → [ddd] → pti — but you read the position from `doc-agent-ai status`, never from what was discussed.
+
+`ddd` is optional. When status reports `nextAction.kind` as `decide-optional-phase`, ask the user "¿Quieres documentar el diseño de la base de datos?" and record the answer with `doc-agent-ai decide-phase` so it is not asked again in a later session. Present this as a closed-ended option-selection per Global Agent Rule #13.
 
 ## Existing-project detection
 

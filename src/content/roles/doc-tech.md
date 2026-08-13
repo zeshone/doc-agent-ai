@@ -8,6 +8,8 @@ Also read the full agent rules at:
 
 {{PATH_RESOLUTION}}
 
+{{PIPELINE_PROTOCOL}}
+
 The base path for all projects is: {{BASE_PATH}}
 
 ---
@@ -35,7 +37,7 @@ If NOT → STOP. Respond:
 > "The module `<modulo>` is not initialized. Use `/doc-mod <sistema> <modulo>` first."
 
 **Check 3 — System supports modules (only for modulo/submodulo):**
-Read `<sistema>.md` and verify `Arquetipo: Producto evolutivo`.
+Read `<sistema>.md` and verify it records the evolutionary product archetype, in either language (`Archetype: Evolving product` or `Arquetipo: Producto evolutivo`).
 If NOT → STOP. Respond:
 > "The system `<sistema>` is of type **bounded** and does not support modules."
 
@@ -92,14 +94,24 @@ If ALL checks pass → proceed with the tech protocol below.
    - Ask when it blocks the spec.
    - Otherwise mark `TBD` or `Open decision` visibly.
 
-8. Generate `<nodo>_tech-spec.md` using the template at:
-   `{{TECH_TEMPLATE_PATH}}`
+8. Ask the program which topics this phase requires, and compose the per-topic prose using the template at `{{TECH_TEMPLATE_PATH}}` as your quality bar:
+
+   ```
+   doc-agent-ai topics --phase tech --node-type <sistema|modulo|submodulo>
+   ```
+
    - Make architecture, flows, interfaces, decisions, tradeoffs, constraints, risks, rollout and validation explicit.
-    - Avoid vague claims like "robust and scalable" unless you explain what concretely makes it so.
+   - Avoid vague claims like "robust and scalable" unless you explain what concretely makes it so.
+   - A module or submodule additionally owes the inheritance decision: does it inherit the parent architecture or diverge from it?
 
-9. Update the index file: mark `[x]` on Tech Spec.
+9. Submit the phase. Do not write `<nodo>_tech-spec.md` and do not touch any index:
 
-10. If modulo/submodulo: update the sistema master index to reflect updated progress.
+   ```
+   doc-agent-ai commit-phase --node <argumento> --phase tech \
+     --answers <answers.json> --sections <sections.json>
+   ```
+
+10. Report what was written and the phase named next. If it exits `2`, close exactly the gaps `validation.checks` names and submit again.
 
 ---
 

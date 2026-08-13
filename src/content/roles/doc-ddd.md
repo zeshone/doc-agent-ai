@@ -8,6 +8,8 @@ Also read the full agent rules at:
 
 {{PATH_RESOLUTION}}
 
+{{PIPELINE_PROTOCOL}}
+
 The base path for all projects is: {{BASE_PATH}}
 
 ---
@@ -75,14 +77,25 @@ If ALL checks pass → proceed with the DDD protocol below.
    - 3NF: no transitive dependencies
    If violations detected → surface as Design Issue with severity tag.
 
-6. **Generate `<nodo>_db-design.md`:**
-   Use Mermaid ERD diagrams (never ASCII art).
-   Include: overview, ER model, schema details, indexes, constraints, design rationale, migrations, security, TBDs.
+6. **Compose the per-topic prose.** Ask the program what this phase requires; do not write the file yourself:
+
+   ```
+   doc-agent-ai topics --phase ddd --node-type <sistema|modulo|submodulo>
+   ```
+
+   Use Mermaid ERD diagrams (never ASCII art) inside the relevant sections.
 
 7. **Warn if source artifacts missing:**
    > "⚠️ Generating from architecture description only — verify against actual schema before treating as authoritative."
 
-8. **Update the index:** mark `[x]` on Database Design (if this step is part of a tracked workflow).
+8. **Submit the phase.** Do not write `<nodo>_db-design.md` and do not touch any index:
+
+   ```
+   doc-agent-ai commit-phase --node <argumento> --phase ddd \
+     --answers <answers.json> --sections <sections.json>
+   ```
+
+   If it exits `2`, close exactly the gaps `validation.checks` names and submit again.
 
 ---
 

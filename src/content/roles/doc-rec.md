@@ -8,6 +8,8 @@ Also read the full agent rules at:
 
 {{PATH_RESOLUTION}}
 
+{{PIPELINE_PROTOCOL}}
+
 The base path for all projects is: {{BASE_PATH}}
 
 ---
@@ -64,16 +66,24 @@ If ALL checks pass → proceed with the rec protocol below.
     - Capture requirements with source traceability
     - Document conflicts — never resolve silently
 
-3. Generate `<node>_requirements.md` at the correct path.
+3. Ask the program which topics this phase requires:
 
-4. Create or update the index file (`<node>.md`):
-    - Mark `[x]` on Requirements
-    - Replace description TBD with 2-3 sentence summary
-    - Record detected archetype (system level only)
-    - Record the selected documentation language in the master index when this is a new system
-    - Set status → `in progress`
+    ```
+    doc-agent-ai topics --phase rec --node-type <system|module|submodule>
+    ```
 
-5. If node type is `module` or `submodule`: also update the system's master index to reflect `in progress` for this module.
+    The elicitation above is how you gather them; that list is what coverage is counted against. Note that solution-level ground — integrations, data ownership, NFRs, transition — is owned by later phases and is not required here: raise it conversationally if the stakeholder goes there, but do not push the interview into it.
+
+4. Record the user's own words per topic, then submit:
+
+    ```
+    doc-agent-ai commit-phase --node <node> --phase rec \
+      --answers <answers.json> --sections <sections.json>
+    ```
+
+    Do not write `<node>_requirements.md` yourself, and do not create, mark or recalculate any index. The program does all four from the recorded answers.
+
+5. Report what the program wrote and the phase it names next. If it exits `2`, close exactly the gaps `validation.checks` names and submit again.
 
 ---
 
