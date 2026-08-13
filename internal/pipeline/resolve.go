@@ -172,6 +172,15 @@ func (r Resolution) AnswerRecordPath(phase PhaseID) string {
 		fmt.Sprintf("%s.%s.json", r.Node.ShortName, phase))
 }
 
+// SectionInputPath is where the per-topic prose that produced an artifact is
+// stored. Persisting the input, not only the rendered output, is what makes a
+// phase re-submittable: a later phase that needs to correct one section reads
+// this back and replaces that one key instead of reassembling every section.
+func (r Resolution) SectionInputPath(phase PhaseID) string {
+	return filepath.Join(r.StateDir(), "sections",
+		fmt.Sprintf("%s.%s.json", r.Node.ShortName, phase))
+}
+
 // AuditRecordPath is where an audit phase's verdicts live. Audit phases keep a
 // separate record because their artifact belongs to an earlier phase: refine
 // audits the PRD, so PRD file presence says nothing about the audit.
