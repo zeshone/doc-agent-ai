@@ -9,6 +9,7 @@ require (
 	github.com/charmbracelet/x/exp/golden v0.0.0-20241011142426-46044092ad91
 	github.com/charmbracelet/x/exp/teatest v0.0.0-20260608090822-c3ad58c6c9e5
 	golang.org/x/term v0.44.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
