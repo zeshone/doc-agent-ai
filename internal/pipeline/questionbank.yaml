@@ -42,6 +42,10 @@ phases:
   - phase: idea
     kind: interview
     artifact: "{node}_idea-brief.md"
+    # Names earlier versions of the agent wrote. Used ONLY to recognise existing
+    # documentation during adoption — never to write. Real vaults hold
+    # <node>_idea.md, which the current name does not match.
+    legacyArtifacts: ["{node}_idea.md"]
     documentTitle: Idea Brief
     # skills/doc-idea/SKILL.md:86 — the brief is optional; the refined concept
     # normally lands in the master index instead.
@@ -63,8 +67,12 @@ phases:
     artifact: "{node}_requirements.md"
     documentTitle: Requirements
     required_topics:
-      - id: archetype # skills/doc-arch/SKILL.md:144 — always the first question
+      # skills/doc-arch/SKILL.md:144 — always the first question. Declaring a
+      # closed value set is what lets the program know the archetype instead of
+      # reading it out of prose, where the same fact appears in several phrasings.
+      - id: archetype
         title: System Archetype
+        values: [bounded, evolving]
       - id: stakeholders # skills/doc-rec/SKILL.md:29
         title: Stakeholders
       - id: business-events # skills/doc-rec/SKILL.md:29
@@ -124,6 +132,10 @@ phases:
     # of its own, and therefore has no topics and no sections.
     kind: audit
     artifact: "{node}_prd.md"
+    # An audit phase shares its artifact with prd, so that file's presence proves
+    # nothing. A dedicated report does: earlier versions wrote <node>_refinement.md,
+    # and its existence is direct evidence the audit actually ran.
+    legacyArtifacts: ["{node}_refinement.md"]
     required_topics: []
     audit_rule:
       subject: user-stories

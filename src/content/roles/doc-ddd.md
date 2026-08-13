@@ -37,7 +37,18 @@ If NOT → STOP. Respond:
 > "The module `<modulo>` is not initialized. Use `/doc-mod <sistema> <modulo>` first."
 
 **Check 3 — System supports modules (only for modulo/submodulo):**
-Read `<sistema>.md` and verify `Archetype: Evolving product` or `Arquetipo: Producto evolutivo`.
+Ask the program; do not read the archetype out of prose. Real vaults phrase the same fact several ways, in more than one language.
+
+```
+doc-agent-ai status --node <sistema>
+```
+
+Read `target.archetype`:
+- `evolving` → proceed.
+- `bounded` → STOP. Respond:
+  > "The system `<sistema>` is of type **bounded** and does not support modules."
+- empty → the archetype is not recorded yet. STOP. Respond:
+  > "The archetype of `<sistema>` is not recorded. Run `doc-agent-ai doctor --node <sistema> --check` and follow its report."
 If NOT → STOP. Respond:
 > "The system `<sistema>` is bounded and does not support modules."
 

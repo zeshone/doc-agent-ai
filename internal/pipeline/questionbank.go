@@ -42,7 +42,11 @@ type Topic struct {
 	// Title is the canonical English section heading for this topic. The program
 	// renders it; the model never types it. That is what keeps document structure
 	// verifiable regardless of the language the prose is written in.
-	Title       string       `yaml:"title,omitempty" json:"title,omitempty"`
+	Title string `yaml:"title,omitempty" json:"title,omitempty"`
+	// Values, when present, closes this topic to a fixed set. An answered entry
+	// must carry one of them in its `value` field, which is what makes the fact
+	// machine-readable instead of something to be inferred from prose.
+	Values      []string     `yaml:"values,omitempty" json:"values,omitempty"`
 	AppliesWhen *AppliesWhen `yaml:"appliesWhen,omitempty" json:"appliesWhen,omitempty"`
 }
 
@@ -74,6 +78,10 @@ type PhaseSpec struct {
 	Kind  Kind    `yaml:"kind" json:"kind"`
 	// Artifact is a filename template containing the {node} placeholder.
 	Artifact string `yaml:"artifact" json:"artifact"`
+	// LegacyArtifacts are filenames earlier versions of the agent produced. They
+	// are used only to recognise pre-existing documentation during adoption, never
+	// to write, so the current naming stays the single output convention.
+	LegacyArtifacts []string `yaml:"legacyArtifacts,omitempty" json:"legacyArtifacts,omitempty"`
 	// DocumentTitle is the canonical English H1 of the rendered artifact. Absent
 	// for audit phases, which write no artifact of their own.
 	DocumentTitle string `yaml:"documentTitle,omitempty" json:"documentTitle,omitempty"`
@@ -88,6 +96,15 @@ type PhaseSpec struct {
 // ArtifactName resolves the artifact filename for a node short name.
 func (s PhaseSpec) ArtifactName(shortName string) string {
 	return strings.ReplaceAll(s.Artifact, "{node}", shortName)
+}
+
+// LegacyArtifactNames resolves the legacy filenames for a node short name.
+func (s PhaseSpec) LegacyArtifactNames(shortName string) []string {
+	out := make([]string, 0, len(s.LegacyArtifacts))
+	for _, template := range s.LegacyArtifacts {
+		out = append(out, strings.ReplaceAll(template, "{node}", shortName))
+	}
+	return out
 }
 
 // QuestionBank is the declared set of phase contracts.
@@ -170,6 +187,17 @@ func (b QuestionBank) validate() error {
 			if spec.Kind == KindInterview && topic.Title == "" {
 				return fmt.Errorf("phase %q topic %q declares no title", spec.Phase, topic.ID)
 			}
+			seenValue := map[string]bool{}
+			for _, value := range topic.Values {
+				if value == "" {
+					return fmt.Errorf("phase %q topic %q declares an empty value", spec.Phase, topic.ID)
+				}
+				if seenValue[value] {
+					return fmt.Errorf("phase %q topic %q repeats value %q", spec.Phase, topic.ID, value)
+				}
+				seenValue[value] = true
+			}
+
 			if seenTitle[topic.Title] {
 				return fmt.Errorf("phase %q reuses section title %q", spec.Phase, topic.Title)
 			}
@@ -226,6 +254,21 @@ func (b QuestionBank) TopicsFor(id PhaseID, nodeType NodeType) []Topic {
 		}
 	}
 	return out
+}
+
+// Topic returns one topic's full definition, which callers need for its closed
+// value set and its title.
+func (b QuestionBank) Topic(phase PhaseID, topicID string) (Topic, bool) {
+	spec, ok := b.Phase(phase)
+	if !ok {
+		return Topic{}, false
+	}
+	for _, topic := range spec.RequiredTopics {
+		if topic.ID == topicID {
+			return topic, true
+		}
+	}
+	return Topic{}, false
 }
 
 // KnownTopic reports whether a topic id is declared for a phase, regardless of

@@ -50,7 +50,11 @@ type Answer struct {
 	// InheritedFrom points at the parent artifact section. Required for
 	// inherited-parent and forbidden otherwise.
 	InheritedFrom string `json:"inheritedFrom,omitempty"`
-	CapturedAt    string `json:"capturedAt"`
+	// Value carries the machine-readable choice for a topic the bank closed to a
+	// fixed set. It exists so a fact like the system archetype is known rather
+	// than parsed out of prose that varies by author and language.
+	Value      string `json:"value,omitempty"`
+	CapturedAt string `json:"capturedAt"`
 }
 
 // AnswerRecord is the on-disk set of recorded answers for one node and phase.
@@ -123,6 +127,26 @@ func (a Answer) validate(bank QuestionBank, phase PhaseID) error {
 		}
 	default:
 		return fmt.Errorf("source %q is not a recognised answer source", a.Source)
+	}
+
+	topic, _ := bank.Topic(phase, a.TopicID)
+	switch {
+	case len(topic.Values) == 0:
+		if a.Value != "" {
+			return fmt.Errorf("topic %q declares no closed value set, so value must be empty", a.TopicID)
+		}
+	case a.Status == AnswerDeferred:
+		// A deferred topic is one the user does not know yet, so it owes no choice.
+		if a.Value != "" {
+			return fmt.Errorf("a deferred answer must not carry a value")
+		}
+	default:
+		if a.Value == "" {
+			return fmt.Errorf("topic %q requires one of %v in value", a.TopicID, topic.Values)
+		}
+		if !containsString(topic.Values, a.Value) {
+			return fmt.Errorf("value %q for topic %q is not one of %v", a.Value, a.TopicID, topic.Values)
+		}
 	}
 
 	if strings.TrimSpace(a.CapturedAt) == "" {

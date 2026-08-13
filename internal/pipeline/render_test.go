@@ -19,13 +19,7 @@ func spanishSections(t *testing.T, bank QuestionBank, phase PhaseID, nodeType No
 func fullRecord(bank QuestionBank, phase PhaseID, nodeType NodeType, node Node) AnswerRecord {
 	var answers []Answer
 	for _, topicID := range bank.RequiredTopics(phase, nodeType) {
-		answers = append(answers, Answer{
-			TopicID:    topicID,
-			Status:     AnswerAnswered,
-			Source:     SourceUserAnswer,
-			Verbatim:   "lo que dijo el usuario sobre " + topicID,
-			CapturedAt: "2026-08-12T18:40:12Z",
-		})
+		answers = append(answers, answerForTopic(bank, phase, topicID))
 	}
 	return AnswerRecord{
 		SchemaName: AnswerRecordSchema,

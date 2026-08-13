@@ -1,6 +1,7 @@
 package docagent
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -155,5 +156,53 @@ func TestGeneratedBundleExpandsThePipelinePlaceholders(t *testing.T) {
 	}
 	if !sawRouting {
 		t.Error("no generated file carries the expanded routing block")
+	}
+}
+
+func TestNoRoleReadsTheArchetypeOutOfProse(t *testing.T) {
+	// Real vaults phrase the same fact at least three ways — "Tipo de sistema",
+	// "Arquetipo", "Archetype" — in two languages, with and without bold markers.
+	// Any literal a role matched would fail on some real index, so the archetype
+	// must come from the program.
+	forbidden := []string{
+		"verify `Arquetipo: Producto evolutivo`",
+		"verify `Archetype: Evolving product`",
+		"and verify `Arquetipo",
+		"and verify `Archetype",
+	}
+
+	for phase, role := range phaseRoles {
+		t.Run(phase, func(t *testing.T) {
+			raw, err := embedded.ReadFile(filepath.ToSlash(filepath.Join("src/content/roles", role+".md")))
+			if err != nil {
+				t.Fatalf("cannot read role: %v", err)
+			}
+			content := string(raw)
+
+			for _, phrase := range forbidden {
+				if strings.Contains(content, phrase) {
+					t.Errorf("%s still matches archetype prose (%q); it must read target.archetype", role, phrase)
+				}
+			}
+			// A role that gates on the archetype must gate on the recorded value.
+			if strings.Contains(content, "supports modules") && !strings.Contains(content, "target.archetype") {
+				t.Errorf("%s gates on the archetype without reading target.archetype", role)
+			}
+		})
+	}
+}
+
+func TestDoctorIsDocumentedInTheHelp(t *testing.T) {
+	// A command nobody can discover is a command that does not exist.
+	raw, err := os.ReadFile(filepath.Join("cmd", "doc-agent-ai", "main.go"))
+	if err != nil {
+		t.Fatalf("cannot read main.go: %v", err)
+	}
+	content := string(raw)
+
+	for _, phrase := range []string{"doctor", "--apply", "unverified"} {
+		if !strings.Contains(content, phrase) {
+			t.Errorf("the CLI help never mentions %q", phrase)
+		}
 	}
 }
