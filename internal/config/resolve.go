@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // ---------------------------------------------------------------------------
@@ -103,4 +104,33 @@ func ResolveMode(markerMode DocsMode, markerFound bool, globalMode DocsMode) Doc
 
 	// Built-in default: vault (preserves pre-v4 behaviour)
 	return ModeVault
+}
+
+// ExpandUserPath expands a leading "~" to the user's home directory and trims
+// surrounding whitespace.
+//
+// Without this a vault path typed as "~/vault" was stored verbatim, resolved
+// without error, and created a directory literally named "~" beside the current
+// working directory. The real vault stayed untouched while the user hunted for
+// where their documentation went — a silent failure, which is the worst kind.
+//
+// A "~user/..." form is deliberately left alone: resolving another account's
+// home is not portable, and quietly treating it as the current user's home would
+// be a different wrong answer rather than none.
+func ExpandUserPath(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed != "~" && !strings.HasPrefix(trimmed, "~/") && !strings.HasPrefix(trimmed, `~\`) {
+		return trimmed
+	}
+
+	home, err := os.UserHomeDir()
+	if err != nil {
+		// Nothing sensible to expand to; hand back what was typed rather than
+		// inventing a path.
+		return trimmed
+	}
+	if trimmed == "~" {
+		return home
+	}
+	return filepath.Join(home, filepath.FromSlash(strings.ReplaceAll(trimmed[2:], `\`, "/")))
 }

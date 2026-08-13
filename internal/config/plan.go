@@ -124,7 +124,7 @@ func ParsePlanFromFlags(flags FlagSet, cfg AppConfig) (InstallPlan, error) {
 		if rawPath == "" {
 			return InstallPlan{}, fmt.Errorf("vault mode requires a documentation base path; provide --path or run without --docs-mode to use the TUI")
 		}
-		plan.BasePath = rawPath
+		plan.BasePath = ExpandUserPath(rawPath)
 	}
 	// in-project: BasePath stays empty (docs/doc-agent/ is implicit)
 
