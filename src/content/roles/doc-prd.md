@@ -8,6 +8,8 @@ Also read the full agent rules at:
 
 {{PATH_RESOLUTION}}
 
+{{PIPELINE_PROTOCOL}}
+
 The base path for all projects is: {{BASE_PATH}}
 
 ---
@@ -35,18 +37,18 @@ If NOT → STOP. Respond:
 > "The module `<modulo>` is not initialized. Use `/doc-mod <sistema> <modulo>` first."
 
 **Check 3 — System supports modules (only for modulo/submodulo):**
-Read `<sistema>.md` and verify `Arquetipo: Producto evolutivo`.
+Read `<sistema>.md` and verify it records the evolutionary product archetype, in either language (`Archetype: Evolving product` or `Arquetipo: Producto evolutivo`).
 If NOT → STOP. Respond:
 > "The system `<sistema>` is of type **bounded** and does not support modules."
 
-**Check 4 — Prerequisite file exists:**
-Verify `<nodo>_requirements.md` exists in the node's directory.
-If NOT → STOP. Respond:
-> "The requirements file for `<nodo>` is missing. Run `/doc-rec <argumento>` first."
->
-> Current node status:
-> - `_requirements.md` — ❌ missing (run `/doc-rec <argumento>`)
-> - `_prd.md` — ⏳ pending
+**Check 4 — Prerequisites are complete, not merely present:**
+Ask the program instead of looking for files. A file that exists is not the same as a phase that is finished.
+
+```
+doc-agent-ai status --node <argumento>
+```
+
+If `nextRecommended` is not `prd`, or `blockedReasons` is non-empty for an earlier phase → STOP and report the phase it names with the command from `nextAction.command`.
 
 If ALL checks pass → proceed with the prd protocol below.
 
@@ -66,26 +68,29 @@ If ALL checks pass → proceed with the prd protocol below.
    - If a key answer is missing, **ask**.
    - If the decision remains unresolved, mark it as **`TBD`** with a short explanatory note.
 
-4. Generate `<nodo>_prd.md` following the Strict PRD Schema from your skill file.
+4. Compose the per-topic prose following the Strict PRD Schema from your skill file. Do not write the file — the program renders it.
    The result must be:
    - more technical than elicitation
    - clear and pedagogical
    - precise without empty jargon
    - useful for small/medium teams, freelancers, PMs, and expert tech leads
 
-5. Ensure the PRD explicitly covers:
-   - Primary User Flows
-   - User Stories
-   - Acceptance Criteria
-   - Dependencies & Integration Points
-   - Technical Constraints
-   - Security & Privacy
-   - Risks & Roadmap
-   - Open Decisions / TBDs
+5. Ask the program what the PRD must cover rather than working from a list in this prompt:
 
-6. Update the index file: mark `[x]` on PRD.
+   ```
+   doc-agent-ai topics --phase prd --node-type <sistema|modulo|submodulo>
+   ```
 
-7. If modulo/submodulo: update the sistema master index to reflect updated progress.
+6. Submit the phase:
+
+   ```
+   doc-agent-ai commit-phase --node <argumento> --phase prd \
+     --answers <answers.json> --sections <sections.json>
+   ```
+
+   Do not write `<nodo>_prd.md`, and do not touch any index. If it exits `2`, close exactly the gaps `validation.checks` names and submit again.
+
+7. Report what was written and the phase named next.
 
 ---
 

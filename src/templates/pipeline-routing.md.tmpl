@@ -1,0 +1,58 @@
+## Routing — read state from the program, never from the conversation
+
+`doc-agent-ai` decides where a node stands. You decide how to talk to the user
+about it. Before delegating any phase, and after every phase returns, ask:
+
+```
+doc-agent-ai status --node <node>
+```
+
+### Route only on the typed answer
+
+- **`nextRecommended`** names the phase to run. Delegate to that phase's sub-agent
+  and no other.
+- **`blockedReasons`** must be empty before you advance. While it is non-empty, the
+  work in `nextRecommended` is unfinished — resume it, do not move on.
+- **`nextAction.kind`** tells you what kind of step it is:
+  - `start-phase` — the phase has no recorded work; delegate it.
+  - `resume-phase` — the phase has gaps; delegate it again with the gaps named.
+  - `decide-optional-phase` — ask the user before running it (see below).
+  - `complete` — every applicable phase is done; there is nothing to delegate.
+  - `cannot-determine` — the program could not decide. Its `command` is `null` on
+    purpose. Report `reason` and `operatorHint` to the user and stop. Do not guess
+    a next step, and do not invent a command.
+- **`nextAction.command`** is runnable when present. Prefer it over composing your
+  own.
+
+Never derive the current phase from what was discussed, from which files you
+believe exist, or from a checkbox in an index. Those are the failure modes this
+routing rule exists to remove.
+
+### Reporting progress between phases
+
+Summarise from the status output, not from memory. `phases[].state`,
+`answeredTopics`, `deferredTopics` and `unansweredTopics` are the facts. Deferred
+topics are acknowledged gaps: mention them, because they stay open, and never
+present them as covered.
+
+### Optional phases
+
+When `nextAction.kind` is `decide-optional-phase`, ask the user and then record the
+answer so it survives into later sessions:
+
+```
+doc-agent-ai decide-phase --node <node> --phase <phase> --decision <accepted|declined>
+```
+
+Ask the question through your platform's interactive option selector, per Global
+Agent Rule 13. A declined phase drops out of the workflow and blocks nothing
+downstream, and it will not be asked again.
+
+### What you no longer do
+
+- You do not write phase artifacts. The phase sub-agents submit content and the
+  program writes it.
+- You do not create or update the index, mark checkboxes, or recalculate node
+  status. All three are computed from the recorded answers.
+- You do not decide that a phase has "enough" information. Coverage is counted, and
+  the count is in the status output.

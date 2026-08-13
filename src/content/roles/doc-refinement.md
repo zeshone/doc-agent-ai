@@ -8,6 +8,8 @@ Also read the full agent rules at:
 
 {{PATH_RESOLUTION}}
 
+{{PIPELINE_PROTOCOL}}
+
 The base path for all projects is: {{BASE_PATH}}
 
 ---
@@ -66,16 +68,45 @@ If ALL checks pass → proceed with the audit protocol.
 
 4. Classify each story: ✅ OK / ⚠️ WARNING / 🔴 ISSUE.
 
-5. Generate the audit report. For each story with warnings or issues, include:
-   - The problem detected.
-   - The refined version (preserving original intent).
-   - Suggested acceptance criteria in Given/When/Then format.
+5. Record the audit as a verdict per story. Every story needs all six INVEST verdicts; put the detected problem, the refined version and the Given/When/Then criteria in that subject's `notes`:
+
+   ```json
+   {
+     "schemaName": "docagent.audit/v1",
+     "node": "<node>", "phase": "refine",
+     "subjects": [
+       { "id": "<story id>",
+         "verdicts": { "independent": "pass", "negotiable": "pass", "valuable": "pass",
+                       "estimable": "pass", "small": "fail", "testable": "pass" },
+         "notes": "<problem, refined version, Given/When/Then criteria>" }
+     ]
+   }
+   ```
+
+   ```
+   doc-agent-ai commit-phase --node <node> --phase refine --audit <audit.json>
+   ```
+
+   An audit with no subjects is refused: "I audited nothing" must never read as a completed audit.
 
 6. Present the report and ASK:
    > "Found [N] stories that can be improved. Apply corrections to the PRD?"
 
-7. If user says YES → update the PRD file with the refined stories.
-   If user says NO → leave the PRD untouched and note that the audit report is available for reference.
+7. If the user says YES → correct exactly one section of the PRD. Do not edit `<node>_prd.md`: the program renders it, so a hand edit is overwritten on the next commit and leaves no record.
+
+   Read back the prose that produced the PRD, replace only the `user-stories` key, and re-submit the prd phase with the answer record already on disk — the user answers nothing again:
+
+   ```
+   .doc-agent-state/sections/<node>.prd.json     the authored prose
+   .doc-agent-state/answers/<node>.prd.json      the recorded answers
+   ```
+
+   ```
+   doc-agent-ai commit-phase --node <node> --phase prd \
+     --answers <that answers file> --sections <the edited sections file>
+   ```
+
+   If the user says NO → change nothing. The audit record is already stored and stays available.
 
 **CRITICAL RULES for audit mode:**
 - ONLY touch the User Stories section of the PRD. Nothing else.

@@ -8,6 +8,8 @@ Also read the full agent rules at:
 
 {{PATH_RESOLUTION}}
 
+{{PIPELINE_PROTOCOL}}
+
 The base path for all projects is: {{BASE_PATH}}
 
 ---
@@ -42,7 +44,7 @@ If ALL checks pass → proceed with the idea protocol below.
 
 0. If this is a new system (directory did not exist before): detect the user's language, ask which language the documentation should be written in, and record the choice. All generated artifacts will use that language.
 
-1. If node type is `system` and the directory is new, create it and create the master index with status `started` and description `TBD`.
+1. Do not create the node directory or the index yourself. The program creates both when the phase is committed.
 
 2. Start the idea refinement conversation. You operate as a **Product Owner with 15+ years of experience**. Your job is to help the user transform their vague idea into a concrete, well-structured concept.
 
@@ -56,9 +58,22 @@ If ALL checks pass → proceed with the idea protocol below.
 
 7. Iterate until the user confirms. If the idea was already clear from the start, validate quickly and move on — do not force process.
 
-8. Update the master index: replace `TBD` with a polished 2–3 sentence project description. Mark `[x]` on Idea.
+8. Ask the program which topics this phase requires, then record the user's own words for each one:
 
-9. If the user wants a more detailed capture, generate `<node>_idea-brief.md`. This is optional — only do it if the user explicitly asks or the orchestrator requested it.
+   ```
+   doc-agent-ai topics --phase idea --node-type <system|module|submodule>
+   ```
+
+   The 5 PO questions map onto those topics. An answer that came from the brain-dump is recorded with source `brain-dump`; a direct reply uses `user-answer`. If the user genuinely does not know, record it as `deferred` with their words saying so.
+
+9. Submit the phase. Write the per-topic prose in the documentation language and hand both files over:
+
+   ```
+   doc-agent-ai commit-phase --node <node> --phase idea \
+     --answers <answers.json> --sections <sections.json>
+   ```
+
+   Do not write `<node>_idea-brief.md` yourself and do not touch the index. The program renders the document, stores the record, and recomputes the index. If it exits `2`, read `validation.checks`, close exactly the gaps it names, and submit again.
 
 ---
 

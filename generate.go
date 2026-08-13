@@ -68,6 +68,22 @@ func BuildBundle() (installpkg.Bundle, error) {
 	// Trim the trailing newline added by the file so the injected block is clean.
 	pathResolutionPreamble := strings.TrimRight(string(pathResolutionTmplRaw), "\n")
 
+	// Pipeline protocol and routing blocks, injected the same opt-in way as the
+	// path-resolution preamble: phase executors reference {{PIPELINE_PROTOCOL}},
+	// the orchestrator references {{PIPELINE_ROUTING}}, and content that
+	// references neither is unaffected.
+	pipelineProtocolRaw, err := embedded.ReadFile("src/templates/pipeline-protocol.md.tmpl")
+	if err != nil {
+		return installpkg.Bundle{}, fmt.Errorf("read pipeline-protocol.md.tmpl: %w", err)
+	}
+	pipelineProtocol := strings.TrimRight(string(pipelineProtocolRaw), "\n")
+
+	pipelineRoutingRaw, err := embedded.ReadFile("src/templates/pipeline-routing.md.tmpl")
+	if err != nil {
+		return installpkg.Bundle{}, fmt.Errorf("read pipeline-routing.md.tmpl: %w", err)
+	}
+	pipelineRouting := strings.TrimRight(string(pipelineRoutingRaw), "\n")
+
 	// Ordered platform map (matches platforms.json key order for portability)
 	type namedPlatform struct {
 		id  string
@@ -94,6 +110,8 @@ func BuildBundle() (installpkg.Bundle, error) {
 			"RULES_SKILL_PATH":   platform.SkillRoot + "/" + role.RulesSkill + "/SKILL.md",
 			"TECH_TEMPLATE_PATH": platform.SkillRoot + "/doc-tech/references/template.md",
 			"PATH_RESOLUTION":    pathResolutionPreamble,
+			"PIPELINE_PROTOCOL":  pipelineProtocol,
+			"PIPELINE_ROUTING":   pipelineRouting,
 		}
 	}
 
@@ -184,8 +202,10 @@ func BuildBundle() (installpkg.Bundle, error) {
 		}
 
 		cmdBody, err := renderTemplate(string(cmdBodyRaw), map[string]string{
-			"BASE_PATH":       contentManifest.PlaceholderBasePath,
-			"PATH_RESOLUTION": pathResolutionPreamble,
+			"BASE_PATH":         contentManifest.PlaceholderBasePath,
+			"PATH_RESOLUTION":   pathResolutionPreamble,
+			"PIPELINE_PROTOCOL": pipelineProtocol,
+			"PIPELINE_ROUTING":  pipelineRouting,
 		})
 		if err != nil {
 			return installpkg.Bundle{}, fmt.Errorf("render command body for %s: %w", cmd.ID, err)

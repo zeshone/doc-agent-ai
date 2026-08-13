@@ -70,14 +70,15 @@ Sub-modules extend the path by one more level: `rec <sistema>/<modulo>/<submodul
 
 ## Node Statuses
 
+Computed by `doc-agent-ai`, never by you. Read them from `status`; do not write or recalculate them.
+
 | Status | Condition |
 |--------|-----------|
-| `started` | Index exists, no completed phases |
-| `in progress` | 1–7 phases completed |
-| `documented` | All phases completed (`ddd` optional, counts as 1 if included) |
-| `in review` | Issues generated, pending GitHub upload |
+| `started` | No phase complete yet |
+| `in progress` | At least one phase complete |
+| `documented` | Every applicable phase complete (a declined `ddd` does not count as missing) |
 
-Recalculate automatically after each phase completion.
+`in review` is not computed: it depends on whether issues were published to GitHub, which the program does not observe. Track that in conversation if the user needs it, and never write it into the index as if it were a computed fact.
 
 ## Existing-Project Detection
 
@@ -124,8 +125,10 @@ Fixed sequence, once per project: existing-project detection → language questi
 
 Always: idea → rec → prd → refine → tech → [ddd] → pti
 
+That is the shape of the chain. Your position within it comes from `doc-agent-ai status --node <node>`: route on `nextRecommended`, and never advance while `blockedReasons` is non-empty. Never infer the phase from the conversation, from files you believe exist, or from a checkbox.
+
 `ddd` is optional:
-- Between `tech` and `pti`, ask: "¿Quieres documentar el diseño de la base de datos?" Present this as a closed-ended option-selection per Global Agent Rule #13.
+- Between `tech` and `pti`, when status reports `nextAction.kind` as `decide-optional-phase`, ask: "¿Quieres documentar el diseño de la base de datos?" Record the answer with `doc-agent-ai decide-phase --node <node> --phase ddd --decision <accepted|declined>` so it survives into later sessions. Present this as a closed-ended option-selection per Global Agent Rule #13.
 - Also auto-trigger on hard signals (see DDD Decision Triggers below)
 - Between each phase in `arch`/`mod`: show summary and ask "¿Continuamos con el siguiente paso?"
 
@@ -153,7 +156,9 @@ During `rec`, first question always: "Is this a single delivery or an evolving p
 - If `tech` is a module: also reads parent system `_tech-spec.md`
 
 ### Index Updates
-Every phase completion updates the corresponding checkbox `[x]` in the master index. System index tracks all modules recursively.
+The index is a rendered view, not a source of truth. `doc-agent-ai` owns a delimited region inside it and recomputes the phase checkboxes and node status from the recorded answers on every commit. Prose outside that region belongs to whoever wrote it and is preserved.
+
+Never mark a checkbox, create an index, or recalculate a status yourself. If a checkbox looks wrong, that is a coverage question: run `doc-agent-ai status --node <node>` and report what it says.
 
 ### Issue Output
 Issues are generated as local `.md` files by default. GitHub publishing only on explicit user request. Notify: "File generated. Whenever you want to publish to GitHub, let me know."
@@ -169,7 +174,7 @@ Issues are generated as local `.md` files by default. GitHub publishing only on 
 7. **DDD = structured data design.** ERD, schema details, relationships, constraints, design rationale. Document intent, not just structure.
 8. **Uncertainty → TBD.** When data is missing, ask or mark `TBD`/`Open Decision`. Never invent.
 9. **PTI = grab-able vertical slices.** Each issue: end-to-end behavior, verifiable criteria, AFK/HITL type, explicit dependencies and TBDs. Avoid horizontal titles ("crear API", "hacer DB").
-10. **Always update indexes.** Phases completed → checkboxes marked → status recalculated.
+10. **Never write state.** Checkboxes, node status and phase completion are computed by `doc-agent-ai` from the recorded answers. Your job is to read that state and route on it, never to assert it.
 11. **Modules read parent context.** Never document a module in isolation.
 
 12. **Surface gaps with options.** When a contradiction, unstated assumption, or ambiguity is found → point it out, present 2+ concrete options with pros/cons. Do not proceed until the user decides. Do not create unnecessary friction for minor issues.

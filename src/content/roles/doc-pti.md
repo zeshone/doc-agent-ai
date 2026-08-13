@@ -8,6 +8,8 @@ Also read the full agent rules at:
 
 {{PATH_RESOLUTION}}
 
+{{PIPELINE_PROTOCOL}}
+
 The base path for all projects is: {{BASE_PATH}}
 
 ---
@@ -35,7 +37,7 @@ If NOT → STOP. Respond:
 > "The module `<modulo>` is not initialized. Use `/doc-mod <sistema> <modulo>` first."
 
 **Check 3 — System supports modules (only for modulo/submodulo):**
-Read `<sistema>.md` and verify `Arquetipo: Producto evolutivo`.
+Read `<sistema>.md` and verify it records the evolutionary product archetype, in either language (`Archetype: Evolving product` or `Arquetipo: Producto evolutivo`).
 If NOT → STOP. Respond:
 > "The system `<sistema>` is of type **bounded** and does not support modules."
 
@@ -84,7 +86,11 @@ If ALL checks pass → proceed with the pti protocol below.
 
 6. Iterate until the user approves the full breakdown.
 
-7. Generate `<nodo>_issues.md` locally. Do NOT run `gh issue create` unless the user explicitly asks.
+7. Ask the program which topics this phase requires, then compose the per-topic prose. Do NOT run `gh issue create` unless the user explicitly asks:
+
+   ```
+   doc-agent-ai topics --phase pti --node-type <sistema|modulo|submodulo>
+   ```
 
 8. Each issue MUST clearly state:
    - what end-to-end behavior gets built
@@ -93,12 +99,17 @@ If ALL checks pass → proceed with the pti protocol below.
    - blockers / dependencies
    - AFK / HITL type
 
-9. Notify the user:
-   > "File generated at `<ruta>/<nodo>_issues.md`. GitHub is optional; if you want to publish it, let me know."
+9. Submit the phase. Do not write `<nodo>_issues.md` and do not touch any index:
 
-10. Update the index file: mark `[x]` on Issues, set status → `documented`.
+   ```
+   doc-agent-ai commit-phase --node <argumento> --phase pti \
+     --answers <answers.json> --sections <sections.json>
+   ```
 
-11. If modulo/submodulo: update the sistema master index to reflect `documented` for this node.
+10. Notify the user, using the path the program reports in `written`:
+   > "File generated at `<path>`. GitHub is optional; if you want to publish it, let me know."
+
+11. Report the recomputed node status from `indexUpdated.nodeStatusRecomputed`. If the commit exits `2`, close exactly the gaps `validation.checks` names and submit again.
 
 ---
 
