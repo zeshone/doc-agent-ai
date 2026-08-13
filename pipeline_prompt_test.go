@@ -206,3 +206,24 @@ func TestDoctorIsDocumentedInTheHelp(t *testing.T) {
 		}
 	}
 }
+
+func TestProtocolTeachesClosedValueSets(t *testing.T) {
+	// A topic the bank closed to a fixed set is refused without its `value`, so a
+	// protocol that never mentions the field sends every new system straight into
+	// a rejection on its first rec submission.
+	raw, err := embedded.ReadFile("src/templates/pipeline-protocol.md.tmpl")
+	if err != nil {
+		t.Fatalf("cannot read protocol template: %v", err)
+	}
+	content := string(raw)
+
+	for _, phrase := range []string{"`values`", "`value`", "closed to that set", "refused"} {
+		if !strings.Contains(content, phrase) {
+			t.Errorf("protocol template never explains closed value sets: missing %q", phrase)
+		}
+	}
+	// The example record must actually show the field, not only describe it.
+	if !strings.Contains(content, `"value": "<one of that topic's declared values>"`) {
+		t.Error("the answer-record example does not show the value field")
+	}
+}

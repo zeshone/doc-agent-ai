@@ -44,6 +44,13 @@ For each topic, capture what the user actually said:
 - If the user genuinely does not know yet, that is status `deferred`, recorded with
   their own words saying so. A deferred topic counts as covered and renders as an
   explicit TBD in the document, so the gap stays visible instead of disappearing.
+- **A topic that reports `values` in the `topics` output is closed to that set.**
+  Record the user's words in `verbatim` as always, and additionally put the
+  matching choice in `value`. That is what makes the fact machine-readable instead
+  of something later phases have to infer from prose. `archetype`, for example,
+  reports `["bounded", "evolving"]`: quote what the user said about how the system
+  will grow, and set `value` to whichever one it means. A submission that omits it
+  is refused. A deferred topic owes no `value`.
 
 **Never invent a quote, and never attribute words to the user they did not say.**
 The record is what makes coverage checkable; a fabricated quote corrupts the one
@@ -59,6 +66,11 @@ Answer record, one entry per topic:
   "answers": [
     { "topicId": "<id>", "status": "answered", "source": "user-answer",
       "verbatim": "<what the user said, word for word>",
+      "capturedAt": "<RFC3339 timestamp>" },
+    { "topicId": "<a topic whose `topics` entry reports values>",
+      "status": "answered", "source": "user-answer",
+      "verbatim": "<what the user said, word for word>",
+      "value": "<one of that topic's declared values>",
       "capturedAt": "<RFC3339 timestamp>" }
   ]
 }
