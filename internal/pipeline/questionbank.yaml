@@ -1,0 +1,197 @@
+# Question bank — the required interview topics per phase, as data.
+#
+# This file is the authority on three things, all keyed by the same topic id:
+#   1. what a phase must ask about        (required_topics)
+#   2. what counts as coverage            (an answer on record per id)
+#   3. how the artifact section is titled (title)
+#
+# Section titles are canonical English and are rendered BY THE PROGRAM, never
+# typed by the model. That is what makes structure verifiable without depending
+# on the documentation language: the heading is machine vocabulary, the prose
+# under it is written in the user's chosen language.
+#
+# Consequence to know before renaming: the title IS the section identity in the
+# rendered document. Changing a title here leaves already-written artifacts
+# carrying the old heading until they are regenerated.
+#
+# Every topic carries a citation to the prose that requires it today. When a
+# topic is added or removed here, the corresponding skill prose must move with
+# it — the consistency guards in pipeline_consistency_test.go enforce that.
+#
+# PHASE ALTITUDE — the rule that keeps phases from asking the same thing twice.
+# Each topic belongs to exactly one phase, the one that owns its altitude:
+#
+#   rec    business reality only. Who is involved, what happens today, which
+#          rules govern it. No solution shape, no NFRs, no integrations.
+#   prd    product definition. Flows, stories, criteria, scope, constraints,
+#          risks. Owns external dependencies and integration points.
+#   tech   the solution. Architecture, contracts, tradeoffs, rollout,
+#          validation. Owns transition and deployment mechanics.
+#   ddd    data design. Entities, schema, relationships, constraints.
+#   pti    executable slices and their inter-issue dependencies.
+#
+# A topic id is globally unique across phases, enforced by
+# TestTopicIdsAreGloballyUnique. Before adding one, check no other phase already
+# owns that altitude — the documentation has to stay quick to produce, and asking
+# the same question in two phases is how it turns tedious.
+#
+# Tuning this file needs no code change: it is read as data.
+
+schemaName: docagent.questionbank/v1
+phases:
+  - phase: idea
+    kind: interview
+    artifact: "{node}_idea-brief.md"
+    documentTitle: Idea Brief
+    # skills/doc-idea/SKILL.md:86 — the brief is optional; the refined concept
+    # normally lands in the master index instead.
+    artifactOptional: true
+    required_topics:
+      - id: target-users # skills/doc-idea/SKILL.md:64
+        title: Target Users
+      - id: problem-solved # skills/doc-idea/SKILL.md:65
+        title: Problem Solved
+      - id: success-definition # skills/doc-idea/SKILL.md:66
+        title: Definition of Success
+      - id: out-of-scope # skills/doc-idea/SKILL.md:67
+        title: Out of Scope
+      - id: why-now # skills/doc-idea/SKILL.md:68
+        title: Why Now
+
+  - phase: rec
+    kind: interview
+    artifact: "{node}_requirements.md"
+    documentTitle: Requirements
+    required_topics:
+      - id: archetype # skills/doc-arch/SKILL.md:144 — always the first question
+        title: System Archetype
+      - id: stakeholders # skills/doc-rec/SKILL.md:29
+        title: Stakeholders
+      - id: business-events # skills/doc-rec/SKILL.md:29
+        title: Business Events
+      - id: current-process # skills/doc-rec/SKILL.md:83
+        title: Current Process
+      - id: business-rules # skills/doc-rec/SKILL.md:85
+        title: Business Rules
+      - id: exceptions-edge-cases # skills/doc-rec/SKILL.md:86,93
+        title: Exceptions and Edge Cases
+      # "No conflicts surfaced" is a real finding: it records that someone
+      # checked. BABOK asks analysts to flag conflicts and never resolve them
+      # silently (skills/doc-rec/SKILL.md:123,167), so this stays required.
+      - id: stakeholder-conflicts
+        title: Stakeholder Conflicts
+      #
+      # Deliberately NOT here, per the altitude rule above. doc-rec's prose still
+      # invites these conversationally in its Layer 3, but the phase that owns
+      # each one is where the answer gets recorded, so it is captured once:
+      #   integrations-dependencies -> prd (dependencies-integrations)
+      #   data-io-ownership         -> tech (component-contracts) and ddd
+      #   nfrs                      -> prd (technical-constraints) and tech
+      #   transition-rollout        -> tech (rollout)
+
+  - phase: prd
+    kind: interview
+    artifact: "{node}_prd.md"
+    documentTitle: Product Requirements Document
+    required_topics:
+      # src/content/roles/doc-prd.md:76-84 — the eight sections the PRD must cover
+      - id: primary-user-flows
+        title: Primary User Flows
+      - id: user-stories
+        title: User Stories
+      - id: acceptance-criteria
+        title: Acceptance Criteria
+      - id: dependencies-integrations
+        title: Dependencies and Integration Points
+      - id: technical-constraints
+        title: Technical Constraints
+      - id: security-privacy
+        title: Security and Privacy
+      - id: risks-roadmap
+        title: Risks and Roadmap
+      - id: open-decisions
+        title: Open Decisions and TBDs
+      # src/content/roles/doc-prd.md:65 — the never-assume list. Only
+      # success-metrics is required: an SLA/SLO section was dropped because many
+      # products legitimately have none, and "never assume" is not the same as
+      # "always demand a section".
+      - id: success-metrics
+        title: Success Metrics
+
+  - phase: refine
+    # Not an interview. skills/doc-arch/SKILL.md:167 makes this an INVEST audit
+    # of stories that already exist; it elicits nothing new, writes no artifact
+    # of its own, and therefore has no topics and no sections.
+    kind: audit
+    artifact: "{node}_prd.md"
+    required_topics: []
+    audit_rule:
+      subject: user-stories
+      source_phase: prd
+      per_subject_verdict:
+        - independent
+        - negotiable
+        - valuable
+        - estimable
+        - small
+        - testable
+
+  - phase: tech
+    kind: interview
+    artifact: "{node}_tech-spec.md"
+    documentTitle: Technical Specification
+    required_topics:
+      # skills/doc-arch/SKILL.md:168 (global rule 6)
+      - id: architecture
+        title: Architecture
+      - id: component-contracts
+        title: Component Contracts
+      - id: tradeoffs
+        title: Tradeoffs
+      - id: rollout
+        title: Rollout
+      - id: validation-strategy
+        title: Validation Strategy
+      # skills/doc-arch/SKILL.md:149 — modules must declare inherit vs diverge
+      - id: inheritance-mode
+        title: Architecture Inheritance
+        appliesWhen:
+          nodeType: [module, submodule]
+
+  - phase: ddd
+    kind: interview
+    # skills/doc-arch/SKILL.md:127-129 — asked between tech and pti, never forced
+    optional: true
+    artifact: "{node}_db-design.md"
+    documentTitle: Database Design Document
+    required_topics:
+      # skills/doc-arch/SKILL.md:169 (global rule 7)
+      - id: entities-erd
+        title: Entities and ERD
+      - id: schema-details
+        title: Schema Details
+      - id: relationships
+        title: Relationships
+      - id: constraints
+        title: Constraints
+      - id: design-rationale
+        title: Design Rationale
+
+  - phase: pti
+    kind: interview
+    artifact: "{node}_issues.md"
+    documentTitle: Issue Breakdown
+    required_topics:
+      # skills/doc-arch/SKILL.md:171 (global rule 9)
+      - id: slice-boundaries
+        title: Slice Boundaries
+      - id: verifiable-criteria
+        title: Verifiable Criteria
+      - id: execution-type
+        title: Execution Type (AFK / HITL)
+      # Renamed from `dependencies`: these are dependencies BETWEEN issues, not
+      # the external integration points prd owns.
+      - id: issue-dependencies
+        title: Dependencies
+      - id: open-tbds
+        title: Open TBDs
