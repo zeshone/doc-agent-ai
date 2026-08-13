@@ -175,7 +175,9 @@ func pipelineEnvironment() pipelinepkg.Environment {
 	}
 	if cfg, _, err := configpkg.Load(); err == nil {
 		env.GlobalMode = cfg.Mode
-		env.GlobalBasePath = cfg.Path
+		// Expand here too: a config written before tilde expansion existed may
+		// still hold "~/vault", and the pipeline would resolve it to a literal "~".
+		env.GlobalBasePath = configpkg.ExpandUserPath(cfg.Path)
 	}
 	return env
 }

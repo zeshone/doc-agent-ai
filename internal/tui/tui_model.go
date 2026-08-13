@@ -406,7 +406,7 @@ func (m InstallModel) runInstall() tea.Cmd {
 	plan := configpkg.InstallPlan{
 		Platforms: effectiveIDs,
 		Mode:      m.mode,
-		BasePath:  strings.TrimSpace(m.pathInput.Value()),
+		BasePath:  configpkg.ExpandUserPath(m.pathInput.Value()),
 		PrevMode:  prevMode,
 		Yes:       true, // user confirmed via [Install] button
 		Overwrite: overwrite,
@@ -1129,7 +1129,7 @@ func (m InstallModel) BuildPlan() configpkg.InstallPlan {
 	return configpkg.InstallPlan{
 		Platforms: effectiveIDs,
 		Mode:      m.mode,
-		BasePath:  strings.TrimSpace(m.pathInput.Value()),
+		BasePath:  configpkg.ExpandUserPath(m.pathInput.Value()),
 		PrevMode:  configpkg.DocsMode(m.cfg.Mode),
 		Yes:       true,
 		Overwrite: overwrite,
