@@ -46,17 +46,17 @@ func newPlatformForTest(t *testing.T, id string, homeDir string) Platform {
 }
 
 type tuiTestPlatform struct {
-	id        string
-	homeDir   string
-	skillsDir string
+	id         string
+	homeDir    string
+	skillsDir  string
 	promptsDir string
-	agentsDir string
+	agentsDir  string
 }
 
-func (p *tuiTestPlatform) ID() string      { return p.id }
-func (p *tuiTestPlatform) HomeDir() string { return p.homeDir }
-func (p *tuiTestPlatform) Detect() bool    { return true }
-func (p *tuiTestPlatform) SkillsDir() string { return p.skillsDir }
+func (p *tuiTestPlatform) ID() string         { return p.id }
+func (p *tuiTestPlatform) HomeDir() string    { return p.homeDir }
+func (p *tuiTestPlatform) Detect() bool       { return true }
+func (p *tuiTestPlatform) SkillsDir() string  { return p.skillsDir }
 func (p *tuiTestPlatform) PromptsDir() string { return p.promptsDir }
 func (p *tuiTestPlatform) AgentsDir() string  { return p.agentsDir }
 func (p *tuiTestPlatform) GetAgentIDs(manifest installpkg.DistManifest, installed map[string]bool) ([]string, error) {
@@ -94,10 +94,16 @@ func (p *tuiTestPlatform) GetSkillIDs(manifest installpkg.DistManifest) []string
 	}
 	return ids
 }
-func (p *tuiTestPlatform) GetCommandIDs(manifest installpkg.DistManifest) ([]string, error) { return nil, nil }
-func (p *tuiTestPlatform) PatchConfig(manifest installpkg.DistManifest, basePath string, roleIDs []string) error { return nil }
-func (p *tuiTestPlatform) RemoveConfig(manifest installpkg.DistManifest, roleIDs []string) error { return nil }
-func (p *tuiTestPlatform) SkillRegistryTrigger() string { return "" }
+func (p *tuiTestPlatform) GetCommandIDs(manifest installpkg.DistManifest) ([]string, error) {
+	return nil, nil
+}
+func (p *tuiTestPlatform) PatchConfig(manifest installpkg.DistManifest, basePath string, roleIDs []string) error {
+	return nil
+}
+func (p *tuiTestPlatform) RemoveConfig(manifest installpkg.DistManifest, roleIDs []string) error {
+	return nil
+}
+func (p *tuiTestPlatform) SkillRegistryTrigger() string             { return "" }
 func (p *tuiTestPlatform) WriteSkillRegistry(basePath string) error { return nil }
 
 func writeEmptyJSON(t *testing.T, path string) {

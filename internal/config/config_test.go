@@ -199,7 +199,6 @@ func TestSaveConfig_FilePermissions(t *testing.T) {
 	}
 }
 
-
 // TestSaveConfig_TrailingNewline verifies that saveConfig output ends with '\n'.
 func TestSaveConfig_TrailingNewline(t *testing.T) {
 	tmpHome := t.TempDir()

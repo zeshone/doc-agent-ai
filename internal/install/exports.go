@@ -1,7 +1,7 @@
 package install
 
-func NewStdoutReporter() Reporter { return newStdoutReporter() }
-func NewOpenCodePlatform(cfg PlatformConfig) (Platform, error)   { return newOpenCodePlatform(cfg) }
+func NewStdoutReporter() Reporter                              { return newStdoutReporter() }
+func NewOpenCodePlatform(cfg PlatformConfig) (Platform, error) { return newOpenCodePlatform(cfg) }
 func RegistryTemplate(basePath, skillsDir, triggerStyle string) string {
 	return registryTemplate(basePath, skillsDir, triggerStyle)
 }

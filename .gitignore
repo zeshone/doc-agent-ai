@@ -1,9 +1,11 @@
 dist/
 *.log
 .DS_Store
-# Go build artifacts
-doc-agent-ai
-doc-agent-ai.exe
+# Go build artifacts — anchored to the repo root on purpose. Unanchored, these
+# patterns also match the cmd/doc-agent-ai/ directory, which silently ignores
+# any new source file added there.
+/doc-agent-ai
+/doc-agent-ai.exe
 dist-release/
 docs/*
 !docs/assets/
@@ -15,6 +17,8 @@ docs/assets/brand/*
 .windsurf/
 .atl/
 .engram/
+# CodeGraph index — per-checkout local state, never shared between worktrees
+.codegraph/
 
 # Local Pi runtime state
 .pi/

@@ -59,7 +59,6 @@ func ensureDir(path string) error {
 	return os.MkdirAll(path, 0755)
 }
 
-
 // placeholderPair is a (placeholder, value) pair for ordered multi-token
 // substitution. Order matters: each substitution runs in sequence on the
 // result of the previous one.
