@@ -1,8 +1,12 @@
 name: CI
 
 on:
+  # No branch filter here on purpose. The filter matches the pull request's
+  # TARGET branch, so `branches: [main]` skipped every chained pull request —
+  # a stacked slice targets its parent branch, not main, and landed unchecked.
   pull_request:
-    branches: [main]
+  # Pushes stay limited to main: a push to a feature branch is already covered
+  # by its pull request event, and filtering here avoids double runs.
   push:
     branches: [main]
 
