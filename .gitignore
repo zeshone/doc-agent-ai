@@ -15,6 +15,8 @@ docs/assets/brand/*
 .windsurf/
 .atl/
 .engram/
+# CodeGraph index — per-checkout local state, never shared between worktrees
+.codegraph/
 
 # Local Pi runtime state
 .pi/
