@@ -8,6 +8,7 @@ import (
 	buildpkg "github.com/zeshone/doc-agent-ai/internal/build"
 	configpkg "github.com/zeshone/doc-agent-ai/internal/config"
 	installpkg "github.com/zeshone/doc-agent-ai/internal/install"
+	pipelinepkg "github.com/zeshone/doc-agent-ai/internal/pipeline"
 	tuipkg "github.com/zeshone/doc-agent-ai/internal/tui"
 )
 
@@ -129,6 +130,21 @@ func main() {
 			}
 		}
 
+	case "topics":
+		os.Exit(pipelinepkg.RunTopics(args[1:], os.Stdout, os.Stderr))
+
+	case "status":
+		os.Exit(pipelinepkg.RunStatus(args[1:], pipelineEnvironment(), os.Stdout, os.Stderr))
+
+	case "validate":
+		os.Exit(pipelinepkg.RunValidate(args[1:], pipelineEnvironment(), os.Stdout, os.Stderr))
+
+	case "commit-phase":
+		os.Exit(pipelinepkg.RunCommitPhase(args[1:], pipelineEnvironment(), os.Stdout, os.Stderr))
+
+	case "decide-phase":
+		os.Exit(pipelinepkg.RunDecidePhase(args[1:], pipelineEnvironment(), os.Stdout, os.Stderr))
+
 	case "--version":
 		fmt.Printf("doc-agent-ai %s\n", buildpkg.Version)
 
@@ -142,6 +158,23 @@ func main() {
 	}
 }
 
+// pipelineEnvironment builds the ambient input the pipeline commands need.
+//
+// A missing or unreadable global config is not fatal here: the pipeline reports
+// an unresolvable destination as a typed undetermined status, which is more
+// useful to the caller than a bare CLI error.
+func pipelineEnvironment() pipelinepkg.Environment {
+	env := pipelinepkg.Environment{}
+	if cwd, err := os.Getwd(); err == nil {
+		env.ProjectRoot = cwd
+	}
+	if cfg, _, err := configpkg.Load(); err == nil {
+		env.GlobalMode = cfg.Mode
+		env.GlobalBasePath = cfg.Path
+	}
+	return env
+}
+
 func printHelp() {
 	fmt.Println(`doc-agent-ai — Multi-platform documentation workflow agent installer
 
@@ -152,6 +185,23 @@ Subcommands:
   generate    Generate bundle output to an explicit directory
   install     Install doc-agent-ai to detected platforms
   uninstall   Remove doc-agent-ai from detected platforms
+
+Pipeline subcommands (typed JSON on stdout; the orchestrator routes on these):
+  topics        Print required interview topics
+                  --phase <id> --node-type <system|module|submodule>
+  status        Print a node's computed phase status
+                  --node <system[/module[/submodule]]>
+  validate      Check a phase submission without writing anything
+                  --node <n> --phase <p> --answers <f> --sections <f>
+  commit-phase  Validate a submission and write it only if it passes
+                  --node <n> --phase <p> --answers <f> --sections <f>
+                  --audit <f> instead of --answers for audit phases
+                  Section headings are rendered by the program from the
+                  question bank; --sections carries prose per topic id.
+  decide-phase  Record a decision about an optional phase
+                  --node <n> --phase <p> --decision <accepted|declined>
+
+  Exit codes: 0 affirmative, 1 usage or environment error, 2 refused verdict.
 
 Install flags (bypass TUI; trigger headless mode when any is present):
   --platforms <ids>      Comma-separated platform IDs (opencode, claude, copilot, qwen, pi)

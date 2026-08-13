@@ -35,6 +35,16 @@ var engineFiles = []string{
 	"internal/config/config.go",
 	"internal/config/plan.go",
 	"internal/config/resolve.go",
+	// internal/pipeline — deterministic phase authority; no TUI, no charm
+	"internal/pipeline/pipeline.go",
+	"internal/pipeline/questionbank.go",
+	"internal/pipeline/answers.go",
+	"internal/pipeline/records.go",
+	"internal/pipeline/resolve.go",
+	"internal/pipeline/status.go",
+	"internal/pipeline/validate.go",
+	"internal/pipeline/commit.go",
+	"internal/pipeline/cli.go",
 	// CLI entry point — must delegate to charm-free wrappers only
 	"cmd/doc-agent-ai/main.go",
 }
