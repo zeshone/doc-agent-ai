@@ -50,8 +50,9 @@ func TestCommitWritesArtifactRecordAndIndex(t *testing.T) {
 	if result.SchemaName != CommitSchema {
 		t.Errorf("schemaName = %q, want %q", result.SchemaName, CommitSchema)
 	}
-	if len(result.Written) != 2 {
-		t.Errorf("written = %v, want the artifact and the answer record", result.Written)
+	// answer record, the authored prose, and the rendered artifact
+	if len(result.Written) != 3 {
+		t.Errorf("written = %v, want the answer record, the section input and the artifact", result.Written)
 	}
 	for _, path := range result.Written {
 		if _, err := os.Stat(path); err != nil {
@@ -525,5 +526,98 @@ func TestSystemCommitReportsNoParent(t *testing.T) {
 	}
 	if len(result.ParentIndex) != 0 {
 		t.Errorf("parentIndex = %v, want empty for a system node", result.ParentIndex)
+	}
+}
+
+func TestCommitStoresTheAuthoredProseNotOnlyTheArtifact(t *testing.T) {
+	// The artifact is derived and the prose is not recoverable from it, so a
+	// phase could never be partially corrected without re-interviewing the user.
+	f := newFixture(t, "acme-hr")
+
+	result := Commit(f.submission(PhaseRec), f.env, f.bank)
+	if result.Result != CommitWritten {
+		t.Fatalf("commit failed: %s", result.Detail)
+	}
+
+	path := f.res.SectionInputPath(PhaseRec)
+	if !containsString(result.Written, path) {
+		t.Errorf("written = %v, want it to include the stored section input %s", result.Written, path)
+	}
+
+	stored, found, err := LoadSectionInput(path)
+	if err != nil {
+		t.Fatalf("LoadSectionInput: %v", err)
+	}
+	if !found {
+		t.Fatal("section input was not stored")
+	}
+
+	original := f.submission(PhaseRec).Content
+	if len(stored.Sections) != len(original.Sections) {
+		t.Errorf("stored %d sections, want %d", len(stored.Sections), len(original.Sections))
+	}
+	for id, prose := range original.Sections {
+		if stored.Sections[id] != prose {
+			t.Errorf("section %q was altered in storage", id)
+		}
+	}
+}
+
+func TestStoredProseSurvivesARoundTripAndSupportsOneSectionCorrection(t *testing.T) {
+	// This is the workflow refine needs: read the prose back, replace exactly one
+	// section, and re-submit without re-asking the user anything.
+	f := newFixture(t, "acme-hr")
+
+	if result := Commit(f.submission(PhasePRD), f.env, f.bank); result.Result != CommitWritten {
+		t.Fatalf("first commit failed")
+	}
+
+	stored, found, err := LoadSectionInput(f.res.SectionInputPath(PhasePRD))
+	if err != nil || !found {
+		t.Fatalf("LoadSectionInput: found=%v err=%v", found, err)
+	}
+
+	const refined = "As an HR clerk I want to close payroll in one day so the audit passes."
+	stored.Sections["user-stories"] = refined
+
+	corrected := f.submission(PhasePRD)
+	corrected.Content = stored
+
+	result := Commit(corrected, f.env, f.bank)
+	if result.Result != CommitWritten {
+		t.Fatalf("re-submission failed: %s", result.Detail)
+	}
+
+	artifact, err := os.ReadFile(f.res.ArtifactPath(PhasePRD, f.bank))
+	if err != nil {
+		t.Fatalf("reading artifact: %v", err)
+	}
+	if !strings.Contains(string(artifact), refined) {
+		t.Error("the corrected section did not reach the rendered artifact")
+	}
+	// Every other section must be untouched by a single-section correction.
+	for id, prose := range f.submission(PhasePRD).Content.Sections {
+		if id == "user-stories" {
+			continue
+		}
+		if !strings.Contains(string(artifact), prose) {
+			t.Errorf("section %q was lost during the correction", id)
+		}
+	}
+}
+
+func TestLoadSectionInputRejectsAWrongSchema(t *testing.T) {
+	f := newFixture(t, "acme-hr")
+
+	path := f.res.SectionInputPath(PhasePRD)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(path, []byte(`{"schemaName":"docagent.sections/v99","sections":{}}`), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	if _, _, err := LoadSectionInput(path); err == nil {
+		t.Fatal("LoadSectionInput accepted an unknown schema version")
 	}
 }

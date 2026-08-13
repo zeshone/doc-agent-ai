@@ -127,6 +127,21 @@ func Commit(sub Submission, env Environment, bank QuestionBank) CommitResult {
 
 	// Audit phases own no artifact of their own.
 	if spec.Kind != KindAudit {
+		// Store the authored prose before rendering. The artifact is derived; the
+		// input is not recoverable from it, and without the input no phase could be
+		// partially corrected without re-interviewing the user.
+		sectionPath := res.SectionInputPath(sub.Phase)
+		stored := sub.Content
+		stored.SchemaName = SectionsSchema
+		if err := writeJSONAtomic(sectionPath, stored); err != nil {
+			result.Result = CommitUndetermined
+			result.Detail = err.Error()
+			return result
+		}
+		result.Written = append(result.Written, sectionPath)
+	}
+
+	if spec.Kind != KindAudit {
 		// The program renders the document: canonical English headings from the
 		// bank, authored prose beneath them. The model never hands over finished
 		// markdown, so structure cannot disagree with the coverage record.
@@ -222,6 +237,27 @@ func propagateToAncestors(node Node, env Environment, bank QuestionBank) (update
 
 		current = parent
 	}
+}
+
+// LoadSectionInput reads back the stored prose for a phase. A missing file is a
+// normal state — phases committed before section storage existed have none.
+func LoadSectionInput(path string) (SectionInput, bool, error) {
+	raw, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return SectionInput{}, false, nil
+	}
+	if err != nil {
+		return SectionInput{}, false, fmt.Errorf("reading section input %s: %w", path, err)
+	}
+	var input SectionInput
+	if err := json.Unmarshal(raw, &input); err != nil {
+		return SectionInput{}, true, fmt.Errorf("parsing section input %s: %w", path, err)
+	}
+	if input.SchemaName != SectionsSchema {
+		return SectionInput{}, true, fmt.Errorf(
+			"section input %s declares schema %q, expected %q", path, input.SchemaName, SectionsSchema)
+	}
+	return input, true, nil
 }
 
 // RecordDecision persists a decision about an optional phase so it survives
