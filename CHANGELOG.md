@@ -6,7 +6,7 @@ For older releases without a section here, the GitHub Release notes have the det
 
 ---
 
-## v5.0.0 — unreleased
+## v5.0.0 — 2026-08-14
 
 Documentation completion stops being something the agent asserts and becomes something the tool counts.
 
