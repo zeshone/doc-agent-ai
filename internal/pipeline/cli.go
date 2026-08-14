@@ -265,6 +265,47 @@ func RunDoctor(args []string, env Environment, now string, out, errOut io.Writer
 	return ExitOK
 }
 
+// RunSDDCommit verifies a compacted agent context and writes it only if it holds.
+func RunSDDCommit(args []string, env Environment, now string, out, errOut io.Writer) int {
+	fs := flag.NewFlagSet("sdd-commit", flag.ContinueOnError)
+	fs.SetOutput(errOut)
+	nodeArg := fs.String("node", "", "node identifier")
+	inputArg := fs.String("input", "", "path to a docagent.sddinput/v1 file")
+	if err := fs.Parse(args); err != nil {
+		return ExitUsage
+	}
+	if *nodeArg == "" || *inputArg == "" {
+		return usageError(errOut, "sdd-commit needs --node and --input <file>")
+	}
+
+	node, err := ParseNode(*nodeArg)
+	if err != nil {
+		return usageError(errOut, "%v", err)
+	}
+	bank, err := LoadQuestionBank()
+	if err != nil {
+		return usageError(errOut, "%v", err)
+	}
+
+	raw, err := os.ReadFile(*inputArg)
+	if err != nil {
+		return usageError(errOut, "reading input: %v", err)
+	}
+	var input SDDInput
+	if err := json.Unmarshal(raw, &input); err != nil {
+		return usageError(errOut, "parsing input: %v", err)
+	}
+
+	result := CommitSDDContext(node, env, bank, input, now)
+	if err := emit(out, result); err != nil {
+		return usageError(errOut, "%v", err)
+	}
+	if result.Result != CommitWritten {
+		return ExitVerdict
+	}
+	return ExitOK
+}
+
 // parseSubmission builds a Submission from the shared validate/commit flags.
 func parseSubmission(name string, args []string, errOut io.Writer) (Submission, QuestionBank, int) {
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)

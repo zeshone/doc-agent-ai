@@ -417,6 +417,23 @@ func renderIndexRegion(res Resolution, env Environment, bank QuestionBank, statu
 		}
 	}
 
+	if sdd := status.SDDContext; sdd != nil && sdd.State != SDDAbsent {
+		b.WriteString("\n| Agent context | State |\n|---|---|\n")
+		for _, output := range sdd.Outputs {
+			b.WriteString(fmt.Sprintf("| `%s` | %s |\n", filepath.Base(output), sdd.State))
+		}
+		if sdd.State == SDDStale {
+			b.WriteString(fmt.Sprintf(
+				"\n> The compacted agent context no longer matches its sources (%s changed). "+
+					"Re-run `/doc-to-sdd` before an agent relies on it.\n",
+				strings.Join(sdd.Drifted, ", ")))
+		}
+		if !sdd.CoverageVerified {
+			b.WriteString("\n> The compacted context draws on adopted documentation, " +
+				"so its coverage is **unverified**.\n")
+		}
+	}
+
 	if len(status.Adopted) > 0 {
 		b.WriteString(fmt.Sprintf(
 			"\n> `[~]` marks inherited documentation adopted from before answer records existed. "+
