@@ -1,6 +1,8 @@
 package pipeline
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -111,6 +113,21 @@ func inheritedArchetype(node Node, env Environment, bank QuestionBank) string {
 		}
 		current = parent
 	}
+}
+
+// sectionRevision fingerprints the authored prose of a phase.
+//
+// The stored section input is the anchor rather than the rendered artifact: the
+// artifact also changes when a heading is renamed in the question bank, and a
+// retitled section is not a rewritten story. An absent input yields an empty
+// revision, which callers must read as "cannot compute" and never as a mismatch.
+func sectionRevision(res Resolution, phase PhaseID) string {
+	raw, err := os.ReadFile(res.SectionInputPath(phase))
+	if err != nil {
+		return ""
+	}
+	sum := sha256.Sum256(raw)
+	return hex.EncodeToString(sum[:])
 }
 
 // recordedArchetype returns the archetype a node's own answers established, if

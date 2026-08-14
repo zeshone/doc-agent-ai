@@ -267,3 +267,24 @@ func TestProtocolTellsTheModelToReadTopicNotes(t *testing.T) {
 		}
 	}
 }
+
+func TestRefineRoleKnowsCorrectingInvalidatesTheAudit(t *testing.T) {
+	// Observed live: the PRD correction was committed and the audit that judged the
+	// pre-correction stories stayed "complete". The role has to say that rewriting
+	// the stories invalidates the verdicts, and that the anchor is not its to set.
+	raw, err := embedded.ReadFile("src/content/roles/doc-refinement.md")
+	if err != nil {
+		t.Fatalf("cannot read refine role: %v", err)
+	}
+	content := string(raw)
+
+	for _, phrase := range []string{
+		"auditedRevision",
+		"audit-stale",
+		"Re-run the audit after correcting",
+	} {
+		if !strings.Contains(content, phrase) {
+			t.Errorf("refine role is missing %q", phrase)
+		}
+	}
+}

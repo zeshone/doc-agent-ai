@@ -21,7 +21,9 @@ const (
 	CodeAnswerRecordUnverifiable = "answer-record-unverifiable"
 	CodeAuditRecordMissing       = "audit-record-missing"
 	CodeAuditRecordUnverifiable  = "audit-record-unverifiable"
-	CodeDocsRootUnresolved       = "docs-root-unresolved"
+	// CodeAuditStale marks verdicts formed against prose that has since changed.
+	CodeAuditStale         = "audit-stale"
+	CodeDocsRootUnresolved = "docs-root-unresolved"
 )
 
 // Next-action kinds.
@@ -370,7 +372,7 @@ func auditState(res Resolution, bank QuestionBank, phase PhaseID) (
 	present bool, usable bool, reasons []BlockedReason) {
 
 	path := res.AuditRecordPath(phase)
-	_, found, err := LoadAuditRecord(path, bank)
+	record, found, err := LoadAuditRecord(path, bank)
 
 	switch {
 	case err != nil:
@@ -386,6 +388,24 @@ func auditState(res Resolution, bank QuestionBank, phase PhaseID) (
 			Detail: fmt.Sprintf("phase %q has no audit record at %s", phase, path),
 		}}
 	}
+
+	// A quality gate that passed on content since rewritten is not a pass. Only
+	// claim staleness when both anchors are known: an absent one means the
+	// revision could not be computed, which is not evidence of a mismatch.
+	spec, ok := bank.Phase(phase)
+	if ok && spec.AuditRule != nil {
+		current := sectionRevision(res, spec.AuditRule.SourcePhase)
+		if current != "" && record.AuditedRevision != "" && current != record.AuditedRevision {
+			return true, false, []BlockedReason{{
+				Code:  CodeAuditStale,
+				Phase: phase,
+				Detail: fmt.Sprintf(
+					"the %q audit was formed against a different version of %q; re-run it so the verdicts describe the current content",
+					phase, spec.AuditRule.SourcePhase),
+			}}
+		}
+	}
+
 	return true, true, nil
 }
 

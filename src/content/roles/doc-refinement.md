@@ -89,6 +89,8 @@ If ALL checks pass → proceed with the audit protocol.
 
    An audit with no subjects is refused: "I audited nothing" must never read as a completed audit.
 
+   Do **not** set `auditedRevision`. The program stamps it from the prose on disk, because an anchor the auditor supplies is an anchor the auditor can move.
+
 6. Present the report and ASK:
    > "Found [N] stories that can be improved. Apply corrections to the PRD?"
 
@@ -107,6 +109,10 @@ If ALL checks pass → proceed with the audit protocol.
    ```
 
    If the user says NO → change nothing. The audit record is already stored and stays available.
+
+8. **Re-run the audit after correcting.** Rewriting the stories invalidates the verdicts that judged them: `status` will report `refine` as no longer complete with reason `audit-stale`, and downstream phases stay blocked until it is re-audited. That is deliberate — a quality gate that passed on content since rewritten is not a pass.
+
+   So the order takes care of itself. Record the audit whenever you have verdicts; if a correction follows, audit the corrected stories and submit again. What must never happen is a corrected PRD whose only audit describes the version before the correction.
 
 **CRITICAL RULES for audit mode:**
 - ONLY touch the User Stories section of the PRD. Nothing else.

@@ -615,3 +615,127 @@ func TestLoadSectionInputRejectsAWrongSchema(t *testing.T) {
 		t.Fatal("LoadSectionInput accepted an unknown schema version")
 	}
 }
+
+// auditSubmission builds a valid refine audit over one story.
+func auditSubmission(f *fixture) Submission {
+	return Submission{
+		Node:  f.node,
+		Phase: PhaseRefine,
+		Audit: &AuditRecord{
+			SchemaName: AuditRecordSchema,
+			Node:       f.node.Raw,
+			Phase:      PhaseRefine,
+			Subjects: []AuditSubject{{
+				ID: "H1",
+				Verdicts: map[string]Verdict{
+					"independent": VerdictPass, "negotiable": VerdictPass,
+					"valuable": VerdictPass, "estimable": VerdictPass,
+					"small": VerdictPass, "testable": VerdictPass,
+				},
+			}},
+		},
+	}
+}
+
+func TestAuditIsAnchoredToTheProseItJudged(t *testing.T) {
+	f := newFixture(t, "acme-hr")
+	if r := Commit(f.submission(PhasePRD), f.env, f.bank); r.Result != CommitWritten {
+		t.Fatalf("prd commit failed: %s", r.Detail)
+	}
+	if r := Commit(auditSubmission(f), f.env, f.bank); r.Result != CommitWritten {
+		t.Fatalf("audit commit failed: %s", r.Detail)
+	}
+
+	stored, found, err := LoadAuditRecord(f.res.AuditRecordPath(PhaseRefine), f.bank)
+	if err != nil || !found {
+		t.Fatalf("LoadAuditRecord: found=%v err=%v", found, err)
+	}
+	if stored.AuditedRevision == "" {
+		t.Fatal("the audit was stored with no anchor to what it judged")
+	}
+	if got := phaseStatus(t, ComputeStatus(f.node, f.env, f.bank), PhaseRefine).State; got != StateComplete {
+		t.Errorf("refine state = %q, want %q", got, StateComplete)
+	}
+}
+
+func TestRewritingTheJudgedProseInvalidatesTheAudit(t *testing.T) {
+	// This is the live failure: the PRD was corrected and the audit stayed
+	// "complete", so 84 verdicts described stories that no longer existed. The
+	// repo's own ruleset dismisses stale reviews on push for the same reason.
+	f := newFixture(t, "acme-hr")
+	// A full chain up to prd, so nextRecommended genuinely reflects the audit
+	// rather than an earlier gap.
+	for _, phase := range []PhaseID{PhaseIdea, PhaseRec, PhasePRD} {
+		if r := Commit(f.submission(phase), f.env, f.bank); r.Result != CommitWritten {
+			t.Fatalf("%s commit failed: %s", phase, r.Detail)
+		}
+	}
+	if r := Commit(auditSubmission(f), f.env, f.bank); r.Result != CommitWritten {
+		t.Fatalf("audit commit failed: %s", r.Detail)
+	}
+	if got := phaseStatus(t, ComputeStatus(f.node, f.env, f.bank), PhaseRefine).State; got != StateComplete {
+		t.Fatalf("refine did not start complete: %q", got)
+	}
+
+	// Correct the very stories the audit judged.
+	corrected := f.submission(PhasePRD)
+	corrected.Content.Sections["user-stories"] = "As an HR clerk I want payroll closed in one day."
+	if r := Commit(corrected, f.env, f.bank); r.Result != CommitWritten {
+		t.Fatalf("correction failed: %s", r.Detail)
+	}
+
+	status := ComputeStatus(f.node, f.env, f.bank)
+	if got := phaseStatus(t, status, PhaseRefine).State; got == StateComplete {
+		t.Error("the audit still reports complete after the stories it judged were rewritten")
+	}
+	if !hasBlockedReasonCode(status, CodeAuditStale) {
+		t.Errorf("no %q reason after the judged prose changed", CodeAuditStale)
+	}
+	// Downstream work must wait: tech builds from stories no gate has seen.
+	if status.NextRecommended != PhaseRefine {
+		t.Errorf("nextRecommended = %q, want %q", status.NextRecommended, PhaseRefine)
+	}
+
+	// Re-auditing against the corrected prose clears it.
+	if r := Commit(auditSubmission(f), f.env, f.bank); r.Result != CommitWritten {
+		t.Fatalf("re-audit failed: %s", r.Detail)
+	}
+	if got := phaseStatus(t, ComputeStatus(f.node, f.env, f.bank), PhaseRefine).State; got != StateComplete {
+		t.Errorf("refine state = %q after re-auditing, want %q", got, StateComplete)
+	}
+}
+
+func TestASubmissionMayNotSupplyItsOwnAnchor(t *testing.T) {
+	// An anchor the auditor supplies is an anchor the auditor can move.
+	f := newFixture(t, "acme-hr")
+	if r := Commit(f.submission(PhasePRD), f.env, f.bank); r.Result != CommitWritten {
+		t.Fatalf("prd commit failed: %s", r.Detail)
+	}
+
+	sub := auditSubmission(f)
+	sub.Audit.AuditedRevision = "whatever-i-say-it-is"
+
+	result := Commit(sub, f.env, f.bank)
+	if result.Result != CommitRejected {
+		t.Fatalf("result = %q, want %q", result.Result, CommitRejected)
+	}
+	if !containsString(result.Validation.RejectedBecause, CheckAuditRecordPresent) {
+		t.Errorf("rejectedBecause = %v", result.Validation.RejectedBecause)
+	}
+}
+
+func TestAnAuditWithNothingToAnchorAgainstIsNotCalledStale(t *testing.T) {
+	// Adopted documentation has no stored prose, so no revision can be computed.
+	// Absence is not evidence of a mismatch, and claiming staleness there would
+	// block legacy work on a comparison that never happened.
+	f := newFixture(t, "acme-hr")
+
+	if r := Commit(auditSubmission(f), f.env, f.bank); r.Result != CommitWritten {
+		t.Fatalf("audit commit failed: %s", r.Detail)
+	}
+
+	status := ComputeStatus(f.node, f.env, f.bank)
+	if hasBlockedReasonCode(status, CodeAuditStale) {
+		t.Error("staleness was claimed with no revision on either side")
+	}
+}

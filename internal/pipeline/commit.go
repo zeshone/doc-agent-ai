@@ -120,7 +120,14 @@ func Commit(sub Submission, env Environment, bank QuestionBank) CommitResult {
 	}
 	if sub.Audit != nil {
 		path := res.AuditRecordPath(sub.Phase)
-		if err := writeJSONAtomic(path, sub.Audit); err != nil {
+		// Stamp the anchor here, from disk, so the verdicts are tied to the prose
+		// they were actually formed against rather than to whatever the auditor
+		// claims they reviewed.
+		stamped := *sub.Audit
+		if spec.AuditRule != nil {
+			stamped.AuditedRevision = sectionRevision(res, spec.AuditRule.SourcePhase)
+		}
+		if err := writeJSONAtomic(path, &stamped); err != nil {
 			result.Result = CommitUndetermined
 			result.Detail = err.Error()
 			return result

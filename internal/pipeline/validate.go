@@ -213,6 +213,14 @@ func auditChecks(sub Submission, bank QuestionBank) []Check {
 				sub.Audit.Phase, sub.Phase),
 		}}
 	}
+	if sub.Audit.AuditedRevision != "" {
+		return []Check{{
+			ID:     CheckAuditRecordPresent,
+			Result: CheckFail,
+			Detail: "a submission must not set auditedRevision: the program stamps it, " +
+				"because an anchor the auditor supplies is an anchor the auditor can move",
+		}}
+	}
 
 	return []Check{
 		{ID: CheckAuditRecordPresent, Result: CheckPass},

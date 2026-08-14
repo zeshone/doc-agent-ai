@@ -32,10 +32,17 @@ type AuditSubject struct {
 
 // AuditRecord is the on-disk audit outcome for one node and audit phase.
 type AuditRecord struct {
-	SchemaName string         `json:"schemaName"`
-	Node       string         `json:"node"`
-	Phase      PhaseID        `json:"phase"`
-	Subjects   []AuditSubject `json:"subjects"`
+	SchemaName string  `json:"schemaName"`
+	Node       string  `json:"node"`
+	Phase      PhaseID `json:"phase"`
+	// AuditedRevision anchors the verdicts to the prose they were formed against.
+	// The PROGRAM computes it at commit time; a submission must not carry one,
+	// because an anchor the auditor supplies is an anchor the auditor can move.
+	//
+	// Without it, an audit stayed "complete" after the very stories it judged were
+	// rewritten — the verdicts described a document that no longer existed.
+	AuditedRevision string         `json:"auditedRevision,omitempty"`
+	Subjects        []AuditSubject `json:"subjects"`
 }
 
 // Validate enforces the audit contract against the phase's declared rule.
