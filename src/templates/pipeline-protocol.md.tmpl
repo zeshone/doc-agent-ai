@@ -127,6 +127,12 @@ doc-agent-ai commit-phase --node <node> --phase <phase> \
 - Exit `1`: the invocation or the environment is wrong. Report it; do not retry
   blindly.
 
+**If you cannot run the command at all** — no shell tool, or the binary is not on
+`PATH` — stop and say exactly that. Do **not** fall back to writing the artifact
+yourself. Writing it produces a document with no answer record: the phase reports
+incomplete forever, and nothing anywhere explains why. A blocked run that names
+the reason costs the operator one minute; a silent fallback costs them the trail.
+
 ### 6. Never touch the index
 
 The index file and its phase checkboxes are computed by the program from the

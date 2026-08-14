@@ -71,6 +71,8 @@ Restart your AI tool after install. Then type `/doc-arch my-system` to start doc
 
 Pi consumes role definitions as prompt templates (no separate agent registry). The installer detects `~/.pi/agent` or `pi` on `PATH`. Override with `--pi-path <path>` or set `PI_CODING_AGENT_DIR`.
 
+> **Every platform needs shell access for the agent.** The phases call `doc-agent-ai` to learn what a phase requires and to submit their work, so an agent that cannot run commands cannot complete a phase. On claude, qwen and opencode the installer grants it. **Pi has no place to declare tools** — its format is plain prompt templates — so shell access has to come from your own Pi configuration. Where it is missing the agent stops and says so rather than writing a document nothing recorded.
+
 The `doc-reader` skill is installed on every platform with a skills directory when **in-project docs mode** is selected. It teaches agents to use only the compacted `/doc-to-sdd` context files (`docs/doc-agent/agent_sdd_context_project/`) and to skip the full docs tree. Switching back to vault mode automatically removes it.
 
 ---
