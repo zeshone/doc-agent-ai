@@ -25,7 +25,7 @@
       "content": "roles/doc-arch.md",
       "skill": "doc-arch",
       "rulesSkill": "doc-arch",
-      "description": "Documentation orchestrator — guides the full project documentation workflow",
+      "description": "Documentation orchestrator \u2014 guides the full project documentation workflow",
       "userInvocable": true,
       "hidden": false,
       "mode": "primary",
@@ -37,21 +37,35 @@
         "write": true,
         "question": true
       },
-      "copilotChildren": ["doc-idea", "doc-rec", "doc-prd", "doc-refinement", "doc-tech", "doc-ddd", "doc-pti", "doc-feat", "doc-scope", "doc-rec-lite", "doc-prd-lite", "doc-to-sdd"]
+      "copilotChildren": [
+        "doc-idea",
+        "doc-rec",
+        "doc-prd",
+        "doc-refinement",
+        "doc-tech",
+        "doc-ddd",
+        "doc-pti",
+        "doc-feat",
+        "doc-scope",
+        "doc-rec-lite",
+        "doc-prd-lite",
+        "doc-to-sdd"
+      ]
     },
     {
       "id": "doc-ddd",
       "content": "roles/doc-ddd.md",
       "skill": "doc-ddd",
       "rulesSkill": "doc-arch",
-      "description": "Database Design Document executor — generates ERD, schema details, and design rationale",
+      "description": "Database Design Document executor \u2014 generates ERD, schema details, and design rationale",
       "userInvocable": false,
       "hidden": true,
       "mode": "subagent",
       "opencodeTools": {
         "edit": true,
         "read": true,
-        "write": true
+        "write": true,
+        "bash": true
       }
     },
     {
@@ -59,14 +73,15 @@
       "content": "roles/doc-idea.md",
       "skill": "doc-idea",
       "rulesSkill": "doc-arch",
-      "description": "Idea refinement executor — transforms vague concepts into structured product ideas",
+      "description": "Idea refinement executor \u2014 transforms vague concepts into structured product ideas",
       "userInvocable": false,
       "hidden": true,
       "mode": "subagent",
       "opencodeTools": {
         "edit": true,
         "read": true,
-        "write": true
+        "write": true,
+        "bash": true
       }
     },
     {
@@ -81,7 +96,8 @@
       "opencodeTools": {
         "edit": true,
         "read": true,
-        "write": true
+        "write": true,
+        "bash": true
       }
     },
     {
@@ -96,7 +112,8 @@
       "opencodeTools": {
         "edit": true,
         "read": true,
-        "write": true
+        "write": true,
+        "bash": true
       }
     },
     {
@@ -104,14 +121,15 @@
       "content": "roles/doc-refinement.md",
       "skill": "doc-refinement",
       "rulesSkill": "doc-arch",
-      "description": "User story refinement executor — audits and improves PRD stories against INVEST criteria",
+      "description": "User story refinement executor \u2014 audits and improves PRD stories against INVEST criteria",
       "userInvocable": false,
       "hidden": true,
       "mode": "subagent",
       "opencodeTools": {
         "edit": true,
         "read": true,
-        "write": true
+        "write": true,
+        "bash": true
       }
     },
     {
@@ -126,7 +144,8 @@
       "opencodeTools": {
         "edit": true,
         "read": true,
-        "write": true
+        "write": true,
+        "bash": true
       }
     },
     {
@@ -141,7 +160,8 @@
       "opencodeTools": {
         "edit": true,
         "read": true,
-        "write": true
+        "write": true,
+        "bash": true
       }
     },
     {
@@ -149,57 +169,58 @@
       "content": "roles/doc-to-sdd.md",
       "skill": "doc-to-sdd",
       "rulesSkill": "doc-arch",
-      "description": "SDD Context Compactor — compacts documentation into LLM-optimized SDD context files",
+      "description": "SDD Context Compactor \u2014 compacts documentation into LLM-optimized SDD context files",
       "userInvocable": false,
       "hidden": true,
       "mode": "subagent",
       "opencodeTools": {
         "edit": true,
         "read": true,
-        "write": true
+        "write": true,
+        "bash": true
       }
     }
   ],
   "commands": [
     {
       "id": "doc-arch",
-      "description": "Full system documentation workflow: idea → rec → prd → refine → tech → [ddd] → pti (ddd is optional)",
+      "description": "Full system documentation workflow: idea \u2192 rec \u2192 prd \u2192 refine \u2192 tech \u2192 [ddd] \u2192 pti (ddd is optional)",
       "agent": "doc-arch",
       "content": "commands/doc-arch.md"
     },
     {
       "id": "doc-idea",
-      "description": "Step 1 — Idea refinement for a system or module",
+      "description": "Step 1 \u2014 Idea refinement for a system or module",
       "agent": "doc-arch",
       "content": "commands/doc-idea.md"
     },
     {
       "id": "doc-rec",
-      "description": "Step 2 — Requirements elicitation for a system or module",
+      "description": "Step 2 \u2014 Requirements elicitation for a system or module",
       "agent": "doc-arch",
       "content": "commands/doc-rec.md"
     },
     {
       "id": "doc-prd",
-      "description": "Step 3 — Product Requirements Document for a system or module",
+      "description": "Step 3 \u2014 Product Requirements Document for a system or module",
       "agent": "doc-arch",
       "content": "commands/doc-prd.md"
     },
     {
       "id": "doc-refine",
-      "description": "Step 4 — User story refinement against INVEST criteria",
+      "description": "Step 4 \u2014 User story refinement against INVEST criteria",
       "agent": "doc-arch",
       "content": "commands/doc-refine.md"
     },
     {
       "id": "doc-tech",
-      "description": "Step 5 — Technical specification for a system or module",
+      "description": "Step 5 \u2014 Technical specification for a system or module",
       "agent": "doc-arch",
       "content": "commands/doc-tech.md"
     },
     {
       "id": "doc-pti",
-      "description": "Step 6 — Issue breakdown for a system or module",
+      "description": "Step 6 \u2014 Issue breakdown for a system or module",
       "agent": "doc-arch",
       "content": "commands/doc-pti.md"
     },
@@ -217,16 +238,28 @@
     },
     {
       "id": "doc-ddd",
-      "description": "Optional step — Database Design Document (DBDD) with ERD and schema details",
+      "description": "Optional step \u2014 Database Design Document (DBDD) with ERD and schema details",
       "agent": "doc-ddd",
       "content": "commands/doc-ddd.md"
     },
     {
       "id": "doc-to-sdd",
-      "description": "Standalone — Compact documentation into LLM-optimized SDD context files",
+      "description": "Standalone \u2014 Compact documentation into LLM-optimized SDD context files",
       "agent": "doc-to-sdd",
       "content": "commands/doc-to-sdd.md"
     }
   ],
-  "legacyCommandIds": ["arch", "idea", "rec", "prd", "refine", "tech", "pti", "mod", "feat", "ddd", "to-sdd"]
+  "legacyCommandIds": [
+    "arch",
+    "idea",
+    "rec",
+    "prd",
+    "refine",
+    "tech",
+    "pti",
+    "mod",
+    "feat",
+    "ddd",
+    "to-sdd"
+  ]
 }

@@ -1,6 +1,7 @@
 package docagent
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -330,6 +331,65 @@ func TestEverySubcommandIsDocumentedInTheReadme(t *testing.T) {
 		t.Run(command, func(t *testing.T) {
 			if !strings.Contains(string(readme), "`"+command) {
 				t.Errorf("subcommand %q is dispatched but never appears in README.md", command)
+			}
+		})
+	}
+}
+
+// shellToolPerPlatform names the tool that lets an agent run the binary. Only
+// platforms whose vocabulary is proven inside the manifests appear here:
+// inventing a name would produce a manifest that is broken and still passes.
+var shellToolPerPlatform = map[string]string{
+	"claude": "Bash",
+	"qwen":   "run_terminal_cmd",
+}
+
+func TestPhaseExecutorsCanRunTheBinary(t *testing.T) {
+	// Every phase executor calls `topics` and `commit-phase`. Without a shell it
+	// cannot, and it falls back to writing the artifact with its own write tool —
+	// the exact bypass the pipeline exists to stop. The first live run passed only
+	// because the orchestrator holds Bash and did the work itself.
+	raw, err := embedded.ReadFile("src/manifests/platforms.json")
+	if err != nil {
+		t.Fatalf("cannot read platforms manifest: %v", err)
+	}
+	var platforms map[string]struct {
+		AgentTools        []string `json:"agentTools"`
+		OrchestratorTools []string `json:"orchestratorTools"`
+	}
+	if err := json.Unmarshal(raw, &platforms); err != nil {
+		t.Fatalf("parsing platforms manifest: %v", err)
+	}
+
+	for id, tool := range shellToolPerPlatform {
+		t.Run(id, func(t *testing.T) {
+			platform, ok := platforms[id]
+			if !ok {
+				t.Fatalf("platform %q is no longer in the manifest", id)
+			}
+			if !containsStr(platform.AgentTools, tool) {
+				t.Errorf("executors on %q cannot run the binary: agentTools %v lacks %q",
+					id, platform.AgentTools, tool)
+			}
+			if !containsStr(platform.OrchestratorTools, tool) {
+				t.Errorf("the orchestrator on %q lost %q", id, tool)
+			}
+		})
+	}
+}
+
+func TestOpenCodeExecutorsCanRunTheBinary(t *testing.T) {
+	// opencode grants tools per role in content.json rather than per platform.
+	manifest := loadContentManifest(t)
+
+	for _, role := range manifest.Roles {
+		if role.OpenCodeTools == nil {
+			continue
+		}
+		t.Run(role.ID, func(t *testing.T) {
+			if !role.OpenCodeTools["bash"] {
+				t.Errorf("opencode role %q cannot run the binary: tools are %v",
+					role.ID, role.OpenCodeTools)
 			}
 		})
 	}

@@ -32,8 +32,23 @@
     "agentDir": "agents-claude",
     "agentExtension": ".md",
     "agentTemplate": "agent-claude.md.tmpl",
-    "agentTools": ["Read", "Write", "Edit", "Glob", "Grep"],
-    "orchestratorTools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Task"]
+    "agentTools": [
+      "Read",
+      "Write",
+      "Edit",
+      "Bash",
+      "Glob",
+      "Grep"
+    ],
+    "orchestratorTools": [
+      "Read",
+      "Write",
+      "Edit",
+      "Bash",
+      "Glob",
+      "Grep",
+      "Task"
+    ]
   },
   "qwen": {
     "skillRoot": "~/.qwen/skills",
@@ -47,6 +62,7 @@
       "read_file",
       "write_file",
       "edit_file",
+      "run_terminal_cmd",
       "create_directory",
       "list_dir"
     ],
