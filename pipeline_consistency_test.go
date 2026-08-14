@@ -255,3 +255,68 @@ func containsStr(haystack []string, needle string) bool {
 	}
 	return false
 }
+
+// overlappingTopics are the pairs that collided in the first full live run. Each
+// side must keep a note distinguishing it, because `topics` returns an id and a
+// title and nothing else told the model these were different questions.
+//
+// The evidence: status reported the same recorded span for idea/problem-solved
+// and rec/current-process, and again for idea/success-definition and
+// prd/success-metrics. prd/security-privacy and ddd/constraints were asked with
+// an identical prompt.
+var overlappingTopics = map[string]pipelinepkg.PhaseID{
+	"problem-solved":     pipelinepkg.PhaseIdea,
+	"current-process":    pipelinepkg.PhaseRec,
+	"success-definition": pipelinepkg.PhaseIdea,
+	"success-metrics":    pipelinepkg.PhasePRD,
+	"security-privacy":   pipelinepkg.PhasePRD,
+	"constraints":        pipelinepkg.PhaseDDD,
+}
+
+func TestTopicsThatCollidedInPracticeCarryADistinguishingNote(t *testing.T) {
+	bank, err := pipelinepkg.LoadQuestionBank()
+	if err != nil {
+		t.Fatalf("LoadQuestionBank: %v", err)
+	}
+
+	for topicID, phase := range overlappingTopics {
+		t.Run(topicID, func(t *testing.T) {
+			topic, ok := bank.Topic(phase, topicID)
+			if !ok {
+				t.Fatalf("phase %q no longer declares topic %q", phase, topicID)
+			}
+			if strings.TrimSpace(topic.Note) == "" {
+				t.Errorf("topic %q lost its note; it was asked twice in practice without one", topicID)
+			}
+			// A note that does not name the other side explains nothing.
+			if !strings.Contains(topic.Note, "/") {
+				t.Errorf("note for %q does not name the sibling topic that owns the other side: %q",
+					topicID, topic.Note)
+			}
+		})
+	}
+}
+
+func TestTopicTitlesAreGloballyUniqueToo(t *testing.T) {
+	// A heading is what a reader sees. Two phases owning the same one is the same
+	// hazard as two phases owning the same id: "Constraints" read as restrictions
+	// in general, and the privacy question got asked in ddd as well as prd.
+	bank, err := pipelinepkg.LoadQuestionBank()
+	if err != nil {
+		t.Fatalf("LoadQuestionBank: %v", err)
+	}
+
+	owner := map[string]pipelinepkg.PhaseID{}
+	for _, spec := range bank.Phases {
+		for _, topic := range spec.RequiredTopics {
+			if topic.Title == "" {
+				continue
+			}
+			if prior, taken := owner[topic.Title]; taken {
+				t.Errorf("title %q is used by both %q and %q", topic.Title, prior, spec.Phase)
+				continue
+			}
+			owner[topic.Title] = spec.Phase
+		}
+	}
+}

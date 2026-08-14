@@ -55,8 +55,14 @@ phases:
         title: Target Users
       - id: problem-solved # skills/doc-idea/SKILL.md:65
         title: Problem Solved
+        note: >-
+          The pain and what it costs. Not the operational steps of how the work
+          runs today — rec/current-process owns those, in detail.
       - id: success-definition # skills/doc-idea/SKILL.md:66
         title: Definition of Success
+        note: >-
+          What "this worked" means in the product's own terms. Not the
+          instrumentation — prd/success-metrics owns the numbers and their source.
       - id: out-of-scope # skills/doc-idea/SKILL.md:67
         title: Out of Scope
       - id: why-now # skills/doc-idea/SKILL.md:68
@@ -79,6 +85,10 @@ phases:
         title: Business Events
       - id: current-process # skills/doc-rec/SKILL.md:83
         title: Current Process
+        note: >-
+          The operational steps, actors and handoffs of how the work runs today.
+          Not the pain — idea/problem-solved owns that. If the idea phase already
+          captured how things work, go past it into detail rather than re-asking.
       - id: business-rules # skills/doc-rec/SKILL.md:85
         title: Business Rules
       - id: exceptions-edge-cases # skills/doc-rec/SKILL.md:86,93
@@ -115,6 +125,10 @@ phases:
         title: Technical Constraints
       - id: security-privacy
         title: Security and Privacy
+        note: >-
+          Policy: what is protected, what consent is required, who may see what, and
+          how long data is kept as a decision. Not schema-level rules —
+          ddd/constraints owns those.
       - id: risks-roadmap
         title: Risks and Roadmap
       - id: open-decisions
@@ -125,6 +139,10 @@ phases:
       # "always demand a section".
       - id: success-metrics
         title: Success Metrics
+        note: >-
+          The indicators: which number, where it comes from, and what target counts
+          as success. Not a restatement of the aspiration — idea/success-definition
+          owns that. If the aspiration is already recorded, ask how it gets measured.
 
   - phase: refine
     # Not an interview. skills/doc-arch/SKILL.md:167 makes this an INVEST audit
@@ -185,7 +203,12 @@ phases:
       - id: relationships
         title: Relationships
       - id: constraints
-        title: Constraints
+        title: Integrity Constraints
+        note: >-
+          Schema-level integrity: keys, uniqueness, nullability, referential rules
+          and check constraints. Not policy — prd/security-privacy owns that. The
+          bare word "constraints" reads as restrictions in general, which is how the
+          privacy question ended up asked twice.
       - id: design-rationale
         title: Design Rationale
 
