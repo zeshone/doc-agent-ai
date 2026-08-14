@@ -394,3 +394,27 @@ func TestOpenCodeExecutorsCanRunTheBinary(t *testing.T) {
 		})
 	}
 }
+
+func TestProtocolStopsInsteadOfFallingBackWhenTheBinaryIsUnreachable(t *testing.T) {
+	// Pi cannot be granted a shell — its format has no place to declare tools — so
+	// the failure has to be loud. A silent fallback writes a document with no
+	// answer record: the phase reports incomplete forever and nothing says why.
+	for _, template := range []string{
+		"src/templates/pipeline-protocol.md.tmpl",
+		"src/templates/pipeline-routing.md.tmpl",
+	} {
+		t.Run(filepath.Base(template), func(t *testing.T) {
+			raw, err := embedded.ReadFile(template)
+			if err != nil {
+				t.Fatalf("cannot read %s: %v", template, err)
+			}
+			content := string(raw)
+
+			for _, phrase := range []string{"cannot run", "no shell tool", "`PATH`"} {
+				if !strings.Contains(content, phrase) {
+					t.Errorf("%s does not cover an unreachable binary: missing %q", template, phrase)
+				}
+			}
+		})
+	}
+}

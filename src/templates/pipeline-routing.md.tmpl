@@ -24,6 +24,11 @@ doc-agent-ai status --node <node>
 - **`nextAction.command`** is runnable when present. Prefer it over composing your
   own.
 
+If you cannot run `doc-agent-ai` at all — no shell tool, or the binary is not on
+`PATH` — stop and report that. It is the one condition under which none of this
+routing is available, and guessing a phase from the conversation is exactly what
+it exists to prevent.
+
 Never derive the current phase from what was discussed, from which files you
 believe exist, or from a checkbox in an index. Those are the failure modes this
 routing rule exists to remove.
