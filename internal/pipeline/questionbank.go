@@ -88,6 +88,10 @@ type PhaseSpec struct {
 	// are used only to recognise pre-existing documentation during adoption, never
 	// to write, so the current naming stays the single output convention.
 	LegacyArtifacts []string `yaml:"legacyArtifacts,omitempty" json:"legacyArtifacts,omitempty"`
+	// ReportArtifact is the human-readable report an audit phase renders from its
+	// verdicts. An audit writes no artifact of its own, but burying the findings in
+	// a state directory loses the part a person actually reads.
+	ReportArtifact string `yaml:"reportArtifact,omitempty" json:"reportArtifact,omitempty"`
 	// DocumentTitle is the canonical English H1 of the rendered artifact. Absent
 	// for audit phases, which write no artifact of their own.
 	DocumentTitle string `yaml:"documentTitle,omitempty" json:"documentTitle,omitempty"`
@@ -102,6 +106,14 @@ type PhaseSpec struct {
 // ArtifactName resolves the artifact filename for a node short name.
 func (s PhaseSpec) ArtifactName(shortName string) string {
 	return strings.ReplaceAll(s.Artifact, "{node}", shortName)
+}
+
+// ReportArtifactName resolves the report filename for a node short name.
+func (s PhaseSpec) ReportArtifactName(shortName string) string {
+	if s.ReportArtifact == "" {
+		return ""
+	}
+	return strings.ReplaceAll(s.ReportArtifact, "{node}", shortName)
 }
 
 // LegacyArtifactNames resolves the legacy filenames for a node short name.

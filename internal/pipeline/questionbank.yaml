@@ -154,6 +154,9 @@ phases:
     # nothing. A dedicated report does: earlier versions wrote <node>_refinement.md,
     # and its existence is direct evidence the audit actually ran.
     legacyArtifacts: ["{node}_refinement.md"]
+    # The report the program renders from the recorded verdicts. Same filename the
+    # agent wrote before records existed, which is why adoption recognises it.
+    reportArtifact: "{node}_refinement.md"
     required_topics: []
     audit_rule:
       subject: user-stories
