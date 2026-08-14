@@ -11,6 +11,7 @@ func answeredTopic(topicID string) Answer {
 		TopicID:    topicID,
 		Status:     AnswerAnswered,
 		Source:     SourceUserAnswer,
+		Prompt:     "what about this topic?",
 		Verbatim:   "the user said this out loud",
 		CapturedAt: "2026-08-12T18:40:12Z",
 	}
@@ -34,6 +35,7 @@ func TestValidAnswerRecordIsAccepted(t *testing.T) {
 			TopicID:    "risks-roadmap",
 			Status:     AnswerDeferred,
 			Source:     SourceUserAnswer,
+			Prompt:     "what about this topic?",
 			Verbatim:   "no idea yet, we have to sequence it first",
 			CapturedAt: "2026-08-12T18:44:51Z",
 		},
@@ -74,6 +76,7 @@ func TestAnswerRecordRejectsMissingProvenance(t *testing.T) {
 				TopicID:    "success-metrics",
 				Status:     AnswerAnswered,
 				Source:     SourceUserAnswer,
+				Prompt:     "what about this topic?",
 				CapturedAt: "2026-08-12T18:40:12Z",
 			},
 			wantMessage: "verbatim",
@@ -118,6 +121,7 @@ func TestAnswerRecordRejectsMissingProvenance(t *testing.T) {
 				TopicID:    "success-metrics",
 				Status:     AnswerDeferred,
 				Source:     SourceUserAnswer,
+				Prompt:     "what about this topic?",
 				CapturedAt: "2026-08-12T18:40:12Z",
 			},
 			wantMessage: "verbatim",
@@ -215,6 +219,7 @@ func TestCoverageCountsRecordedAnswersNotClaims(t *testing.T) {
 			TopicID:    "risks-roadmap",
 			Status:     AnswerDeferred,
 			Source:     SourceUserAnswer,
+			Prompt:     "what about this topic?",
 			Verbatim:   "we do not know yet",
 			CapturedAt: "2026-08-12T18:44:51Z",
 		},
@@ -249,6 +254,7 @@ func TestCoverageIsCompleteWhenDeferralsFillTheRemainder(t *testing.T) {
 			TopicID:    topicID,
 			Status:     AnswerDeferred,
 			Source:     SourceUserAnswer,
+			Prompt:     "what about this topic?",
 			Verbatim:   "not known yet",
 			CapturedAt: "2026-08-12T18:44:51Z",
 		})
@@ -302,6 +308,7 @@ func answerForTopic(bank QuestionBank, phase PhaseID, topicID string) Answer {
 		TopicID:    topicID,
 		Status:     AnswerAnswered,
 		Source:     SourceUserAnswer,
+		Prompt:     "what should we know about " + topicID + "?",
 		Verbatim:   "recorded user words for " + topicID,
 		CapturedAt: "2026-08-12T18:40:12Z",
 	}
@@ -318,4 +325,106 @@ func mustLoadBank(t *testing.T) QuestionBank {
 		t.Fatalf("LoadQuestionBank() returned error: %v", err)
 	}
 	return bank
+}
+
+func TestTheQuestionIsHalfTheRecord(t *testing.T) {
+	// "son justo esos!" is a real answer and completely unreadable on its own.
+	// Without the question, a later reader cannot judge whether the words fit the
+	// topic — which is the audit the verbatim exists to make possible.
+	bank := mustLoadBank(t)
+
+	tests := []struct {
+		name     string
+		answer   Answer
+		wantErr  bool
+		mentions string
+	}{
+		{
+			name: "a direct reply carries the question that produced it",
+			answer: Answer{
+				TopicID: "success-metrics", Status: AnswerAnswered, Source: SourceUserAnswer,
+				Prompt:     "how will you know in six months that this worked?",
+				Verbatim:   "contactos a vendedores y patrocinios vendidos",
+				CapturedAt: "2026-08-13T12:00:00Z",
+			},
+		},
+		{
+			name: "a direct reply without the question is refused",
+			answer: Answer{
+				TopicID: "success-metrics", Status: AnswerAnswered, Source: SourceUserAnswer,
+				Verbatim: "son justo esos!", CapturedAt: "2026-08-13T12:00:00Z",
+			},
+			wantErr: true, mentions: "prompt",
+		},
+		{
+			// Requiring a prompt everywhere would push the agent to invent one, which
+			// is the same class of defect the verbatim rule exists to prevent.
+			name: "words offered unasked need no question",
+			answer: Answer{
+				TopicID: "success-metrics", Status: AnswerAnswered, Source: SourceVolunteered,
+				Verbatim: "por cierto, tambien medimos patrocinios", CapturedAt: "2026-08-13T12:00:00Z",
+			},
+		},
+		{
+			name: "unasked words must not carry an invented question",
+			answer: Answer{
+				TopicID: "success-metrics", Status: AnswerAnswered, Source: SourceVolunteered,
+				Prompt: "what are your metrics?", Verbatim: "algo", CapturedAt: "2026-08-13T12:00:00Z",
+			},
+			wantErr: true, mentions: "nobody asked",
+		},
+		{
+			name: "the brain dump was never a question either",
+			answer: Answer{
+				TopicID: "success-metrics", Status: AnswerAnswered, Source: SourceBrainDump,
+				Prompt: "what are your metrics?", Verbatim: "algo", CapturedAt: "2026-08-13T12:00:00Z",
+			},
+			wantErr: true, mentions: "nobody asked",
+		},
+		{
+			name: "inherited context has neither a quote nor a question",
+			answer: Answer{
+				TopicID: "success-metrics", Status: AnswerAnswered, Source: SourceInheritedParent,
+				InheritedFrom: "parent_prd.md#success-metrics",
+				Prompt:        "invented", CapturedAt: "2026-08-13T12:00:00Z",
+			},
+			wantErr: true, mentions: "prompt",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := recordWith(PhasePRD, tt.answer).Validate(bank)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("Validate accepted a record the rule should refuse")
+				}
+				if tt.mentions != "" && !strings.Contains(err.Error(), tt.mentions) {
+					t.Errorf("error %q does not mention %q", err, tt.mentions)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Validate: %v", err)
+			}
+		})
+	}
+}
+
+func TestRefusalNamesTheWayOutForUnaskedWords(t *testing.T) {
+	// A rule that refuses without naming the alternative pushes the agent to
+	// fabricate a question rather than reclassify the source.
+	bank := mustLoadBank(t)
+
+	err := recordWith(PhasePRD, Answer{
+		TopicID: "success-metrics", Status: AnswerAnswered, Source: SourceUserAnswer,
+		Verbatim: "algo", CapturedAt: "2026-08-13T12:00:00Z",
+	}).Validate(bank)
+
+	if err == nil {
+		t.Fatal("Validate accepted a prompt-less direct reply")
+	}
+	if !strings.Contains(err.Error(), string(SourceVolunteered)) {
+		t.Errorf("the refusal does not name %q as the alternative: %v", SourceVolunteered, err)
+	}
 }

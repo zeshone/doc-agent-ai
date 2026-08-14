@@ -207,6 +207,7 @@ func TestMissingTopicKeepsThePhaseIncompleteAndNamesEachGap(t *testing.T) {
 			TopicID:    topicID,
 			Status:     AnswerAnswered,
 			Source:     SourceUserAnswer,
+			Prompt:     "what about this topic?",
 			Verbatim:   "recorded words",
 			CapturedAt: "2026-08-12T18:40:12Z",
 		})
@@ -252,6 +253,7 @@ func TestDeferredTopicsCompleteThePhaseButStayVisible(t *testing.T) {
 			TopicID:    topicID,
 			Status:     status,
 			Source:     SourceUserAnswer,
+			Prompt:     "what about this topic?",
 			Verbatim:   "recorded words",
 			CapturedAt: "2026-08-12T18:40:12Z",
 		})
@@ -494,4 +496,69 @@ func hasBlockedReasonCode(status Status, code string) bool {
 		}
 	}
 	return false
+}
+
+func TestRepeatedVerbatimIsSurfacedWithoutBlocking(t *testing.T) {
+	// Observed live: the same span answered success-definition in idea and
+	// success-metrics in prd. That can be legitimate — one fact answering two
+	// topics — so it must never block. It is surfaced because the other reading,
+	// one answer stretched to pad coverage, is what nobody would spot alone.
+	f := newFixture(t, "acme-hr")
+
+	const shared = "contactos a vendedores y patrocinios vendidos"
+
+	var ideaAnswers []Answer
+	for _, topicID := range f.bank.RequiredTopics(PhaseIdea, NodeSystem) {
+		a := answerForTopic(f.bank, PhaseIdea, topicID)
+		if topicID == "success-definition" {
+			a.Verbatim = shared
+		}
+		ideaAnswers = append(ideaAnswers, a)
+	}
+	f.writeAnswers(PhaseIdea, ideaAnswers)
+	f.writeArtifact(PhaseIdea)
+
+	var recAnswers []Answer
+	for _, topicID := range f.bank.RequiredTopics(PhaseRec, NodeSystem) {
+		a := answerForTopic(f.bank, PhaseRec, topicID)
+		if topicID == "business-events" {
+			a.Verbatim = shared
+		}
+		recAnswers = append(recAnswers, a)
+	}
+	f.writeAnswers(PhaseRec, recAnswers)
+	f.writeArtifact(PhaseRec)
+
+	status := f.status()
+
+	if len(status.RepeatedVerbatims) != 1 {
+		t.Fatalf("repeatedVerbatims = %v, want exactly one entry", status.RepeatedVerbatims)
+	}
+	got := status.RepeatedVerbatims[0]
+	if got.Verbatim != shared {
+		t.Errorf("verbatim = %q, want %q", got.Verbatim, shared)
+	}
+	if len(got.Topics) != 2 {
+		t.Errorf("topics = %v, want the two it was recorded against", got.Topics)
+	}
+
+	// Informational only: both phases still complete and nothing blocks.
+	for _, phase := range []PhaseID{PhaseIdea, PhaseRec} {
+		if s := phaseStatus(t, status, phase).State; s != StateComplete {
+			t.Errorf("%s state = %q, want %q — a repeated span must not block", phase, s, StateComplete)
+		}
+	}
+	if len(status.BlockedReasons) != 0 {
+		t.Errorf("blockedReasons = %v, want empty", status.BlockedReasons)
+	}
+}
+
+func TestDistinctVerbatimsProduceNoNoise(t *testing.T) {
+	f := newFixture(t, "acme-hr")
+	f.completePhase(PhaseIdea)
+	f.completePhase(PhaseRec)
+
+	if got := f.status().RepeatedVerbatims; len(got) != 0 {
+		t.Errorf("repeatedVerbatims = %v, want none when every span is distinct", got)
+	}
 }

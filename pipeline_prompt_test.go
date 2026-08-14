@@ -227,3 +227,27 @@ func TestProtocolTeachesClosedValueSets(t *testing.T) {
 		t.Error("the answer-record example does not show the value field")
 	}
 }
+
+func TestProtocolRequiresTheQuestionAndOffersAnAlternative(t *testing.T) {
+	// A rule that demands a prompt without naming the unasked-words alternative
+	// pushes the agent to invent a question rather than reclassify the source.
+	raw, err := embedded.ReadFile("src/templates/pipeline-protocol.md.tmpl")
+	if err != nil {
+		t.Fatalf("cannot read protocol template: %v", err)
+	}
+	content := string(raw)
+
+	for _, phrase := range []string{
+		"`prompt`",
+		"`volunteered`",
+		"Never invent a quote or a question",
+		"unreadable on its own",
+	} {
+		if !strings.Contains(content, phrase) {
+			t.Errorf("protocol template is missing %q", phrase)
+		}
+	}
+	if !strings.Contains(content, `"prompt": "<the question you asked, in your own words>"`) {
+		t.Error("the answer-record example does not show the prompt field")
+	}
+}
