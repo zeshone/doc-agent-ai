@@ -6,6 +6,46 @@ For older releases without a section here, the GitHub Release notes have the det
 
 ---
 
+## v5.0.0 — unreleased
+
+Documentation completion stops being something the agent asserts and becomes something the tool counts.
+
+Before this release, a phase was finished when the model wrote `[x]` into the master index — and the same index was then read back as the source of truth. Nothing verified that the questions behind a completed phase were ever asked. This release moves that bookkeeping into the binary. The interview stays conversational: the model still decides what to ask, how to phrase it, and when to dig deeper.
+
+### Breaking
+
+- **Completion is computed from recorded answers.** Documentation created before this release has no such records, so every phase reports as incomplete until it is adopted. Run `doc-agent-ai doctor --node <system> --check --recursive` to see the plan and `--apply` to execute it. Adopted phases are marked **`[~]` adopted — coverage unverified**: present and usable, and honest about never having been counted. They do not block new work.
+- **The agent no longer writes phase artifacts or index state.** It submits content and the program writes. A submission that fails validation writes nothing at all.
+- **`/doc-to-sdd` no longer writes its output files directly.** It submits the compacted layers, its decisions and the open questions it carried, and the program verifies and writes them.
+
+### Added
+
+- **`doctor`** — adopts documentation written before this release. Reports by default; `--apply` is opt-in because it touches files you wrote by hand. It never fabricates an answer record: the words you said in an interview months ago exist nowhere, and inventing them would be the exact failure this release exists to prevent.
+- **Recorded answers with provenance.** Every covered topic keeps your own words and the question that produced them. Fabricating coverage now requires forging a quote attributed to you, which is visible to anyone who reads the record.
+- **Deferred topics.** Saying "I don't know yet" counts as covered, renders an explicit `TBD` in the document, and stays counted in every status report. An acknowledged gap does not deadlock the pipeline and does not disappear either.
+- **Six pipeline subcommands** — `status`, `topics`, `validate`, `commit-phase`, `decide-phase`, `sdd-commit`. Each prints versioned JSON. Exit codes: `0` affirmative, `1` usage or environment error, `2` refused verdict.
+- **A rendered story-audit report** at `<node>_refinement.md`. Its tables are computed from the recorded verdicts, so a summary claiming everything passed sits in the same file as a table showing it did not.
+- **A manifest for the compacted agent context**, fingerprinting every source. `status` reports it `fresh`, `stale` or `absent` — a stale context is worse than none, because it looks current.
+- **Bounded decisions in the compacted context** — what, why, so that, and how it was decided. An agent learns what was settled without opening the source documents, which is the whole point of compacting seven into two.
+
+### Changed
+
+- **Section headings are canonical English, rendered by the program; the prose beneath stays in your documentation language.** This is what makes document structure checkable without forcing the documentation itself into English.
+- **The story audit is anchored to the prose it judged.** Correcting the stories it reviewed invalidates it, and downstream phases wait until it is re-run. Same principle as dismissing a stale code review on push.
+- **Interview length is never a target.** Coverage is counted per topic, not per question asked. A detailed brain-dump earns a short interview and a vague idea earns a long one; both are correct as long as every required topic ends up answered.
+- **The compacted agent context reads the story-audit report** as a source, and deliberately does not read the issue list — an agent using this context is normally working on one issue already.
+- **The system archetype is a recorded value** rather than a phrase parsed out of the index. One real vault expressed the same fact three different ways in two languages; none of them matched what the preflight checks looked for.
+
+### Fixed
+
+- **A vault path typed as `~/docs` is expanded.** It was stored verbatim, resolved without error, and created a directory literally named `~` beside the working directory — while the real vault stayed untouched and the run reported success.
+- **A module now appears in its parent's index.** It was fully documented and invisible from the top.
+- **`doc-prd`, `doc-tech` and `doc-pti` accept an archetype recorded in either language.** A system documented in English failed three of their four preflight checks.
+- **Neighbouring topics say how they differ.** Two phases were asking the same question because nothing distinguished, for example, "what does success mean" from "how is it measured".
+- **An answer or a question reused across topics is reported.** Never blocking — one answer can legitimately cover two topics — but visible, because the alternative reading is one answer stretched to close a second topic.
+
+---
+
 ## v4.1.1 — 2026-07-23
 
 ### Added
