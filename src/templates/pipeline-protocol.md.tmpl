@@ -45,7 +45,10 @@ For each topic, capture what the user actually said:
   record the relevant excerpt with source `brain-dump`. Do not re-ask what it
   already answers.
 - A direct reply to a question uses source `user-answer`, and **carries the
-  question you asked** in `prompt`. Half the exchange is the question: "yes, those
+  question you asked** in `prompt`. It must be the question that elicited *this*
+  topic's answer — not a gate question such as whether to run an optional phase,
+  and not one already recorded for another topic. A question recycled across
+  topics is reported. Half the exchange is the question: "yes, those
   are the right ones" is a genuine answer and unreadable on its own, so a reply
   recorded without its question cannot be judged against the topic later.
 - Words the user offers that nobody asked for use source `volunteered`, with no

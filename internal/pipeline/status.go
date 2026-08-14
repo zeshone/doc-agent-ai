@@ -86,10 +86,10 @@ type PhaseStatus struct {
 	UnansweredTopics []string `json:"unansweredTopics"`
 }
 
-// RepeatedVerbatim is one span recorded against several topics.
-type RepeatedVerbatim struct {
-	Verbatim string   `json:"verbatim"`
-	Topics   []string `json:"topics"`
+// RepeatedSpan is one piece of text recorded against several topics.
+type RepeatedSpan struct {
+	Text   string   `json:"text"`
+	Topics []string `json:"topics"`
 }
 
 // BlockedReason is one machine-routable explanation of missing work.
@@ -122,12 +122,17 @@ type Status struct {
 	Missing         []PhaseID       `json:"missing"`
 	NextRecommended PhaseID         `json:"nextRecommended,omitempty"`
 	BlockedReasons  []BlockedReason `json:"blockedReasons"`
-	// RepeatedVerbatims names spans recorded for more than one topic. It never
+	// RepeatedVerbatims names answers recorded for more than one topic. It never
 	// blocks: one answer can legitimately cover two topics. It is surfaced because
 	// the alternative reading — one answer stretched to pad coverage — is exactly
 	// what nobody would notice on their own.
-	RepeatedVerbatims []RepeatedVerbatim `json:"repeatedVerbatims,omitempty"`
-	NextAction        NextAction         `json:"nextAction"`
+	RepeatedVerbatims []RepeatedSpan `json:"repeatedVerbatims,omitempty"`
+	// RepeatedPrompts names questions asked for more than one topic. Same rule: it
+	// never blocks, because one question can genuinely open two topics. It is
+	// surfaced because a recycled question usually means a topic was closed with an
+	// answer given to something else.
+	RepeatedPrompts []RepeatedSpan `json:"repeatedPrompts,omitempty"`
+	NextAction      NextAction     `json:"nextAction"`
 }
 
 // ComputeStatus derives a node's position from records on disk.
@@ -184,8 +189,9 @@ func ComputeStatus(node Node, env Environment, bank QuestionBank) Status {
 		return undeterminedStatus(status, bank, decisionsErr)
 	}
 
-	// seenVerbatim maps a recorded span to every topic it was recorded against.
+	// Each maps a recorded piece of text to every topic it was recorded against.
 	seenVerbatim := map[string][]string{}
+	seenPrompt := map[string][]string{}
 
 	// prerequisitesMet tracks whether every earlier applicable phase is complete.
 	prerequisitesMet := true
@@ -226,7 +232,7 @@ func ComputeStatus(node Node, env Environment, bank QuestionBank) Status {
 		} else {
 			var coverage TopicCoverage
 			coverage, recordPresent, recordUsable, reasons = interviewState(res, bank, phaseID, node.Type)
-			collectVerbatims(res, bank, phaseID, seenVerbatim)
+			collectSpans(res, bank, phaseID, seenVerbatim, seenPrompt)
 			ps.RequiredTopics = len(coverage.Required)
 			ps.AnsweredTopics = len(coverage.Answered)
 			ps.DeferredTopics = coverage.Deferred
@@ -292,37 +298,40 @@ func ComputeStatus(node Node, env Environment, bank QuestionBank) Status {
 		}
 	}
 
-	status.RepeatedVerbatims = repeatedVerbatims(seenVerbatim)
+	status.RepeatedVerbatims = repeatedSpans(seenVerbatim)
+	status.RepeatedPrompts = repeatedSpans(seenPrompt)
 	status.NextRecommended = firstBlockedBy
 	status.NextAction = nextAction(status, bank, decisions, node)
 	return status
 }
 
-// collectVerbatims records which topics each span was used for.
-func collectVerbatims(res Resolution, bank QuestionBank, phase PhaseID, seen map[string][]string) {
+// collectSpans records which topics each answer and each question was used for.
+func collectSpans(res Resolution, bank QuestionBank, phase PhaseID, verbatims, prompts map[string][]string) {
 	record, found, err := LoadAnswerRecord(res.AnswerRecordPath(phase), bank)
 	if err != nil || !found {
 		return
 	}
 	for _, answer := range record.Answers {
-		span := strings.TrimSpace(answer.Verbatim)
-		if span == "" {
-			continue
+		label := string(phase) + "/" + answer.TopicID
+		if span := strings.TrimSpace(answer.Verbatim); span != "" {
+			verbatims[span] = append(verbatims[span], label)
 		}
-		seen[span] = append(seen[span], string(phase)+"/"+answer.TopicID)
+		if span := strings.TrimSpace(answer.Prompt); span != "" {
+			prompts[span] = append(prompts[span], label)
+		}
 	}
 }
 
-// repeatedVerbatims returns spans used for more than one topic, in a stable order.
-func repeatedVerbatims(seen map[string][]string) []RepeatedVerbatim {
-	var out []RepeatedVerbatim
+// repeatedSpans returns text used for more than one topic, in a stable order.
+func repeatedSpans(seen map[string][]string) []RepeatedSpan {
+	var out []RepeatedSpan
 	for span, topics := range seen {
 		if len(topics) < 2 {
 			continue
 		}
-		out = append(out, RepeatedVerbatim{Verbatim: span, Topics: topics})
+		out = append(out, RepeatedSpan{Text: span, Topics: topics})
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Verbatim < out[j].Verbatim })
+	sort.Slice(out, func(i, j int) bool { return out[i].Text < out[j].Text })
 	return out
 }
 

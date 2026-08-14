@@ -535,8 +535,8 @@ func TestRepeatedVerbatimIsSurfacedWithoutBlocking(t *testing.T) {
 		t.Fatalf("repeatedVerbatims = %v, want exactly one entry", status.RepeatedVerbatims)
 	}
 	got := status.RepeatedVerbatims[0]
-	if got.Verbatim != shared {
-		t.Errorf("verbatim = %q, want %q", got.Verbatim, shared)
+	if got.Text != shared {
+		t.Errorf("text = %q, want %q", got.Text, shared)
 	}
 	if len(got.Topics) != 2 {
 		t.Errorf("topics = %v, want the two it was recorded against", got.Topics)
@@ -560,5 +560,70 @@ func TestDistinctVerbatimsProduceNoNoise(t *testing.T) {
 
 	if got := f.status().RepeatedVerbatims; len(got) != 0 {
 		t.Errorf("repeatedVerbatims = %v, want none when every span is distinct", got)
+	}
+}
+
+func TestRecycledQuestionIsSurfacedWithoutBlocking(t *testing.T) {
+	// Observed live: prd/security-privacy and ddd/constraints were asked with an
+	// identical prompt, and ddd/entities-erd recorded the optional-phase gate
+	// question. A recycled question usually means a topic was closed with an
+	// answer given to something else — but one question can genuinely open two
+	// topics, so this reports and never blocks.
+	f := newFixture(t, "acme-hr")
+
+	const shared = "¿Los datos se almacenan, y si sí, dónde y por cuánto tiempo?"
+
+	var ideaAnswers []Answer
+	for _, topicID := range f.bank.RequiredTopics(PhaseIdea, NodeSystem) {
+		a := answerForTopic(f.bank, PhaseIdea, topicID)
+		if topicID == "out-of-scope" {
+			a.Prompt = shared
+		}
+		ideaAnswers = append(ideaAnswers, a)
+	}
+	f.writeAnswers(PhaseIdea, ideaAnswers)
+	f.writeArtifact(PhaseIdea)
+
+	var recAnswers []Answer
+	for _, topicID := range f.bank.RequiredTopics(PhaseRec, NodeSystem) {
+		a := answerForTopic(f.bank, PhaseRec, topicID)
+		if topicID == "business-rules" {
+			a.Prompt = shared
+		}
+		recAnswers = append(recAnswers, a)
+	}
+	f.writeAnswers(PhaseRec, recAnswers)
+	f.writeArtifact(PhaseRec)
+
+	status := f.status()
+
+	if len(status.RepeatedPrompts) != 1 {
+		t.Fatalf("repeatedPrompts = %v, want exactly one entry", status.RepeatedPrompts)
+	}
+	got := status.RepeatedPrompts[0]
+	if got.Text != shared {
+		t.Errorf("text = %q, want %q", got.Text, shared)
+	}
+	if len(got.Topics) != 2 {
+		t.Errorf("topics = %v, want the two it was asked for", got.Topics)
+	}
+
+	for _, phase := range []PhaseID{PhaseIdea, PhaseRec} {
+		if s := phaseStatus(t, status, phase).State; s != StateComplete {
+			t.Errorf("%s state = %q, want %q — a recycled question must not block", phase, s, StateComplete)
+		}
+	}
+	if len(status.BlockedReasons) != 0 {
+		t.Errorf("blockedReasons = %v, want empty", status.BlockedReasons)
+	}
+}
+
+func TestDistinctQuestionsProduceNoNoise(t *testing.T) {
+	f := newFixture(t, "acme-hr")
+	f.completePhase(PhaseIdea)
+	f.completePhase(PhaseRec)
+
+	if got := f.status().RepeatedPrompts; len(got) != 0 {
+		t.Errorf("repeatedPrompts = %v, want none when every question is distinct", got)
 	}
 }
