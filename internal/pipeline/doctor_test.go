@@ -378,6 +378,7 @@ func TestClosedValueTopicsRequireAMachineReadableChoice(t *testing.T) {
 			TopicID:    "archetype",
 			Status:     AnswerAnswered,
 			Source:     SourceUserAnswer,
+			Prompt:     "what about this topic?",
 			Verbatim:   "es un producto que va a crecer con modulos",
 			CapturedAt: testNow,
 		}

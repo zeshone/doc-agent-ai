@@ -31,8 +31,15 @@ const (
 	// SourceBrainDump is the unstructured intake block the orchestrator collects
 	// before the structured flow (skills/doc-arch/SKILL.md:109).
 	SourceBrainDump AnswerSource = "brain-dump"
-	// SourceUserAnswer is a direct reply to a question.
+	// SourceUserAnswer is a direct reply to a question the agent asked. It carries
+	// that question, because an answer without it can be unreadable: "yes, those
+	// are the right ones" says nothing on its own about which ones.
 	SourceUserAnswer AnswerSource = "user-answer"
+	// SourceVolunteered is the user offering something nobody asked for, outside
+	// the brain-dump. It exists so the agent never has to invent a question to
+	// satisfy a required field — a fabricated prompt would be the same class of
+	// defect this package exists to stop.
+	SourceVolunteered AnswerSource = "volunteered"
 	// SourceInheritedParent is context a module takes from its parent system
 	// (skills/doc-arch/SKILL.md:147-149). It is the only source with no user
 	// utterance to quote, and therefore the weakest one.
@@ -47,6 +54,11 @@ type Answer struct {
 	// Verbatim is the user's own words. Required for every source except
 	// inherited-parent: without it the entry is a claim rather than a record.
 	Verbatim string `json:"verbatim,omitempty"`
+	// Prompt is the question the agent asked, in its own words. Required for
+	// user-answer and forbidden elsewhere. Without it a reader cannot judge
+	// whether the answer fits the topic, which is exactly the audit the verbatim
+	// is supposed to make possible.
+	Prompt string `json:"prompt,omitempty"`
 	// InheritedFrom points at the parent artifact section. Required for
 	// inherited-parent and forbidden otherwise.
 	InheritedFrom string `json:"inheritedFrom,omitempty"`
@@ -107,7 +119,7 @@ func (a Answer) validate(bank QuestionBank, phase PhaseID) error {
 	}
 
 	switch a.Source {
-	case SourceBrainDump, SourceUserAnswer:
+	case SourceBrainDump, SourceUserAnswer, SourceVolunteered:
 		// Provenance rule: the user's own words are the record. This is what
 		// makes a fabricated answer require a forged quote rather than a bare
 		// assertion — the difference the whole design rests on.
@@ -117,6 +129,17 @@ func (a Answer) validate(bank QuestionBank, phase PhaseID) error {
 		if a.InheritedFrom != "" {
 			return fmt.Errorf("source %q must not set inheritedFrom", a.Source)
 		}
+		// The question is half the exchange. An answer recorded without it can be
+		// impossible to evaluate later, however genuine the words are.
+		if a.Source == SourceUserAnswer {
+			if strings.TrimSpace(a.Prompt) == "" {
+				return fmt.Errorf(
+					"source %q requires the prompt that was asked; use %q for words the user offered unasked",
+					SourceUserAnswer, SourceVolunteered)
+			}
+		} else if a.Prompt != "" {
+			return fmt.Errorf("source %q must not set prompt: nobody asked", a.Source)
+		}
 	case SourceInheritedParent:
 		if strings.TrimSpace(a.InheritedFrom) == "" {
 			return fmt.Errorf("source %q requires a non-empty inheritedFrom pointer", a.Source)
@@ -124,6 +147,9 @@ func (a Answer) validate(bank QuestionBank, phase PhaseID) error {
 		if a.Verbatim != "" {
 			return fmt.Errorf(
 				"source %q must not set verbatim: there is no user utterance to quote", a.Source)
+		}
+		if a.Prompt != "" {
+			return fmt.Errorf("source %q must not set prompt: nobody was asked", a.Source)
 		}
 	default:
 		return fmt.Errorf("source %q is not a recognised answer source", a.Source)

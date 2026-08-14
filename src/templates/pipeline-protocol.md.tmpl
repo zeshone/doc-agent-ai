@@ -38,7 +38,13 @@ For each topic, capture what the user actually said:
 - The brain-dump counts. If a dump was carried forward, map it onto the topics and
   record the relevant excerpt with source `brain-dump`. Do not re-ask what it
   already answers.
-- A direct reply to a question uses source `user-answer`.
+- A direct reply to a question uses source `user-answer`, and **carries the
+  question you asked** in `prompt`. Half the exchange is the question: "yes, those
+  are the right ones" is a genuine answer and unreadable on its own, so a reply
+  recorded without its question cannot be judged against the topic later.
+- Words the user offers that nobody asked for use source `volunteered`, with no
+  `prompt`. Never invent a question to fill the field — a fabricated prompt is the
+  same defect as a fabricated quote.
 - Context a module takes from its parent uses source `inherited-parent`, with a
   pointer to the parent artifact section instead of a quote and no `verbatim`.
 - If the user genuinely does not know yet, that is status `deferred`, recorded with
@@ -52,7 +58,12 @@ For each topic, capture what the user actually said:
   will grow, and set `value` to whichever one it means. A submission that omits it
   is refused. A deferred topic owes no `value`.
 
-**Never invent a quote, and never attribute words to the user they did not say.**
+One span answers one topic. If a single reply genuinely covers two, record it for
+both — that is legitimate and reported, not refused. Do not stretch one answer
+across topics it does not address just to close them.
+
+**Never invent a quote or a question, and never attribute words to the user they
+did not say.**
 The record is what makes coverage checkable; a fabricated quote corrupts the one
 thing this system relies on.
 
@@ -65,6 +76,7 @@ Answer record, one entry per topic:
   "phase": "<phase>",
   "answers": [
     { "topicId": "<id>", "status": "answered", "source": "user-answer",
+      "prompt": "<the question you asked, in your own words>",
       "verbatim": "<what the user said, word for word>",
       "capturedAt": "<RFC3339 timestamp>" },
     { "topicId": "<a topic whose `topics` entry reports values>",

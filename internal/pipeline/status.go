@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 )
 
 // StatusSchema is the versioned name of the status contract.
@@ -82,6 +84,12 @@ type PhaseStatus struct {
 	UnansweredTopics []string `json:"unansweredTopics"`
 }
 
+// RepeatedVerbatim is one span recorded against several topics.
+type RepeatedVerbatim struct {
+	Verbatim string   `json:"verbatim"`
+	Topics   []string `json:"topics"`
+}
+
 // BlockedReason is one machine-routable explanation of missing work.
 type BlockedReason struct {
 	Code    string  `json:"code"`
@@ -112,7 +120,12 @@ type Status struct {
 	Missing         []PhaseID       `json:"missing"`
 	NextRecommended PhaseID         `json:"nextRecommended,omitempty"`
 	BlockedReasons  []BlockedReason `json:"blockedReasons"`
-	NextAction      NextAction      `json:"nextAction"`
+	// RepeatedVerbatims names spans recorded for more than one topic. It never
+	// blocks: one answer can legitimately cover two topics. It is surfaced because
+	// the alternative reading — one answer stretched to pad coverage — is exactly
+	// what nobody would notice on their own.
+	RepeatedVerbatims []RepeatedVerbatim `json:"repeatedVerbatims,omitempty"`
+	NextAction        NextAction         `json:"nextAction"`
 }
 
 // ComputeStatus derives a node's position from records on disk.
@@ -169,6 +182,9 @@ func ComputeStatus(node Node, env Environment, bank QuestionBank) Status {
 		return undeterminedStatus(status, bank, decisionsErr)
 	}
 
+	// seenVerbatim maps a recorded span to every topic it was recorded against.
+	seenVerbatim := map[string][]string{}
+
 	// prerequisitesMet tracks whether every earlier applicable phase is complete.
 	prerequisitesMet := true
 	var firstBlockedBy PhaseID
@@ -208,6 +224,7 @@ func ComputeStatus(node Node, env Environment, bank QuestionBank) Status {
 		} else {
 			var coverage TopicCoverage
 			coverage, recordPresent, recordUsable, reasons = interviewState(res, bank, phaseID, node.Type)
+			collectVerbatims(res, bank, phaseID, seenVerbatim)
 			ps.RequiredTopics = len(coverage.Required)
 			ps.AnsweredTopics = len(coverage.Answered)
 			ps.DeferredTopics = coverage.Deferred
@@ -273,9 +290,38 @@ func ComputeStatus(node Node, env Environment, bank QuestionBank) Status {
 		}
 	}
 
+	status.RepeatedVerbatims = repeatedVerbatims(seenVerbatim)
 	status.NextRecommended = firstBlockedBy
 	status.NextAction = nextAction(status, bank, decisions, node)
 	return status
+}
+
+// collectVerbatims records which topics each span was used for.
+func collectVerbatims(res Resolution, bank QuestionBank, phase PhaseID, seen map[string][]string) {
+	record, found, err := LoadAnswerRecord(res.AnswerRecordPath(phase), bank)
+	if err != nil || !found {
+		return
+	}
+	for _, answer := range record.Answers {
+		span := strings.TrimSpace(answer.Verbatim)
+		if span == "" {
+			continue
+		}
+		seen[span] = append(seen[span], string(phase)+"/"+answer.TopicID)
+	}
+}
+
+// repeatedVerbatims returns spans used for more than one topic, in a stable order.
+func repeatedVerbatims(seen map[string][]string) []RepeatedVerbatim {
+	var out []RepeatedVerbatim
+	for span, topics := range seen {
+		if len(topics) < 2 {
+			continue
+		}
+		out = append(out, RepeatedVerbatim{Verbatim: span, Topics: topics})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Verbatim < out[j].Verbatim })
+	return out
 }
 
 // interviewState loads and counts an interview phase's answer record.
