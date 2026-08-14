@@ -3,6 +3,7 @@ package docagent
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -303,5 +304,33 @@ func TestRefineRoleDoesNotWriteItsOwnReport(t *testing.T) {
 		if !strings.Contains(content, phrase) {
 			t.Errorf("refine role is missing %q", phrase)
 		}
+	}
+}
+
+func TestEverySubcommandIsDocumentedInTheReadme(t *testing.T) {
+	// A README naming a command that does not exist, or omitting one that does, is
+	// the same failure the pipeline refuses elsewhere: an instruction the reader
+	// cannot run, or a capability they never learn about.
+	main, err := os.ReadFile(filepath.Join("cmd", "doc-agent-ai", "main.go"))
+	if err != nil {
+		t.Fatalf("cannot read main.go: %v", err)
+	}
+	readme, err := os.ReadFile("README.md")
+	if err != nil {
+		t.Fatalf("cannot read README.md: %v", err)
+	}
+
+	dispatched := regexp.MustCompile(`case "([a-z][a-z-]+)":`).FindAllStringSubmatch(string(main), -1)
+	if len(dispatched) == 0 {
+		t.Fatal("found no subcommands in the dispatch; if the switch changed shape, update this guard")
+	}
+
+	for _, match := range dispatched {
+		command := match[1]
+		t.Run(command, func(t *testing.T) {
+			if !strings.Contains(string(readme), "`"+command) {
+				t.Errorf("subcommand %q is dispatched but never appears in README.md", command)
+			}
+		})
 	}
 }

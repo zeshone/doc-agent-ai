@@ -22,7 +22,9 @@
 - One documentation flow
 - Multi-platform installation
 
-> **v4.0.0** — All opencode commands now carry the `doc-` prefix (e.g. `/doc-arch`, `/doc-prd`). This is a breaking change for opencode users — see the [migration table in CHANGELOG →](./CHANGELOG.md).
+Its defining property is that **the interview is conversational and the bookkeeping is not.** The model decides what to ask, how to phrase it and when to dig deeper. A deterministic program decides which phase you are in, whether a phase is complete, and what happens next — counted from what you actually answered, never from a claim the model makes about its own work.
+
+> **v5.0.0** — Completion is now computed from recorded answers instead of checkboxes the model wrote. Documentation created before this release has no such records: run `doc-agent-ai doctor --node <system> --check` to adopt it. See [CHANGELOG →](./CHANGELOG.md).
 
 ---
 
@@ -81,6 +83,33 @@ The `doc-reader` skill is installed on every platform with a skills directory wh
 | `install` | TUI installer — platform selection, docs mode (vault / in-project), overwrite confirmation |
 | `uninstall` | TUI uninstaller — removes only doc-agent-ai artifacts, leaves your docs untouched |
 
+### Pipeline subcommands
+
+The agent calls these; you rarely will. Each prints versioned JSON, so the model routes on typed state instead of on what it remembers.
+
+| Subcommand | What it does |
+|------------|--------------|
+| `status --node <n>` | Where a node stands: phase states, coverage counts, what to run next |
+| `topics --phase <p> --node-type <t>` | The topics a phase must cover |
+| `validate` | Check a phase submission without writing anything |
+| `commit-phase` | Validate a submission and write it only if it passes |
+| `decide-phase` | Record a decision about an optional phase, so it is not re-asked |
+| `sdd-commit` | Verify and write the compacted agent context |
+| `doctor --node <n> [--check\|--apply]` | Adopt documentation written before this release |
+
+Exit codes: `0` affirmative, `1` usage or environment error, `2` refused verdict. A rejection is a successful run with a negative verdict, not a broken invocation.
+
+#### Adopting existing documentation
+
+Documentation written before v5.0.0 has no answer records, so its coverage cannot be verified. `doctor` marks those phases **adopted** — present and usable, coverage explicitly unverified — which does not block new work and never claims a check that never happened.
+
+```sh
+doc-agent-ai doctor --node <system> --check --recursive   # report, change nothing
+doc-agent-ai doctor --node <system> --apply --recursive   # adopt
+```
+
+It reports by default. `--apply` is opt-in because the command touches documentation you wrote by hand.
+
 ### Headless install (CI / scripts)
 
 Any install flag skips the TUI entirely:
@@ -115,13 +144,26 @@ idea -> rec -> prd -> refine -> tech -> [ddd] -> pti
 | `/doc-idea <system>` | Idea refinement — turn a vague concept into a clear product direction | Master index description (+ optional `_idea-brief.md`) |
 | `/doc-rec <system>` | Requirements elicitation | `_requirements.md` |
 | `/doc-prd <system>` | Product Requirements Document | `_prd.md` |
-| `/doc-refine <system>` | User story audit against INVEST criteria | Updated `_prd.md` user stories |
+| `/doc-refine <system>` | User story audit against INVEST criteria | `_refinement.md` (+ updated `_prd.md` user stories on approval) |
 | `/doc-refine` | Standalone refinement of a single user story | Inline refined story |
 | `/doc-tech <system>` | Technical specification | `_tech-spec.md` |
 | `/doc-ddd <system>` | Optional — Database Design Document | `_db-design.md` |
 | `/doc-pti <system>` | Issues breakdown | `_issues.md` |
 | `/doc-arch <system>` | Full flow (all 6 + optional ddd) | All of the above |
-| `/doc-to-sdd <system>` | Standalone — compact docs into LLM-optimized SDD context files | One or both: `agent_sdd_context_project/_sdd-context.md`, `agent_sdd_context_project/_sdd-tech-context.md` (depends on available source artifacts) |
+| `/doc-to-sdd <system>` | Standalone — compact docs into LLM-optimized context so an agent reads two documents instead of seven | `agent_sdd_context_project/_sdd-context.md` and `_sdd-tech-context.md`, plus a manifest of what they were derived from |
+
+### What the program guarantees
+
+| Guarantee | How |
+|---|---|
+| A phase cannot claim coverage it does not have | Every required topic needs an answer on record, carrying your own words and the question that produced them |
+| A rejected submission writes nothing | The program holds the pen: it validates first and returns before touching a file |
+| Document structure is checkable in any language | Section headings are canonical English rendered by the program; the prose beneath is written in your documentation language |
+| An acknowledged gap stays visible | A topic you defer counts as covered, renders an explicit TBD, and stays counted in every status report |
+| A quality gate cannot pass on content since rewritten | The story audit is anchored to the prose it judged; correcting those stories invalidates it until re-run |
+| A compacted agent context cannot go stale invisibly | Its manifest fingerprints every source, and status reports it fresh, stale or absent |
+
+What it deliberately does **not** do is judge whether an answer is good, whether a summary is faithful, or whether a quote fits its topic. Those are judgements about meaning, and a check claiming to make them would be theatre. What the program does is make them auditable: everything it counts, you can read.
 
 ### Modules
 
