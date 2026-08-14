@@ -251,3 +251,19 @@ func TestProtocolRequiresTheQuestionAndOffersAnAlternative(t *testing.T) {
 		t.Error("the answer-record example does not show the prompt field")
 	}
 }
+
+func TestProtocolTellsTheModelToReadTopicNotes(t *testing.T) {
+	// A note nobody reads is decoration. The observed failure was two phases
+	// asking the same question, so the protocol has to say what a note is for.
+	raw, err := embedded.ReadFile("src/templates/pipeline-protocol.md.tmpl")
+	if err != nil {
+		t.Fatalf("cannot read protocol template: %v", err)
+	}
+	content := string(raw)
+
+	for _, phrase := range []string{"`note`", "what it is **not**", "repetitive"} {
+		if !strings.Contains(content, phrase) {
+			t.Errorf("protocol template never explains topic notes: missing %q", phrase)
+		}
+	}
+}

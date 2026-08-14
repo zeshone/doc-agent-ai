@@ -43,6 +43,12 @@ type Topic struct {
 	// renders it; the model never types it. That is what keeps document structure
 	// verifiable regardless of the language the prose is written in.
 	Title string `yaml:"title,omitempty" json:"title,omitempty"`
+	// Note disambiguates a topic from a sibling at a different altitude. It is
+	// specification, not enforcement: coverage is still counted from records. It
+	// exists because `topics` returned only an id and a title, and a model with no
+	// way to tell `success-definition` from `success-metrics` asked the same
+	// question twice — observed, not hypothesised.
+	Note string `yaml:"note,omitempty" json:"note,omitempty"`
 	// Values, when present, closes this topic to a fixed set. An answered entry
 	// must carry one of them in its `value` field, which is what makes the fact
 	// machine-readable instead of something to be inferred from prose.
@@ -202,6 +208,21 @@ func (b QuestionBank) validate() error {
 				return fmt.Errorf("phase %q reuses section title %q", spec.Phase, topic.Title)
 			}
 			seenTitle[topic.Title] = true
+		}
+	}
+
+	seenGlobalTitle := map[string]PhaseID{}
+	for _, spec := range b.Phases {
+		for _, topic := range spec.RequiredTopics {
+			if topic.Title == "" {
+				continue
+			}
+			if owner, taken := seenGlobalTitle[topic.Title]; taken {
+				return fmt.Errorf(
+					"phases %q and %q both title a topic %q; a heading must name one altitude",
+					owner, spec.Phase, topic.Title)
+			}
+			seenGlobalTitle[topic.Title] = spec.Phase
 		}
 	}
 
