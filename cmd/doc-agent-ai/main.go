@@ -146,6 +146,10 @@ func main() {
 	case "decide-phase":
 		os.Exit(pipelinepkg.RunDecidePhase(args[1:], pipelineEnvironment(), os.Stdout, os.Stderr))
 
+	case "sdd-commit":
+		os.Exit(pipelinepkg.RunSDDCommit(args[1:], pipelineEnvironment(),
+			time.Now().UTC().Format(time.RFC3339), os.Stdout, os.Stderr))
+
 	case "doctor":
 		os.Exit(pipelinepkg.RunDoctor(args[1:], pipelineEnvironment(),
 			time.Now().UTC().Format(time.RFC3339), os.Stdout, os.Stderr))
@@ -207,6 +211,10 @@ Pipeline subcommands (typed JSON on stdout; the orchestrator routes on these):
                   question bank; --sections carries prose per topic id.
   decide-phase  Record a decision about an optional phase
                   --node <n> --phase <p> --decision <accepted|declined>
+  sdd-commit    Verify and write the compacted context for AI agents
+                  --node <n> --input <docagent.sddinput/v1 file>
+                  Refuses a compaction with no decisions, one claiming an open
+                  question no source contains, or one dropping a claimed TBD.
   doctor        Align documentation written before answer records existed
                   --node <n> [--check | --apply] [--recursive]
                   [--archetype <bounded|evolving>]

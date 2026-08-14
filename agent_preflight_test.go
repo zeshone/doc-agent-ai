@@ -1,6 +1,7 @@
 package docagent
 
 import (
+	pipelinepkg "github.com/zeshone/doc-agent-ai/internal/pipeline"
 	"strings"
 	"testing"
 )
@@ -42,26 +43,57 @@ func TestDocToSddSkillMD_ModeAwareNaming(t *testing.T) {
 // TestDocToSddRoleMD_ModeAwareWritePaths verifies
 // src/content/roles/doc-to-sdd.md Steps 2-4 branch write paths and the index
 // block on resolved mode (vault prefixed vs in-project bare).
-func TestDocToSddRoleMD_ModeAwareWritePaths(t *testing.T) {
-	data, err := embedded.ReadFile("src/content/roles/doc-to-sdd.md")
-	if err != nil {
-		t.Fatalf("cannot read role file: %v", err)
+func TestSddOutputNamingIsModeAwareInTheProgram(t *testing.T) {
+	// Naming used to be the role's job, spelled out as mode-aware write paths.
+	// The program writes those files now, so the guard follows the responsibility:
+	// asserting the prose still describes paths nobody follows would test nothing.
+	tests := []struct {
+		name          string
+		env           pipelinepkg.Environment
+		node          string
+		wantBusiness  string
+		wantTechnical string
+	}{
+		{
+			name:          "vault prefixes with the node short name",
+			env:           pipelinepkg.Environment{GlobalMode: pipelinepkg.ModeVault, GlobalBasePath: "/vault"},
+			node:          "acme-hr",
+			wantBusiness:  "acme-hr_sdd-context.md",
+			wantTechnical: "acme-hr_sdd-tech-context.md",
+		},
+		{
+			name:          "vault module level carries the module short name",
+			env:           pipelinepkg.Environment{GlobalMode: pipelinepkg.ModeVault, GlobalBasePath: "/vault"},
+			node:          "acme-hr/payroll",
+			wantBusiness:  "payroll_sdd-context.md",
+			wantTechnical: "payroll_sdd-tech-context.md",
+		},
+		{
+			name:          "in-project keeps the bare form",
+			env:           pipelinepkg.Environment{GlobalMode: pipelinepkg.ModeInProject, ProjectRoot: "/repo"},
+			node:          "acme-hr",
+			wantBusiness:  "_sdd-context.md",
+			wantTechnical: "_sdd-tech-context.md",
+		},
 	}
-	content := string(data)
 
-	required := []string{
-		"mode-aware",
-		"<system>_sdd-context.md",
-		"<system>_sdd-tech-context.md",
-		"<system>_<module>_sdd-context.md",
-		"<system>_<module>_sdd-tech-context.md",
-		"agent_sdd_context_project/_sdd-context.md` (bare, unchanged)",
-		"agent_sdd_context_project/_sdd-tech-context.md` (bare, unchanged)",
-	}
-	for _, r := range required {
-		if !strings.Contains(content, r) {
-			t.Errorf("role file missing mode-aware write-path reference: %q", r)
-		}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			node, err := pipelinepkg.ParseNode(tt.node)
+			if err != nil {
+				t.Fatalf("ParseNode: %v", err)
+			}
+			res, err := pipelinepkg.Resolve(node, tt.env)
+			if err != nil {
+				t.Fatalf("Resolve: %v", err)
+			}
+			if got := res.SDDOutputName(pipelinepkg.LayerBusiness); got != tt.wantBusiness {
+				t.Errorf("business = %q, want %q", got, tt.wantBusiness)
+			}
+			if got := res.SDDOutputName(pipelinepkg.LayerTechnical); got != tt.wantTechnical {
+				t.Errorf("technical = %q, want %q", got, tt.wantTechnical)
+			}
+		})
 	}
 }
 

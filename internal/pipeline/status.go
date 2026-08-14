@@ -132,7 +132,11 @@ type Status struct {
 	// surfaced because a recycled question usually means a topic was closed with an
 	// answer given to something else.
 	RepeatedPrompts []RepeatedSpan `json:"repeatedPrompts,omitempty"`
-	NextAction      NextAction     `json:"nextAction"`
+	// SDDContext reports whether the compacted agent context still matches the
+	// documents it was derived from. A stale one is worse than none: it looks
+	// current and is not.
+	SDDContext *SDDStatus `json:"sddContext,omitempty"`
+	NextAction NextAction `json:"nextAction"`
 }
 
 // ComputeStatus derives a node's position from records on disk.
@@ -298,11 +302,21 @@ func ComputeStatus(node Node, env Environment, bank QuestionBank) Status {
 		}
 	}
 
+	status.SDDContext = computeSDDStatus(res, bank, adoptedPhases(adoption))
 	status.RepeatedVerbatims = repeatedSpans(seenVerbatim)
 	status.RepeatedPrompts = repeatedSpans(seenPrompt)
 	status.NextRecommended = firstBlockedBy
 	status.NextAction = nextAction(status, bank, decisions, node)
 	return status
+}
+
+// adoptedPhases indexes which phases carry inherited documentation.
+func adoptedPhases(adoption Adoption) map[PhaseID]bool {
+	out := map[PhaseID]bool{}
+	for phase := range adoption.Phases {
+		out[phase] = true
+	}
+	return out
 }
 
 // collectSpans records which topics each answer and each question was used for.

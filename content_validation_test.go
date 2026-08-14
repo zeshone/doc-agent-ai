@@ -131,27 +131,42 @@ func TestDocToSddRoleMD_RequiredPlaceholders(t *testing.T) {
 
 // TestDocToSddRoleMD_WorkflowSteps verifies the role file contains the
 // 5-step main workflow from the design.
-func TestDocToSddRoleMD_WorkflowSteps(t *testing.T) {
+func TestDocToSddRoleMD_SubmitsRatherThanWrites(t *testing.T) {
 	data, err := embedded.ReadFile("src/content/roles/doc-to-sdd.md")
 	if err != nil {
 		t.Fatalf("cannot read role file: %v", err)
 	}
 	content := string(data)
 
-	workflowElements := []string{
+	// What the role must still do.
+	for _, elem := range []string{
 		"Pre-flight",
-		"_sdd-context.md",
-		"_sdd-tech-context.md",
-		"agent_sdd_context_project",
-	}
-	for _, elem := range workflowElements {
+		"sdd-commit",
+		"decidedBy",
+		"preservedTbds",
+		"_refinement.md",
+		// Output paths come back from the program; composing them by hand is how a
+		// report ends up naming a file that was never written.
+		"`written` paths the program returns",
+	} {
 		if !strings.Contains(content, elem) {
 			t.Errorf("role file missing workflow element: %q", elem)
 		}
 	}
+
+	// What it must no longer do. The program writes both layers and the index;
+	// a role still instructing otherwise would produce files nothing verified.
+	for _, forbidden := range []string{
+		"Write the business layer file",
+		"Write the technical layer file",
+		"Update project index",
+	} {
+		if strings.Contains(content, forbidden) {
+			t.Errorf("role file still instructs %q, but the program writes now", forbidden)
+		}
+	}
 }
 
-// TestDocToSddRoleMD_ExecutorHeader verifies the standard executor header.
 func TestDocToSddRoleMD_ExecutorHeader(t *testing.T) {
 	data, err := embedded.ReadFile("src/content/roles/doc-to-sdd.md")
 	if err != nil {
