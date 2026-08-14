@@ -274,7 +274,7 @@ func TestUnbalancedIndexRegionIsRefusedRatherThanGuessed(t *testing.T) {
 	}
 }
 
-func TestCommitOfAuditPhaseWritesOnlyTheAuditRecord(t *testing.T) {
+func TestAuditCommitWritesItsRecordAndReportButNeverTheAuditedArtifact(t *testing.T) {
 	f := newFixture(t, "acme-hr")
 
 	sub := Submission{
@@ -284,12 +284,13 @@ func TestCommitOfAuditPhaseWritesOnlyTheAuditRecord(t *testing.T) {
 			SchemaName: AuditRecordSchema,
 			Node:       f.node.Raw,
 			Phase:      PhaseRefine,
+			Summary:    "Una historia necesita dividirse antes de estimarse.",
 			Subjects: []AuditSubject{{
 				ID: "US-1",
 				Verdicts: map[string]Verdict{
 					"independent": VerdictPass, "negotiable": VerdictPass,
 					"valuable": VerdictPass, "estimable": VerdictPass,
-					"small": VerdictPass, "testable": VerdictFail,
+					"small": VerdictFail, "testable": VerdictPass,
 				},
 				Notes: "story spans two releases",
 			}},
@@ -297,15 +298,70 @@ func TestCommitOfAuditPhaseWritesOnlyTheAuditRecord(t *testing.T) {
 	}
 
 	result := Commit(sub, f.env, f.bank)
-
 	if result.Result != CommitWritten {
 		t.Fatalf("result = %q, want %q (detail: %s)", result.Result, CommitWritten, result.Detail)
 	}
-	if len(result.Written) != 1 {
-		t.Errorf("written = %v, want only the audit record", result.Written)
+	if len(result.Written) != 2 {
+		t.Fatalf("written = %v, want the audit record and its report", result.Written)
 	}
-	if !strings.Contains(result.Written[0], "audits") {
-		t.Errorf("written path %q is not the audit record", result.Written[0])
+
+	// The audited artifact belongs to prd. An audit that rewrote it would be
+	// editing the thing it is supposed to be judging.
+	if _, err := os.Stat(f.res.ArtifactPath(PhasePRD, f.bank)); err == nil {
+		t.Error("the audit wrote the artifact it was auditing")
+	}
+
+	report, err := os.ReadFile(filepath.Join(f.res.DocsRoot, "acme-hr_refinement.md"))
+	if err != nil {
+		t.Fatalf("reading the report: %v", err)
+	}
+	text := string(report)
+
+	// The auditor's prose is carried through untouched.
+	if !strings.Contains(text, "Una historia necesita dividirse antes de estimarse.") {
+		t.Error("the auditor's summary is missing from the report")
+	}
+	if !strings.Contains(text, "story spans two releases") {
+		t.Error("the per-subject note is missing from the report")
+	}
+	// The tables are computed, so a failure cannot be reported as a pass.
+	if !strings.Contains(text, "| With at least one failure | 1 |") {
+		t.Errorf("the computed summary does not report the failing subject:\n%s", text)
+	}
+	if !strings.Contains(text, "| Failing `small` | 1 |") {
+		t.Error("the failing criterion is not named")
+	}
+	if !strings.Contains(text, "❌") {
+		t.Error("the verdict matrix does not mark the failure")
+	}
+}
+
+func TestTheRenderedReportCannotDisagreeWithTheRecord(t *testing.T) {
+	// The report exists so a person can read the findings without opening a state
+	// directory. Computing it from the record is what stops it drifting into a
+	// second, friendlier account of the same audit.
+	f := newFixture(t, "acme-hr")
+
+	sub := auditSubmission(f)
+	sub.Audit.Subjects[0].Verdicts["testable"] = VerdictFail
+	sub.Audit.Summary = "Todo bien." // an auditor's claim that the verdicts contradict
+
+	if r := Commit(sub, f.env, f.bank); r.Result != CommitWritten {
+		t.Fatalf("commit failed: %s", r.Detail)
+	}
+
+	report, err := os.ReadFile(filepath.Join(f.res.DocsRoot, "acme-hr_refinement.md"))
+	if err != nil {
+		t.Fatalf("reading the report: %v", err)
+	}
+	text := string(report)
+
+	// The claim is carried, and the computed tables contradict it in the open.
+	if !strings.Contains(text, "Todo bien.") {
+		t.Error("the auditor's summary was dropped")
+	}
+	if !strings.Contains(text, "| Passing every criterion | 0 |") {
+		t.Errorf("the computed table did not contradict the summary:\n%s", text)
 	}
 }
 

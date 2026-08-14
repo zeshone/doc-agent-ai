@@ -91,6 +91,8 @@ If ALL checks pass → proceed with the audit protocol.
 
    Do **not** set `auditedRevision`. The program stamps it from the prose on disk, because an anchor the auditor supplies is an anchor the auditor can move.
 
+   Put your overall reading in `summary`, and the per-story analysis — the problem found, the refined version, the Given/When/Then criteria — in that subject's `notes`. Both are carried verbatim into a readable report the program renders beside the record as `<node>_refinement.md`. Do **not** write that file yourself: its tables are computed from the verdicts, which is what stops the report from becoming a second, friendlier account of the same audit.
+
 6. Present the report and ASK:
    > "Found [N] stories that can be improved. Apply corrections to the PRD?"
 

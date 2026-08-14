@@ -288,3 +288,20 @@ func TestRefineRoleKnowsCorrectingInvalidatesTheAudit(t *testing.T) {
 		}
 	}
 }
+
+func TestRefineRoleDoesNotWriteItsOwnReport(t *testing.T) {
+	// Real vaults hold refinement reports of several hundred lines, and the first
+	// hardened run produced none. The report came back as a rendered view — so the
+	// role must supply summary and notes, and must not author the file.
+	raw, err := embedded.ReadFile("src/content/roles/doc-refinement.md")
+	if err != nil {
+		t.Fatalf("cannot read refine role: %v", err)
+	}
+	content := string(raw)
+
+	for _, phrase := range []string{"`summary`", "`notes`", "_refinement.md", "Do **not** write that file yourself"} {
+		if !strings.Contains(content, phrase) {
+			t.Errorf("refine role is missing %q", phrase)
+		}
+	}
+}

@@ -133,6 +133,25 @@ func Commit(sub Submission, env Environment, bank QuestionBank) CommitResult {
 			return result
 		}
 		result.Written = append(result.Written, path)
+
+		// Render the readable report beside the record. It is a view, like the
+		// index: if it goes missing the next commit rewrites it, and nothing about
+		// the pipeline's state depends on its presence.
+		if name := spec.ReportArtifactName(res.ArtifactPrefix); name != "" {
+			report, err := RenderAuditReport(spec, sub.Node, stamped)
+			if err != nil {
+				result.Result = CommitUndetermined
+				result.Detail = err.Error()
+				return result
+			}
+			reportPath := filepath.Join(res.DocsRoot, name)
+			if err := writeFileAtomic(reportPath, report); err != nil {
+				result.Result = CommitUndetermined
+				result.Detail = err.Error()
+				return result
+			}
+			result.Written = append(result.Written, reportPath)
+		}
 	}
 
 	// Audit phases own no artifact of their own.

@@ -41,8 +41,12 @@ type AuditRecord struct {
 	//
 	// Without it, an audit stayed "complete" after the very stories it judged were
 	// rewritten — the verdicts described a document that no longer existed.
-	AuditedRevision string         `json:"auditedRevision,omitempty"`
-	Subjects        []AuditSubject `json:"subjects"`
+	AuditedRevision string `json:"auditedRevision,omitempty"`
+	// Summary is the auditor's overview, in the documentation language. It is the
+	// auditor's claim and is rendered as such; the verdict matrix beneath it is
+	// computed from the record, so the two cannot disagree.
+	Summary  string         `json:"summary,omitempty"`
+	Subjects []AuditSubject `json:"subjects"`
 }
 
 // Validate enforces the audit contract against the phase's declared rule.
