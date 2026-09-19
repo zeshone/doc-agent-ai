@@ -36,13 +36,13 @@ Focus is exclusively **user story quality**. Does not modify requirements, add f
 2. Extract all user stories from the "User Stories" section.
 3. Audit each against the INVEST checklist. Classify: ✅ OK / ⚠️ WARNING / 🔴 ISSUE.
 4. Present the audit report with: problems detected, refined version, suggested acceptance criteria in Given/When/Then format.
-5. Ask: Ask for confirmation before modifying the PRD — do not proceed without explicit approval.
+5. Ask for confirmation before submitting a correction — do not proceed without explicit approval. There is no hand edit: the program renders the PRD, so a direct edit to the file is overwritten on the next commit and leaves no record. An approved correction is resubmitted as the `prd` phase's `user-stories` answer instead.
 
 ### Audit Mode Rules
 - Only audit user stories. Do not touch requirements, architecture, risks, or other PRD sections.
 - Do not add new stories or delete existing ones.
 - Do not change intent — refined version must preserve original goal.
-- Present report before applying changes. Never auto-modify the PRD.
+- Present report before submitting any correction. Never hand-edit the PRD file — the correction goes back through the `prd` phase's submission.
 - All acceptance criteria in Given/When/Then format.
 
 ## Mode 2 — Standalone Refinement (`refine`)

@@ -576,3 +576,116 @@ func TestEmbeddedContent_EnglishOnly(t *testing.T) {
 			len(violations), strings.Join(violations, "\n"))
 	}
 }
+
+// forbiddenSkillWritePhrases are phrases that instruct the MODEL to write a
+// phase's output artifact or touch a project/master index by hand. After #53,
+// the program owns every write: a skill only composes prose and submits it
+// through commit-phase (or sdd-commit); "Write ..." headings, "MUST exist ...
+// before concluding" completion criteria, and "Add/Update ... index/project
+// index" instructions are exactly the v4 behavior the program now performs.
+//
+// Each phrase below is deliberately specific — not a bare "write" or "index"
+// substring — because those words also appear in legitimate descriptive text
+// ("Output: <path>", "the master index is a rendered view") and in the
+// correct negated form ("do not touch any index"). A generic substring here
+// would either false-fail on that descriptive prose or, like the bare "Do
+// not" string that once guarded doc-to-sdd's role file, quietly match
+// nothing. See TestForbiddenSkillWritePhrases_AbsentFromCleanSkills, which
+// proves every phrase here is absent from the five clean skills before any
+// of them is ever asserted against the full skill tree.
+var forbiddenSkillWritePhrases = []string{
+	// doc-ddd: the model's own write was the completion condition.
+	"MUST exist and be non-empty before concluding",
+	"Output file is written and non-empty",
+	"Conclude WITHOUT writing the file",
+	// doc-idea: capturing into the master index / idea-brief was the model's job.
+	"is captured in the **master index**",
+	"generate `<system>_idea-brief.md`",
+	"Master index reflects the polished project description",
+	// doc-pti: generating the local issues file was the model's job.
+	"Generate the local issues file",
+	"Write the approved slices to the local",
+	// doc-refinement: a gated hand edit is still a hand edit.
+	"confirmation before modifying the PRD",
+	"Never auto-modify the PRD",
+	// doc-tech: an output path to write to, and incremental writes to it.
+	"Where to write the spec",
+	"Write Initial Draft",
+	"Write incrementally to the output file",
+	"Write sections incrementally, not in one shot",
+	// doc-to-sdd: the compaction pipeline wrote files and touched the index.
+	"5. **Write** output files",
+	"6. **Update** project index",
+	"Add or replace `## SDD Context` section",
+	"replace it entirely",
+}
+
+// skillsExemptFromWriteGuard lists manifest skills with no role file, no
+// questionbank entry, and no phase in the Go pipeline — the legacy
+// doc-feat mini-flow (see issue #91's "lite flow is a bigger gap than
+// drift"). They genuinely write their own output today; deciding whether
+// that should change is a separate product decision, not a regression this
+// guard should flag.
+var skillsExemptFromWriteGuard = map[string]bool{
+	"doc-prd-lite": true,
+	"doc-rec-lite": true,
+}
+
+// TestSkillsDoNotInstructWritesOrIndexTouches guards every skill registered
+// in content.json (minus the exempt lite flow) against regressing back to
+// v4-style "the model writes the artifact" instructions. It iterates
+// cm.Skills rather than a hardcoded file list, so a newly registered skill
+// is covered automatically without editing this test.
+func TestSkillsDoNotInstructWritesOrIndexTouches(t *testing.T) {
+	cm := loadContentManifest(t)
+
+	for _, skill := range cm.Skills {
+		if skillsExemptFromWriteGuard[skill] {
+			continue
+		}
+
+		path := "skills/" + skill + "/SKILL.md"
+		data, err := embedded.ReadFile(path)
+		if err != nil {
+			t.Errorf("cannot read %s: %v", path, err)
+			continue
+		}
+		content := string(data)
+
+		for _, phrase := range forbiddenSkillWritePhrases {
+			if strings.Contains(content, phrase) {
+				t.Errorf("%s still instructs the model to write/touch state via %q — the program owns writes now (see role file for this skill)", path, phrase)
+			}
+		}
+	}
+}
+
+// TestForbiddenSkillWritePhrases_AbsentFromCleanSkills proves every phrase in
+// forbiddenSkillWritePhrases is a real signal, not a bare word that would
+// have matched anyway. It checks the phrases against the skills the #91
+// survey already found clean — doc-arch, doc-scope, doc-prd, doc-reader,
+// doc-rec — plus doc-feat (ambiguous but out of scope) and the two exempt
+// lite skills. If any phrase matched one of these, it would prove the phrase
+// is too generic, exactly like the bare "Do not" string that once made
+// doc-to-sdd's role guard pass without checking anything.
+func TestForbiddenSkillWritePhrases_AbsentFromCleanSkills(t *testing.T) {
+	cleanSkills := []string{
+		"doc-arch", "doc-scope", "doc-prd", "doc-reader", "doc-rec",
+		"doc-feat", "doc-prd-lite", "doc-rec-lite",
+	}
+
+	for _, skill := range cleanSkills {
+		path := "skills/" + skill + "/SKILL.md"
+		data, err := embedded.ReadFile(path)
+		if err != nil {
+			t.Fatalf("cannot read %s: %v", path, err)
+		}
+		content := string(data)
+
+		for _, phrase := range forbiddenSkillWritePhrases {
+			if strings.Contains(content, phrase) {
+				t.Errorf("%s contains forbidden phrase %q — this phrase is too generic, it matches a clean skill", path, phrase)
+			}
+		}
+	}
+}

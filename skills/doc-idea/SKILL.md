@@ -81,9 +81,9 @@ Iterate until user confirms. If the idea was already clear, validate quickly —
 
 ## Step 5: Capture
 
-The refined concept is captured in the **master index** (`<system>.md`) as a polished 2-3 sentence description, replacing the initial `TBD`.
+Once confirmed, the polished 2-3 sentence description is submitted as the answer for this phase. The program renders it into the master index (`<system>.md`), replacing the initial `TBD`.
 
-Optionally, generate `<system>_idea-brief.md` if the user wants a more detailed capture with: Purpose, Value Proposition, Initial Scope (includes/excludes), Context, Open Questions.
+If the user wants a more detailed capture, the program can also produce `<system>_idea-brief.md` from the submitted answers, with: Purpose, Value Proposition, Initial Scope (includes/excludes), Context, Open Questions. Neither file is written by hand.
 
 ## Key Principles
 
@@ -117,4 +117,4 @@ Optionally, generate `<system>_idea-brief.md` if the user wants a more detailed 
 - [ ] No technical language or implementation decisions introduced
 - [ ] Open questions documented, not hidden
 - [ ] User confirmed the summary
-- [ ] Master index reflects the polished project description
+- [ ] Refined idea submitted; the program's response confirms the master index was updated

@@ -34,9 +34,7 @@
 
 ## Exit Contract
 
-Output: `<BASE_PATH><sistema>/<sistema>_db-design.md`
-
-This file MUST exist and be non-empty before concluding.
+Output: `<BASE_PATH><sistema>/<sistema>_db-design.md`, written by the program once the phase is submitted and accepted.
 
 ## Workflow
 
@@ -170,11 +168,11 @@ Brief description of the data layer: what is stored, why, and how it maps to the
 
 Conclude ONLY when:
 
-1. Output file is written and non-empty
+1. The phase is submitted and the program confirms the file was written
 2. User confirms correctness or provides corrections (one round of review is expected)
 3. No schema artifacts found AND user does not want manual documentation
 
-Conclude WITHOUT writing the file (silent dismissal):
+Conclude WITHOUT submitting the phase (silent dismissal):
 - User explicitly dismisses: "no db doc needed" / "omit database step" / "skip ddd"
 - Source artifacts contain no recognizable schema (empty scan result with empty tech spec)
 - System is clearly in-memory or ephemeral (no persistence intent)
