@@ -57,7 +57,7 @@ Out of scope:
 
 ## Tasks
 
-- [ ] **D1 — Inventory the real command surface.** Every binary subcommand with
+- [x] **D1 — Inventory the real command surface.** Every binary subcommand with
   its exact flags, exit codes and output schema; every slash command with what
   it does and what it produces. Read the source, do not infer from the README —
   the README is one of the things being corrected. Route: delegated mapper.
@@ -86,6 +86,31 @@ Out of scope:
 
 Branch `docs/v5.1.0-usage-guide` cut from `main` at `d433afd`.
 
+**D1 done.** Inventory complete, sourced from code and verified by real runs of a
+freshly built binary in a scratch directory. It found **nine disagreements between
+the README and the code**, each with file:line on both sides. The two that matter
+most, re-verified by the parent:
+
+1. `README.md:76` and `:228` still describe `doc-reader` as conditional on
+   in-project mode and claim "switching back to vault mode automatically removes
+   it". PR #93 made it unconditional and deleted that sweep. Two places in the
+   README instruct users about behaviour that no longer exists.
+
+2. `validate` accepted does NOT promise `commit-phase` will write. Proven at the
+   signature level: `Validate(sub Submission, bank QuestionBank)` never receives an
+   `Environment`, while `Commit(sub Submission, env Environment, bank QuestionBank)`
+   does and calls `Resolve`. So validate cannot know whether the destination even
+   resolves. Captured live: the same submission returns `"accepted"` exit 0 from
+   validate, then `"undetermined"` exit 2 from commit-phase with "vault mode needs a
+   base path but none is configured". The guide must say this plainly — it already
+   cost a real run once.
+
+Other findings: `status --node` optionality undocumented; the platforms table is
+wrong about skills (universal, not Pi-specific) and about Pi's skill registry (it
+does write one); `skills/doc-arch/SKILL.md:71-81` omits the `adopted (coverage
+unverified)` node status; and `--help`'s exit-code line is inaccurate for
+`sdd-commit`, whose environment failures surface as verdict 2 rather than usage 1.
+
 ## Next step
 
-D1.
+D2, D3 and D4 in parallel — they touch disjoint files.
