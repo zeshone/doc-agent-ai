@@ -59,3 +59,7 @@ release:
     owner: zeshone
     name: doc-agent-ai
   prerelease: auto
+  # On a 422 (asset already exists), delete the conflicting asset and retry the
+  # upload. Without this a failed release cannot be re-run: goreleaser aborts in
+  # `scm releases`, before the brews and scoops steps it needs to reach.
+  replace_existing_artifacts: true
