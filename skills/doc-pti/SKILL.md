@@ -78,11 +78,11 @@ Ask the user:
 
 Iterate until the user approves the breakdown.
 
-### 6. Generate the local issues file
+### 6. Compose the local issues content
 
-Write the approved slices to the local `_issues.md` artifact first.
+Compose the approved slices as the per-topic prose that will be submitted to become the local `_issues.md` artifact. The program writes the file.
 
-Create issues in dependency order (blockers first).
+Order issues by dependency (blockers first).
 
 <issue-template>
 # Issues — <System or Module Name>

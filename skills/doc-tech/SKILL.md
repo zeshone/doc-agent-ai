@@ -16,9 +16,8 @@ Ask the user to provide:
 
 - **Product requirements**: PRD, product brief, or similar. Accept local files (`@path/to/file.md`), URLs (fetch via appropriate tools), or pasted content.
 - **Project tracking context**: A project, epic, or initiative in their task management system (Linear, GitHub, Jira, etc.). Use available MCP tools to fetch details.
-- **Output path**: Where to write the spec (e.g., `tmp/feature-tech-spec.md`).
 
-Be flexible about input sources. Don't assume specific tools or formats.
+Be flexible about input sources. Don't assume specific tools or formats. The output path is not something to ask for or choose: once the spec is submitted, the program writes it and reports where.
 
 ### Positioning of `tech`
 
@@ -71,13 +70,11 @@ Run a deeper technical planning interview before drafting. Guide the interview t
 
 If any of these are materially relevant and still unclear, ask follow-up questions. Do not invent answers.
 
-### Write Initial Draft
+### Draft the Content
 
-Write incrementally to the output file. Use the template structure from [references/template.md](references/template.md).
+Compose the spec section by section, refining as the interview progresses — not in one shot. Follow the template structure from [references/template.md](references/template.md).
 
 For architecture diagrams, always use Mermaid. Never use ASCII art.
-
-Write sections incrementally, not in one shot.
 
 The draft must make these explicit with technical precision:
 

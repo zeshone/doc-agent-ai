@@ -44,7 +44,7 @@ license: MIT
 
 ## Exit Contract
 
-**Output files** (written to `agent_sdd_context_project/` under the resolved docs root — `<BASE_PATH><system>/` in vault mode, `docs/doc-agent/` in in-project mode):
+**Output files** (written by the program to `agent_sdd_context_project/` under the resolved docs root — `<BASE_PATH><system>/` in vault mode, `docs/doc-agent/` in in-project mode — once the compacted input is submitted and accepted):
 
 | File | Layer | Sources |
 |------|-------|---------|
@@ -61,7 +61,7 @@ license: MIT
 
 Feature/module-level naming is a forward-compatible convention — the rule applies regardless of whether module-scoped invocation is currently exercised.
 
-**Index update:** Add or replace `## SDD Context` section in `<BASE_PATH><system>/<system>.md` (vault) or the project index (in-project) with the mode-appropriate block, using the same filenames from the naming table above:
+**Index update:** The program adds or replaces the `## SDD Context` section in `<BASE_PATH><system>/<system>.md` (vault) or the project index (in-project) with the mode-appropriate block below, using the same filenames from the naming table above:
 
 Vault, system-level:
 
@@ -93,7 +93,7 @@ LLM-optimized context files for agentic SDD programming:
 - `agent_sdd_context_project/_sdd-tech-context.md` — Technical layer (architecture, stack, contracts, data model)
 ```
 
-If a `## SDD Context` section already exists, replace it entirely.
+If a `## SDD Context` section is already present, the program overwrites it in full — never a partial merge.
 
 **All output MUST be in English** regardless of source artifact language.
 
@@ -109,8 +109,8 @@ If a `## SDD Context` section already exists, replace it entirely.
 2. **Parse** each artifact into sections at H1/H2/H3 boundaries.
 3. **Classify** each section against KEEP/DROP criteria.
 4. **Extract** and restructure KEEP sections into target output schema.
-5. **Write** output files to `agent_sdd_context_project/`.
-6. **Update** project index (`<system>.md`) with SDD Context reference block.
+5. **Submit** the compacted business and technical markdown, plus the decisions and preserved TBDs, via `sdd-commit`.
+6. The program writes both output files and updates the project index's SDD Context reference block from that submission.
 
 ### KEEP Criteria
 
