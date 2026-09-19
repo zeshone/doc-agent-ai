@@ -8,6 +8,7 @@ dist/
 /doc-agent-ai.exe
 dist-release/
 docs/*
+!docs/USAGE.md
 !docs/assets/
 docs/assets/*
 !docs/assets/brand/
