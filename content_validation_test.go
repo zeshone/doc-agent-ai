@@ -2,7 +2,9 @@ package docagent
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/fs"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -483,5 +485,94 @@ func TestContentNoBareCommandReferences(t *testing.T) {
 		if err != nil {
 			t.Fatalf("walk %s: %v", root, err)
 		}
+	}
+}
+
+// nonEnglishContentPattern mirrors the "English-only content gate" PATTERNS
+// regex in .github/workflows/ci.yml — a Perl-compatible pattern (grep -P):
+// Spanish punctuation/diacritics, a handful of common Spanish stopwords as
+// whole words, and CJK/Arabic/Cyrillic code-point ranges.
+var nonEnglishContentPattern = regexp.MustCompile(
+	`[¿¡ñÑ]|\b(como|donde|porque|cuando|para|sobre|entonces|aunque|tambien|ademas|sino)\b|[\x{4E00}-\x{9FFF}\x{0600}-\x{06FF}\x{0400}-\x{04FF}]`,
+)
+
+// langGateAllowMarker exempts one specific line that legitimately carries
+// non-English text — a Spanish phrase the agent must recognize in a user's
+// own input, or a worked example that teaches the agent to answer in the
+// user's language. The marker is line-scoped, not file-scoped: it must sit
+// on the very same source line as the flagged text and read
+// "<!-- lang-gate-allow: <reason> -->", so every exemption is a deliberate,
+// visible decision instead of a blanket file exclusion. A file-scoped
+// allowlist is what this replaces: it previously exempted a whole file to
+// protect one legitimate line, and silently hid a real hardcoded-Spanish bug
+// on another line of that same file.
+const langGateAllowMarker = "lang-gate-allow"
+
+// nonEnglishContentExtensions mirrors the CI gate's --include globs.
+var nonEnglishContentExtensions = []string{".md", ".tmpl", ".json"}
+
+// TestEmbeddedContent_EnglishOnly is the real English-only content guard.
+//
+// .github/workflows/ci.yml runs the same check as a shell grep, but a shell
+// gate built from `set +e`, `2>/dev/null` and `|| true` fails open: the CI
+// script's grep call used to pass `-P` and `-E` together, which GNU grep
+// rejects as conflicting matchers (exit 2) — so it never matched anything,
+// stderr was discarded, the non-zero exit was swallowed, and the gate always
+// printed "Language gate passed" despite doing nothing. A shell script can
+// silently regress the same way again (a stray flag, a reintroduced `|| true`,
+// a shell quoting change) and nothing would fail loudly.
+//
+// This Go test performs the identical scan over the same embedded content.
+// It cannot silently no-op: `go test ./...` reports every failure, and this
+// test is itself covered by the CI Tests job. Keep the shell gate too for a
+// fast, early signal in its own job, but this test is the guard that cannot
+// be defeated by a shell flag.
+func TestEmbeddedContent_EnglishOnly(t *testing.T) {
+	var violations []string
+
+	for _, root := range []string{"src", "skills"} {
+		err := fs.WalkDir(embedded, root, func(p string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if d.IsDir() {
+				return nil
+			}
+
+			matchedExt := false
+			for _, ext := range nonEnglishContentExtensions {
+				if strings.HasSuffix(p, ext) {
+					matchedExt = true
+					break
+				}
+			}
+			if !matchedExt {
+				return nil
+			}
+
+			data, err := embedded.ReadFile(p)
+			if err != nil {
+				return err
+			}
+
+			for i, line := range strings.Split(string(data), "\n") {
+				if !nonEnglishContentPattern.MatchString(line) {
+					continue
+				}
+				if strings.Contains(line, langGateAllowMarker) {
+					continue
+				}
+				violations = append(violations, fmt.Sprintf("%s:%d: %s", p, i+1, strings.TrimSpace(line)))
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatalf("walk %s: %v", root, err)
+		}
+	}
+
+	if len(violations) > 0 {
+		t.Errorf("non-English content detected in embedded files (%d violation(s)):\n%s",
+			len(violations), strings.Join(violations, "\n"))
 	}
 }

@@ -128,9 +128,9 @@ Always: idea → rec → prd → refine → tech → [ddd] → pti
 That is the shape of the chain. Your position within it comes from `doc-agent-ai status --node <node>`: route on `nextRecommended`, and never advance while `blockedReasons` is non-empty. Never infer the phase from the conversation, from files you believe exist, or from a checkbox.
 
 `ddd` is optional:
-- Between `tech` and `pti`, when status reports `nextAction.kind` as `decide-optional-phase`, ask: "¿Quieres documentar el diseño de la base de datos?" Record the answer with `doc-agent-ai decide-phase --node <node> --phase ddd --decision <accepted|declined>` so it survives into later sessions. Present this as a closed-ended option-selection per Global Agent Rule #13.
+- Between `tech` and `pti`, when status reports `nextAction.kind` as `decide-optional-phase`, ask whether the user wants to document the database design, in the language the user is using. Record the answer with `doc-agent-ai decide-phase --node <node> --phase ddd --decision <accepted|declined>` so it survives into later sessions. Present this as a closed-ended option-selection per Global Agent Rule #13.
 - Also auto-trigger on hard signals (see DDD Decision Triggers below)
-- Between each phase in `arch`/`mod`: show summary and ask "¿Continuamos con el siguiente paso?"
+- Between each phase in `arch`/`mod`: show summary and ask whether to continue with the next step, in the language the user is using.
 
 ### DDD Decision Triggers
 
@@ -139,8 +139,8 @@ That is the shape of the chain. Your position within it comes from `doc-agent-ai
 | User explicitly invokes `/doc-ddd` | Launch directly |
 | `tech` mentions entities, tables, relationships, migrations, or DBMS | Prompt: "Found data layer in tech spec — include DB design doc?" |
 | Project contains persistence artifacts: `*.sql`, `migrations/`, `schema.prisma`, `models/` | Auto-suggest with brief explanation |
-| User mentions explicit intent: "documentar la base de datos", "db design", "diseño de BD" | Launch directly |
-| User explicitly excludes: "no我们需要base de datos", "skip ddd" | Do not prompt again in this session |
+| User mentions explicit intent: "documentar la base de datos", "db design", "diseño de BD" | Launch directly <!-- lang-gate-allow: Spanish input-trigger phrase the agent must recognize in user text --> |
+| User explicitly excludes: "no necesitamos base de datos", "skip ddd" | Do not prompt again in this session <!-- lang-gate-allow: Spanish input-trigger phrase the agent must recognize in user text --> |
 | In-memory / ephemeral system (no persistence intent) | Do not prompt |
 
 ### Archetype Detection

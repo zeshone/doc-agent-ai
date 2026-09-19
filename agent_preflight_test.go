@@ -529,41 +529,46 @@ func TestDocArchRoleMD_LanguageQuestionNeutralSpanish(t *testing.T) {
 	}
 }
 
-// TestDocArchSkillMD_DddQuestionNeutralSpanish verifies
-// skills/doc-arch/SKILL.md's ddd yes/no Spanish example uses neutral Spanish
-// ("quieres") instead of voseo ("querés"/"Querés").
-func TestDocArchSkillMD_DddQuestionNeutralSpanish(t *testing.T) {
+// TestDocArchSkillMD_DddQuestionAsksInUsersLanguage verifies
+// skills/doc-arch/SKILL.md's ddd yes/no prompt no longer hardcodes a
+// language. It used to quote the question in neutral Spanish verbatim
+// ("quieres", not voseo — see the prior TestDocArchSkillMD_DddQuestionNeutralSpanish),
+// but a hardcoded output question ignores an English-speaking user's
+// language entirely. The fix names the question and instructs the agent to
+// ask it in whichever language the conversation is already in.
+func TestDocArchSkillMD_DddQuestionAsksInUsersLanguage(t *testing.T) {
 	data, err := embedded.ReadFile("skills/doc-arch/SKILL.md")
 	if err != nil {
 		t.Fatalf("cannot read SKILL.md: %v", err)
 	}
 	content := string(data)
 
-	if !strings.Contains(content, "¿Quieres documentar el diseño de la base de datos?") {
-		t.Errorf("SKILL.md missing neutral-Spanish ddd question: %q", "¿Quieres documentar el diseño de la base de datos?")
+	if !strings.Contains(content, "ask whether the user wants to document the database design, in the language the user is using") {
+		t.Error("SKILL.md missing language-neutral ddd question instruction")
 	}
-	if strings.Contains(strings.ToLower(content), "uerés") {
-		t.Errorf("SKILL.md still contains voseo form (\"querés\"/\"Querés\")")
+	if strings.Contains(content, "¿Quieres documentar el diseño de la base de datos?") {
+		t.Error("SKILL.md still hardcodes the Spanish ddd question verbatim — it must ask in the user's own language instead")
 	}
 }
 
-// TestDocArchCommandMD_DddQuestionNeutralSpanish verifies
-// src/content/commands/doc-arch.md's ddd yes/no Spanish example uses neutral
-// Spanish ("quieres") instead of voseo ("querés"/"Querés"). This command file
-// ships into the doc-arch command bundle, so its Spanish output must be neutral
-// too — the skill and role trees are not the only user-facing surface.
-func TestDocArchCommandMD_DddQuestionNeutralSpanish(t *testing.T) {
+// TestDocArchCommandMD_DddQuestionAsksInUsersLanguage verifies
+// src/content/commands/doc-arch.md's ddd yes/no prompt no longer hardcodes a
+// language, for the same reason as the SKILL.md counterpart above. This
+// command file ships into the doc-arch command bundle, so its output must be
+// language-neutral too — the skill and role trees are not the only
+// user-facing surface.
+func TestDocArchCommandMD_DddQuestionAsksInUsersLanguage(t *testing.T) {
 	data, err := embedded.ReadFile("src/content/commands/doc-arch.md")
 	if err != nil {
 		t.Fatalf("cannot read command file: %v", err)
 	}
 	content := string(data)
 
-	if !strings.Contains(content, "¿Quieres documentar el diseño de la base de datos?") {
-		t.Errorf("command file missing neutral-Spanish ddd question: %q", "¿Quieres documentar el diseño de la base de datos?")
+	if !strings.Contains(content, "ask whether the user wants to document the database design, in the language the user is using") {
+		t.Error("command file missing language-neutral ddd question instruction")
 	}
-	if strings.Contains(strings.ToLower(content), "uerés") {
-		t.Errorf("command file still contains voseo form (\"querés\"/\"Querés\")")
+	if strings.Contains(content, "¿Quieres documentar el diseño de la base de datos?") {
+		t.Error("command file still hardcodes the Spanish ddd question verbatim — it must ask in the user's own language instead")
 	}
 }
 

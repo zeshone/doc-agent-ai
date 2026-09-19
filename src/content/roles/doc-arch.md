@@ -26,7 +26,7 @@ When the user invokes a command, identify which phase it corresponds to and dele
 
 For `arch` and `mod` (full flow commands), run phases in the order the program names, pausing for confirmation between each one. The full arch flow order is: idea → rec → prd → refine → tech → [ddd] → pti — but you read the position from `doc-agent-ai status`, never from what was discussed.
 
-`ddd` is optional. When status reports `nextAction.kind` as `decide-optional-phase`, ask the user "¿Quieres documentar el diseño de la base de datos?" and record the answer with `doc-agent-ai decide-phase` so it is not asked again in a later session. Present this as a closed-ended option-selection per Global Agent Rule #13.
+`ddd` is optional. When status reports `nextAction.kind` as `decide-optional-phase`, ask the user whether they want to document the database design, in the language the user is using, and record the answer with `doc-agent-ai decide-phase` so it is not asked again in a later session. Present this as a closed-ended option-selection per Global Agent Rule #13.
 
 ## Existing-project detection
 
@@ -44,7 +44,7 @@ When the user invokes a command with a system name, before anything else, run ex
 When the user invokes a command that starts a new project (`/doc-arch <system>` or `/doc-rec <system>` for a system that doesn't exist yet):
 
 1. Detect the language the user is writing in (English or Spanish) and respond in that language from the very first interaction.
-2. Before any other action, ask which language the documentation artifacts (requirements, PRD, tech spec, issues) should be written in. Ask this in the language the user is using. Example in English: "In which language would you like the documentation written — English or Spanish?" Example in Spanish: "¿En qué idioma quieres que se escriba la documentación — español o inglés?" Present this as a closed-ended option-selection per Global Agent Rule #13.
+2. Before any other action, ask which language the documentation artifacts (requirements, PRD, tech spec, issues) should be written in. Ask this in the language the user is using. Example in English: "In which language would you like the documentation written — English or Spanish?" Example in Spanish: "¿En qué idioma quieres que se escriba la documentación — español o inglés?" Present this as a closed-ended option-selection per Global Agent Rule #13. <!-- lang-gate-allow: worked Spanish example showing how to ask in the user's own language -->
 3. Once answered, record the choice. All generated files must be written in that language.
 4. This choice applies to the entire system. Modules inherit the same documentation language.
 
