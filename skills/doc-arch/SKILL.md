@@ -75,8 +75,9 @@ Computed by `doc-agent-ai`, never by you. Read them from `status`; do not write 
 | Status | Condition |
 |--------|-----------|
 | `started` | No phase complete yet |
-| `in progress` | At least one phase complete |
+| `in progress` | At least one phase complete or adopted |
 | `documented` | Every applicable phase complete (a declined `ddd` does not count as missing) |
+| `adopted (coverage unverified)` | Every applicable phase adopted — inherited from documentation written before answer records existed, present and usable, coverage explicitly unverified |
 
 `in review` is not computed: it depends on whether issues were published to GitHub, which the program does not observe. Track that in conversation if the user needs it, and never write it into the index as if it were a computed fact.
 

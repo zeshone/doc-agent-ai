@@ -26,6 +26,8 @@ Its defining property is that **the interview is conversational and the bookkeep
 
 > **v5.0.0** — Completion is now computed from recorded answers instead of checkboxes the model wrote. Documentation created before this release has no such records: run `doc-agent-ai doctor --node <system> --check` to adopt it. See [CHANGELOG →](./CHANGELOG.md).
 
+> **v5.1.0** — `status` now lists a node's discovered child modules (`children`), so an agent can find them without guessing a path. `doctor` can adopt a compacted `/doc-to-sdd` context that predates the manifest that would record its provenance (`sddContext.state: "adopted"`). The project marker (`.doc-agent.json`) can record a default `"node"`, which `status` alone — and only `status` — falls back to when `--node` is omitted. All additive and backward compatible. See [CHANGELOG →](./CHANGELOG.md).
+
 ---
 
 ## Quick start
@@ -63,21 +65,30 @@ Restart your AI tool after install. Then type `/doc-arch my-system` to start doc
 
 | Platform | Support |
 |----------|---------|
-| [opencode](https://opencode.ai) | Prompts, commands, agents, skill-registry |
-| [Claude Code](https://claude.ai) | Prompts, agents, skill-registry |
-| [GitHub Copilot](https://github.com/features/copilot) | Prompts, agents |
-| [Qwen Code](https://tongyi.aliyun.com) | Prompts, agents |
+| [opencode](https://opencode.ai) | Prompts, commands, agents, skills, skill-registry |
+| [Claude Code](https://claude.ai) | Prompts, agents, skills, skill-registry |
+| [GitHub Copilot](https://github.com/features/copilot) | Prompts, agents, skills |
+| [Qwen Code](https://tongyi.aliyun.com) | Prompts, agents, skills |
 | [Pi](https://github.com/earendil-works/pi) | Prompts, skills, skill-registry |
+
+Skills are installed to every platform unconditionally — there is no
+platform-specific skip. The skill registry (`.atl/skill-registry.md`) is
+written only for opencode, Claude Code and Pi; Qwen Code and GitHub Copilot
+have no registry step.
 
 Pi consumes role definitions as prompt templates (no separate agent registry). The installer detects `~/.pi/agent` or `pi` on `PATH`. Override with `--pi-path <path>` or set `PI_CODING_AGENT_DIR`.
 
 > **Every platform needs shell access for the agent.** The phases call `doc-agent-ai` to learn what a phase requires and to submit their work, so an agent that cannot run commands cannot complete a phase. On claude, qwen and opencode the installer grants it. **Pi has no place to declare tools** — its format is plain prompt templates — so shell access has to come from your own Pi configuration. Where it is missing the agent stops and says so rather than writing a document nothing recorded.
 
-The `doc-reader` skill is installed on every platform with a skills directory when **in-project docs mode** is selected. It teaches agents to use only the compacted `/doc-to-sdd` context files (`docs/doc-agent/agent_sdd_context_project/`) and to skip the full docs tree. Switching back to vault mode automatically removes it.
+The `doc-reader` skill is installed on every platform, in every docs mode. It teaches agents to use only the compacted `/doc-to-sdd` context files (`agent_sdd_context_project/`, at `docs/doc-agent/agent_sdd_context_project/` in in-project mode) and to never fall back to the full docs tree — if no compacted context exists yet, it stops and suggests running `/doc-to-sdd` instead of reading `_prd.md`, `_tech-spec.md`, or any other file directly.
 
 ---
 
 ## Commands
+
+For the full flag reference, exit codes, and a worked example with real
+captured output for every subcommand and every slash command, see
+**[docs/USAGE.md](./docs/USAGE.md)**. What follows here is an overview.
 
 | Subcommand | What it does |
 |------------|--------------|
@@ -91,7 +102,7 @@ The agent calls these; you rarely will. Each prints versioned JSON, so the model
 
 | Subcommand | What it does |
 |------------|--------------|
-| `status --node <n>` | Where a node stands: phase states, coverage counts, what to run next |
+| `status [--node <n>]` | Where a node stands: phase states, coverage counts, what to run next. The only command where `--node` is optional — it falls back to the `"node"` recorded in `.doc-agent.json` |
 | `topics --phase <p> --node-type <t>` | The topics a phase must cover |
 | `validate` | Check a phase submission without writing anything |
 | `commit-phase` | Validate a submission and write it only if it passes |
@@ -154,6 +165,13 @@ idea -> rec -> prd -> refine -> tech -> [ddd] -> pti
 | `/doc-arch <system>` | Full flow (all 6 + optional ddd) | All of the above |
 | `/doc-to-sdd <system>` | Standalone — compact docs into LLM-optimized context so an agent reads two documents instead of seven | `agent_sdd_context_project/_sdd-context.md` and `_sdd-tech-context.md`, plus a manifest of what they were derived from |
 
+`/doc-mod` (full module flow) and `/doc-feat` (legacy feature mini-flow,
+outside this pipeline) aren't in the table above — see
+[docs/USAGE.md](./docs/USAGE.md#slash-commands) for all eleven slash
+commands at the same depth as the binary subcommands, including argument
+shapes, what each one produces, and which are standalone versus part of the
+`/doc-arch` flow.
+
 ### What the program guarantees
 
 | Guarantee | How |
@@ -163,7 +181,7 @@ idea -> rec -> prd -> refine -> tech -> [ddd] -> pti
 | Document structure is checkable in any language | Section headings are canonical English rendered by the program; the prose beneath is written in your documentation language |
 | An acknowledged gap stays visible | A topic you defer counts as covered, renders an explicit TBD, and stays counted in every status report |
 | A quality gate cannot pass on content since rewritten | The story audit is anchored to the prose it judged; correcting those stories invalidates it until re-run |
-| A compacted agent context cannot go stale invisibly | Its manifest fingerprints every source, and status reports it fresh, stale or absent |
+| A compacted agent context cannot go stale invisibly | Its manifest fingerprints every source, and status reports it fresh, stale, absent, or adopted (present, pre-dating the manifest, coverage unverified) |
 
 What it deliberately does **not** do is judge whether an answer is good, whether a summary is faithful, or whether a quote fits its topic. Those are judgements about meaning, and a check claiming to make them would be theatre. What the program does is make them auditable: everything it counts, you can read.
 
@@ -225,7 +243,7 @@ go build -o doc-agent-ai ./cmd/doc-agent-ai
 
 ### Authoring conventions
 
-- Canonical skill/role names: `doc-arch`, `doc-idea`, `doc-rec`, `doc-prd`, `doc-refinement`, `doc-tech`, `doc-ddd`, `doc-pti`, `doc-feat`, `doc-scope`, `doc-rec-lite`, `doc-prd-lite`, `doc-to-sdd`, `doc-reader` (conditional — in-project mode only)
+- Canonical skill/role names: `doc-arch`, `doc-idea`, `doc-rec`, `doc-prd`, `doc-refinement`, `doc-tech`, `doc-ddd`, `doc-pti`, `doc-feat`, `doc-scope`, `doc-rec-lite`, `doc-prd-lite`, `doc-to-sdd`, `doc-reader` (installed unconditionally, on every platform and in every docs mode)
 - Command names mirror their skill with the `doc-` prefix, with two deliberate divergences: `/doc-refine` triggers the `doc-refinement` skill, and `/doc-mod` (module flow) is handled by `doc-arch`
 - Progressive workflow depth: `idea` (product framing) → `rec` (executive/business elicitation) → `prd` (technical but clear) → `refine` (story quality gate) → `tech` (maximum precision, still legible) → [`ddd` (structured data design, ERD, constraints, rationale)] → `pti` (executable issues)
 - `ddd` is optional. Triggered explicitly, by hard signals (schema files, DBMS mentions), or by orchestrator prompt between `tech` and `pti`. Dismissed for in-memory or ephemeral systems.
