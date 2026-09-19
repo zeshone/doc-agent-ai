@@ -88,7 +88,7 @@ Out of scope, deliberately:
   `TestConditionalSkillsSubsetOfSkills` in `doc_reader_test.go`.
   Route: delegated writer. Checks: `go test ./...`, `gofmt -l .`, `go vet ./...`.
 
-- [ ] **T4 — `doctor` repairs a pre-v5 compacted context.**
+- [x] **T4 — `doctor` repairs a pre-v5 compacted context.**
   Added 2026-09-18 at the user's request, after probing the real vault found
   three of four `Deze3.0` modules carrying bare-named context files
   (`_sdd-context.md`) with no manifest, written by the pre-v5 skill. In vault
@@ -217,6 +217,28 @@ T1-T3 form one coherent change — doc-reader works regardless of documentation
 origin — and T4 is a separate concern, repairing pre-v5 artifacts. Natural slice
 boundary is right here.
 
+**T4 done** — commit `c5ba161`, on branch `feat/doctor-adopts-compacted-context`
+over `main` at `0752764`. `SDDAdopted` joins fresh/stale/absent; doctor records
+the adoption; the index renders it; `doc-reader` learned the branch. 720 tests
+pass, `gofmt`/`vet` clean.
+
+Proved against the REAL vault, dry run, nothing written:
+- `doctor --node Deze3.0/bitacora` → `adopt-sdd-context`, detail
+  "_sdd-context.md, _sdd-tech-context.md present with no manifest: adopt as
+  unverified", `applied: false`, `blocked: []`
+- `doctor --node Deze3.0/personas` → NO sdd finding. The manifest wins.
+- `doctor --node Deze3.0 --recursive` → exactly the three legacy modules
+  (bitacora, catalogos, seguridad-perfiles), nothing blocked.
+
+Design held to the corrected constraint: nothing under `agent_sdd_context_project/`
+is renamed, moved or created, and no manifest is fabricated. A dedicated test
+compares the directory listing and the file bytes before and after `--apply`.
+
+Budget: 435 authored lines, of which 275 are tests — ~160 lines of implementation.
+Left as one PR rather than split: it is a single coherent feature and splitting it
+would separate the state from the code that produces it.
+
 ## Next step
 
-Chain decision, then T4.
+Open the PR for T4. Then, with the user's decision, run `doctor --apply --recursive`
+against the real vault so the experiment can run on all four modules.
