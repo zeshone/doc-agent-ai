@@ -783,7 +783,7 @@ func registryTemplate(basePath, skillsDir, triggerStyle string) string {
 | Gathering requirements for a single legacy feature (Volere-lite) | doc-rec-lite | %s |
 | Generating a PRD for a single legacy feature | doc-prd-lite | %s |
 | Compacting documentation into LLM-optimized SDD context, /doc-to-sdd | doc-to-sdd | %s |
-| Reading in-project docs, understanding repo architecture in in-project mode | doc-reader | %s |
+| Reading project documentation, understanding repo architecture, working on a feature/module needing compacted SDD context — in either vault or in-project mode | doc-reader | %s |
 
 ## Compact Rules
 
@@ -850,10 +850,11 @@ func registryTemplate(basePath, skillsDir, triggerStyle string) string {
 - Maximum token efficiency: every sentence must carry essential information
 
 ### doc-reader
-- Installed ONLY in in-project docs mode; absent from vault installs
-- Read ONLY `+"`docs/doc-agent/agent_sdd_context_project/_sdd-context.md`"+` (business) and `+"`_sdd-tech-context.md`"+` (technical)
-- EXCLUDED from agent context: `+"`_prd.md`"+`, `+"`_tech-spec.md`"+`, and all other files under `+"`docs/doc-agent/`"+`
-- If context files absent, suggest running `+"`/doc-to-sdd`"+` once — do NOT fall back to the full docs tree
+- Installed in every mode — origin-agnostic, no docs-tree path is baked in
+- Ask `+"`doc-agent-ai status [--node <system[/module[/submodule]]>]`"+` and read ONLY the paths in `+"`sddContext.outputs`"+` (business + technical layer)
+- EXCLUDED from agent context: `+"`_prd.md`"+`, `+"`_tech-spec.md`"+`, and every other file under `+"`target.docsRoot`"+`
+- Context is scoped per node — never guess one; ask the human when the node for the feature/module is unknown
+- If `+"`sddContext`"+` is absent, suggest running `+"`/doc-to-sdd`"+` once — do NOT fall back to the full docs tree
 `,
 		buildpkg.Version,
 		basePath,

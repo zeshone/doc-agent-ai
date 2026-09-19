@@ -6,10 +6,9 @@ package install
 // entries needed to satisfy the assertions in the test suite.
 //
 // Roles: doc-arch (opencode primary, all platforms), doc-prd (subagent, all platforms)
-// Skills: doc-arch, doc-rec-lite, doc-reader (conditional)
+// Skills: doc-arch, doc-rec-lite, doc-reader (installed unconditionally in every mode)
 // Commands: doc-arch, doc-rec
 // LegacyCommandIds: the 11 ids retired in v4.0.0
-// ConditionalSkills: doc-reader
 //
 // Placeholder tokens included in prompt/command content so substitution tests can
 // assert both __DOC_AGENT_BASE_PATH__/ and __DOC_AGENT_GLOBAL_MODE__ are replaced.
@@ -61,13 +60,11 @@ func testBundle() Bundle {
 	}
 
 	skills := []string{"doc-arch", "doc-rec-lite", "doc-reader"}
-	conditionalSkills := []string{"doc-reader"}
 	legacyIDs := []string{"arch", "idea", "rec", "prd", "refine", "tech", "pti", "mod", "feat", "ddd", "to-sdd"}
 
 	manifest := DistManifest{
 		PlaceholderBasePath: placeholder,
 		Skills:              skills,
-		ConditionalSkills:   conditionalSkills,
 		Roles:               roles,
 		Commands:            commands,
 		LegacyCommandIds:    legacyIDs,

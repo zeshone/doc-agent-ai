@@ -67,9 +67,12 @@ func TestInstall_InProject_InstallsDocReaderOnAllSkillsDirPlatforms(t *testing.T
 	}
 }
 
-// TestInstall_Vault_DoesNotInstallDocReader verifies that vault mode installs
-// do NOT copy doc-reader to any platform's skillsDir.
-func TestInstall_Vault_DoesNotInstallDocReader(t *testing.T) {
+// TestInstall_Vault_InstallsDocReader verifies that vault mode installs DO
+// copy doc-reader to every platform's skillsDir. doc-reader no longer hardcodes
+// an in-project path (T2: it asks the program for the resolved paths), so the
+// vault-mode gate that used to skip it is gone — this is the core regression
+// guard for T3.
+func TestInstall_Vault_InstallsDocReader(t *testing.T) {
 	_, bundle, manifest, platforms := setupMultiPlatformFixture(t)
 
 	for _, plat := range platforms {
@@ -80,15 +83,15 @@ func TestInstall_Vault_DoesNotInstallDocReader(t *testing.T) {
 
 		skillsDir := plat.SkillsDir()
 		docReaderDir := filepath.Join(skillsDir, "doc-reader")
-		if _, err := os.Stat(docReaderDir); !os.IsNotExist(err) {
-			t.Errorf("[%s] doc-reader skill dir must NOT exist in vault mode; path: %s", plat.ID(), docReaderDir)
+		if _, err := os.Stat(docReaderDir); os.IsNotExist(err) {
+			t.Errorf("[%s] doc-reader skill dir should exist in vault mode; path: %s", plat.ID(), docReaderDir)
 		}
 	}
 }
 
-// TestInstall_Vault_DefaultMode_DoesNotInstallDocReader verifies that the
-// default mode (no explicit mode argument = vault) also skips doc-reader.
-func TestInstall_Vault_DefaultMode_DoesNotInstallDocReader(t *testing.T) {
+// TestInstall_Vault_DefaultMode_InstallsDocReader verifies that the default
+// mode (no explicit mode argument = vault) also installs doc-reader.
+func TestInstall_Vault_DefaultMode_InstallsDocReader(t *testing.T) {
 	_, bundle, manifest, platforms := setupMultiPlatformFixture(t)
 
 	plat := platforms[0] // opencode
@@ -99,7 +102,7 @@ func TestInstall_Vault_DefaultMode_DoesNotInstallDocReader(t *testing.T) {
 
 	skillsDir := plat.SkillsDir()
 	docReaderDir := filepath.Join(skillsDir, "doc-reader")
-	if _, err := os.Stat(docReaderDir); !os.IsNotExist(err) {
-		t.Errorf("doc-reader must not be installed in default (vault) mode; path: %s", docReaderDir)
+	if _, err := os.Stat(docReaderDir); os.IsNotExist(err) {
+		t.Errorf("doc-reader must be installed in default (vault) mode; path: %s", docReaderDir)
 	}
 }

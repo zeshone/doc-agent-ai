@@ -427,7 +427,6 @@ func buildDistManifest(content ContentManifest, platforms installpkg.PlatformMan
 		GeneratedAt:         time.Now().UTC().Format(time.RFC3339Nano),
 		PlaceholderBasePath: content.PlaceholderBasePath,
 		Skills:              content.Skills,
-		ConditionalSkills:   content.ConditionalSkills,
 		Roles:               distRoles,
 		Commands:            distCommands,
 		LegacyCommandIds:    content.LegacyCommandIds,
