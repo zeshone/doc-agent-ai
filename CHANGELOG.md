@@ -6,7 +6,7 @@ For older releases without a section here, the GitHub Release notes have the det
 
 ---
 
-## v5.1.0 — unreleased
+## v5.1.0 — 2026-09-18
 
 v5.0.0 changed what completion means; this release closes gaps in how far that change actually reached.
 
