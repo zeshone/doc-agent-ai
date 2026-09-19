@@ -3,6 +3,8 @@ package pipeline
 import (
 	"os"
 	"path/filepath"
+	"reflect"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -581,6 +583,152 @@ func TestFullyAdoptedModuleReadsAdoptedInTheParentTable(t *testing.T) {
 	want := "| [[catalogos]] | " + NodeStatusAdopted + " |"
 	if !strings.Contains(string(raw), want) {
 		t.Errorf("parent index is missing %q", want)
+	}
+}
+
+func TestDoctorAdoptsAPreV5CompactedContextWithNoManifest(t *testing.T) {
+	// Real vaults hold this exact shape: bare _sdd-context.md / _sdd-tech-context.md
+	// with no manifest.json beside them, written by the pre-v5 doc-to-sdd skill.
+	node, env, res, bank := legacyVault(t, "deze", realWorldIndex, PhaseIdea, PhaseRec, PhasePRD)
+
+	contextDir := res.SDDContextDir()
+	if err := os.MkdirAll(contextDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	businessPath := filepath.Join(contextDir, "_sdd-context.md")
+	techPath := filepath.Join(contextDir, "_sdd-tech-context.md")
+	for _, path := range []string{businessPath, techPath} {
+		if err := os.WriteFile(path, []byte("# pre-v5 compacted context\n"), 0o644); err != nil {
+			t.Fatalf("write: %v", err)
+		}
+	}
+
+	before, err := os.ReadDir(contextDir)
+	if err != nil {
+		t.Fatalf("reading context dir before: %v", err)
+	}
+	beforeNames := dirEntryNames(before)
+	beforeBusiness, err := os.ReadFile(businessPath)
+	if err != nil {
+		t.Fatalf("reading business file before: %v", err)
+	}
+
+	report := Doctor(node, env, bank, DoctorOptions{Apply: true, Now: testNow})
+	if report.HasBlockers() {
+		t.Fatalf("blocked: %v", report.Blocked)
+	}
+
+	// The central constraint: doctor never renames, moves, or creates anything
+	// under agent_sdd_context_project/.
+	after, err := os.ReadDir(contextDir)
+	if err != nil {
+		t.Fatalf("reading context dir after: %v", err)
+	}
+	afterNames := dirEntryNames(after)
+	if !reflect.DeepEqual(beforeNames, afterNames) {
+		t.Fatalf("agent_sdd_context_project/ contents changed: before=%v after=%v", beforeNames, afterNames)
+	}
+	afterBusiness, err := os.ReadFile(businessPath)
+	if err != nil {
+		t.Fatalf("reading business file after: %v", err)
+	}
+	if !reflect.DeepEqual(beforeBusiness, afterBusiness) {
+		t.Error("the legacy business-layer file's bytes were rewritten")
+	}
+	if _, err := os.Stat(res.SDDManifestPath()); err == nil {
+		t.Error("doctor wrote a manifest, which would invent provenance for sources it never hashed at compaction time")
+	}
+
+	var finding *DoctorFinding
+	for i, f := range report.Findings {
+		if f.Kind == FindingAdoptSDDContext {
+			finding = &report.Findings[i]
+		}
+	}
+	if finding == nil {
+		t.Fatal("doctor did not report the compacted context as adoptable")
+	}
+
+	adoption, _, err := LoadAdoption(res.AdoptionPath(), bank)
+	if err != nil {
+		t.Fatalf("LoadAdoption: %v", err)
+	}
+	if adoption.SDDContext == nil {
+		t.Fatal("the adoption record carries no sdd context")
+	}
+	outputs := append([]string(nil), adoption.SDDContext.Outputs...)
+	sort.Strings(outputs)
+	wantOutputs := []string{"_sdd-context.md", "_sdd-tech-context.md"}
+	if !reflect.DeepEqual(outputs, wantOutputs) {
+		t.Errorf("adopted outputs = %v, want %v (verbatim filenames)", outputs, wantOutputs)
+	}
+	if strings.TrimSpace(adoption.SDDContext.Evidence) == "" {
+		t.Error("the adoption record carries no evidence")
+	}
+
+	status := ComputeStatus(node, env, bank)
+	if status.SDDContext == nil {
+		t.Fatal("status carries no sdd context")
+	}
+	if status.SDDContext.State != SDDAdopted {
+		t.Errorf("state = %q, want %q", status.SDDContext.State, SDDAdopted)
+	}
+	if status.SDDContext.CoverageVerified {
+		t.Error("an adopted compacted context claims verified coverage")
+	}
+	wantAbsOutputs := []string{
+		filepath.Join(contextDir, "_sdd-context.md"),
+		filepath.Join(contextDir, "_sdd-tech-context.md"),
+	}
+	gotAbsOutputs := append([]string(nil), status.SDDContext.Outputs...)
+	sort.Strings(gotAbsOutputs)
+	if !reflect.DeepEqual(gotAbsOutputs, wantAbsOutputs) {
+		t.Errorf("status outputs = %v, want the real absolute paths %v", gotAbsOutputs, wantAbsOutputs)
+	}
+}
+
+func dirEntryNames(entries []os.DirEntry) []string {
+	names := make([]string, 0, len(entries))
+	for _, e := range entries {
+		names = append(names, e.Name())
+	}
+	sort.Strings(names)
+	return names
+}
+
+func TestRecursiveDoctorAdoptsAModulesCompactedContextToo(t *testing.T) {
+	node, env, res, bank := legacyVault(t, "deze", realWorldIndex, PhaseIdea, PhaseRec)
+
+	moduleDir := filepath.Join(res.DocsRoot, "modules", "catalogos")
+	if err := os.MkdirAll(moduleDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	for _, name := range []string{"catalogos.md", "catalogos_idea.md", "catalogos_requirements.md"} {
+		if err := os.WriteFile(filepath.Join(moduleDir, name), []byte("# legacy\n\ncontent\n"), 0o644); err != nil {
+			t.Fatalf("write: %v", err)
+		}
+	}
+	moduleContextDir := filepath.Join(moduleDir, "agent_sdd_context_project")
+	if err := os.MkdirAll(moduleContextDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(moduleContextDir, "_sdd-context.md"),
+		[]byte("# module compacted context\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	report := Doctor(node, env, bank, DoctorOptions{Apply: true, Recursive: true, Now: testNow})
+	if report.HasBlockers() {
+		t.Fatalf("blocked: %v", report.Blocked)
+	}
+
+	child, err := ParseNode("deze/catalogos")
+	if err != nil {
+		t.Fatalf("ParseNode: %v", err)
+	}
+	childStatus := ComputeStatus(child, env, bank)
+	if childStatus.SDDContext == nil || childStatus.SDDContext.State != SDDAdopted {
+		t.Errorf("module sdd context = %+v, want state %q", childStatus.SDDContext, SDDAdopted)
 	}
 }
 

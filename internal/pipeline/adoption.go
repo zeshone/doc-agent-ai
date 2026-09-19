@@ -33,6 +33,18 @@ type AdoptedPhase struct {
 	Evidence string `json:"evidence"`
 }
 
+// AdoptedSDDContext is the inherited compacted context and the evidence
+// behind adopting it. The filenames it names are never renamed, moved, or
+// rewritten — recognition reads past them, exactly like AdoptedPhase.Artifact
+// does for a phase.
+type AdoptedSDDContext struct {
+	// Outputs are the compacted-context filenames discovered on disk, verbatim:
+	// current or legacy, whichever exist. At least one is required.
+	Outputs []string `json:"outputs"`
+	// Evidence states why it was adopted rather than counted as fresh.
+	Evidence string `json:"evidence"`
+}
+
 // Adoption is the per-node record of inherited documentation.
 type Adoption struct {
 	SchemaName string                   `json:"schemaName"`
@@ -40,6 +52,10 @@ type Adoption struct {
 	AdoptedAt  string                   `json:"adoptedAt"`
 	Archetype  string                   `json:"archetype,omitempty"`
 	Phases     map[PhaseID]AdoptedPhase `json:"phases"`
+	// SDDContext records a compacted context found with no manifest. Nil means
+	// none was adopted, which callers must read as "adoption never happened"
+	// rather than inferring anything from files that might exist on disk.
+	SDDContext *AdoptedSDDContext `json:"sddContext,omitempty"`
 }
 
 // Validate enforces the contract.
@@ -63,6 +79,14 @@ func (a Adoption) Validate(bank QuestionBank) error {
 		}
 		if strings.TrimSpace(adopted.Evidence) == "" {
 			return fmt.Errorf("adopted phase %q records no evidence", phase)
+		}
+	}
+	if a.SDDContext != nil {
+		if len(a.SDDContext.Outputs) == 0 {
+			return fmt.Errorf("adoption record's sdd context names no outputs")
+		}
+		if strings.TrimSpace(a.SDDContext.Evidence) == "" {
+			return fmt.Errorf("adoption record's sdd context records no evidence")
 		}
 	}
 	return nil

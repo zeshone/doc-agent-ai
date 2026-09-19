@@ -34,6 +34,7 @@ The compacted context is scoped per node. A system and each of its modules and s
 | `sddContext` is missing from the response (node/docsRoot unresolved) | Relay `nextAction.reason` (and `blockedReasons`) verbatim; do not guess a path |
 | `sddContext.state` is `"fresh"` | Read every path in `sddContext.outputs` |
 | `sddContext.state` is `"stale"` | Still read every path in `sddContext.outputs`, but tell the user the program reports them out of date, naming what changed from `sddContext.drifted` / `sddContext.appeared` |
+| `sddContext.state` is `"adopted"` | Read every path in `sddContext.outputs` — the context predates the manifest that would record its provenance, but it is present and usable. Tell the user its provenance is unverified and that `/doc-to-sdd` would establish it. |
 | `sddContext.state` is `"absent"` | Stop; suggest running `/doc-to-sdd` once for this node. Do NOT fall back to the docs tree. |
 | Working on a pure code task with no doc dependency | Skip this skill entirely |
 
@@ -49,6 +50,7 @@ The compacted context is scoped per node. A system and each of its modules and s
    - Missing entirely → the node or its docs root could not be resolved. Report `nextAction.reason` (and `blockedReasons`, if any) and stop.
    - `"absent"` → no compacted context exists for this node yet. Suggest `/doc-to-sdd` once, and stop. Do not open `target.docsRoot`.
    - `"stale"` → read every path in `sddContext.outputs`, verbatim, but tell the user they are out of date and name what changed (`sddContext.drifted`, `sddContext.appeared`).
+   - `"adopted"` → read every path in `sddContext.outputs`, verbatim — it predates the manifest that would record its provenance, but it is present and usable. Tell the user its provenance is unverified and that `/doc-to-sdd` would establish it.
    - `"fresh"` → read every path in `sddContext.outputs`, verbatim.
 5. **Never open a path you composed yourself.** Only the paths the program returned in `sddContext.outputs` are documentation context — never `target.docsRoot` directly, and never `_prd.md`, `_tech-spec.md`, or any other file in the tree.
 
