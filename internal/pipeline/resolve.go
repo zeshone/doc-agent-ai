@@ -60,6 +60,53 @@ type Resolution struct {
 // keys are ignored so the file stays additive.
 type marker struct {
 	Mode string `json:"mode"`
+	// Node is the documentation node this project belongs to, e.g.
+	// "acme-hr/payroll". It is what lets an agent working in vault mode learn
+	// its node without being told: nothing else in a code repository records
+	// which vault node it maps to.
+	Node string `json:"node"`
+}
+
+// readMarker reads and parses the project marker file, if any.
+//
+// ok reports whether the file exists and could be parsed. A missing marker is
+// not an error — most projects never had one — but a present, unreadable or
+// malformed marker always is: that failure must never be mistaken for a
+// marker that simply has nothing to say.
+func readMarker(projectRoot string) (m marker, ok bool, err error) {
+	if projectRoot == "" {
+		return marker{}, false, nil
+	}
+	markerPath := filepath.Join(projectRoot, markerFileName)
+	raw, readErr := os.ReadFile(markerPath)
+	switch {
+	case readErr == nil:
+		if err := json.Unmarshal(raw, &m); err != nil {
+			return marker{}, false, fmt.Errorf("parsing %s: %w", markerPath, err)
+		}
+		return m, true, nil
+	case os.IsNotExist(readErr):
+		return marker{}, false, nil
+	default:
+		return marker{}, false, fmt.Errorf("reading %s: %w", markerPath, readErr)
+	}
+}
+
+// nodeFromMarker reads the node recorded in the project marker file, if any.
+//
+// found is false whenever the marker is absent or simply has no "node" key —
+// the additive contract means an older marker with only "mode" is exactly
+// that, not an error. A malformed or unreadable marker is still always an
+// error, per readMarker: it must not collapse into a silent "no node".
+func nodeFromMarker(projectRoot string) (node string, found bool, err error) {
+	m, ok, err := readMarker(projectRoot)
+	if err != nil {
+		return "", false, err
+	}
+	if !ok || m.Node == "" {
+		return "", false, nil
+	}
+	return m.Node, true, nil
 }
 
 // Resolve computes where a node's documentation lives.
@@ -113,25 +160,17 @@ func Resolve(node Node, env Environment) (Resolution, error) {
 }
 
 func resolveMode(env Environment) (mode string, resolvedBy string, err error) {
-	if env.ProjectRoot != "" {
-		markerPath := filepath.Join(env.ProjectRoot, markerFileName)
-		raw, readErr := os.ReadFile(markerPath)
-		switch {
-		case readErr == nil:
-			var m marker
-			if err := json.Unmarshal(raw, &m); err != nil {
-				return "", "", fmt.Errorf("parsing %s: %w", markerPath, err)
-			}
-			if m.Mode != "" {
-				if !validMode(m.Mode) {
-					return "", "", fmt.Errorf(
-						"%s declares mode %q: expected %q or %q", markerPath, m.Mode, ModeVault, ModeInProject)
-				}
-				return m.Mode, "marker", nil
-			}
-		case !os.IsNotExist(readErr):
-			return "", "", fmt.Errorf("reading %s: %w", markerPath, readErr)
+	m, ok, err := readMarker(env.ProjectRoot)
+	if err != nil {
+		return "", "", err
+	}
+	if ok && m.Mode != "" {
+		if !validMode(m.Mode) {
+			return "", "", fmt.Errorf(
+				"%s declares mode %q: expected %q or %q",
+				filepath.Join(env.ProjectRoot, markerFileName), m.Mode, ModeVault, ModeInProject)
 		}
+		return m.Mode, "marker", nil
 	}
 
 	if env.GlobalMode != "" {

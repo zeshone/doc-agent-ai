@@ -53,24 +53,50 @@ func TestDocReaderRegistration_RegistryRow(t *testing.T) {
 }
 
 // TestDocReaderRegistration_CompactRules verifies registryTemplate contains a
-// compact rules block for doc-reader with the required content.
+// compact rules block for doc-reader that matches the rewritten, origin-agnostic
+// SKILL.md: the skill is installed in every mode, it asks the program for
+// paths, and it reads only sddContext.outputs. The absence assertions are the
+// invariant that actually protects this — a stale in-project-only claim or a
+// hardcoded docs-tree path silently contradicts the skill and would not be
+// caught by presence checks alone.
 func TestDocReaderRegistration_CompactRules(t *testing.T) {
 	output := registryTemplate("/base", "/skills", "opencode")
 
-	if !strings.Contains(output, "### doc-reader") {
+	start := strings.Index(output, "### doc-reader")
+	if start == -1 {
 		t.Fatal("registryTemplate missing ### doc-reader compact rules section")
+	}
+	// The doc-reader block runs from its own heading to the next "###" heading
+	// (or end of string). Scoping to this block matters: the neighbouring
+	// doc-to-sdd block legitimately mentions _sdd-context.md / agent_sdd_context_project
+	// as the WRITER of that context, so a whole-output scan for those strings
+	// would false-positive on doc-to-sdd's own, still-correct, rules.
+	block := output[start:]
+	if next := strings.Index(block[len("### doc-reader"):], "\n### "); next != -1 {
+		block = block[:len("### doc-reader")+next]
 	}
 
 	requiredRules := []string{
-		"agent_sdd_context_project",
-		"in-project",
-		"_sdd-context.md",
-		"_sdd-tech-context.md",
+		"sddContext.outputs",
+		"every mode",
 		"doc-to-sdd",
 	}
 	for _, rule := range requiredRules {
-		if !strings.Contains(output, rule) {
+		if !strings.Contains(block, rule) {
 			t.Errorf("doc-reader compact rules missing required text: %q", rule)
+		}
+	}
+
+	forbidden := []string{
+		"Installed ONLY in in-project docs mode",
+		"agent_sdd_context_project",
+		"docs/doc-agent",
+		"_sdd-context.md",
+		"_sdd-tech-context.md",
+	}
+	for _, f := range forbidden {
+		if strings.Contains(block, f) {
+			t.Errorf("doc-reader compact rules still contains stale claim/path: %q", f)
 		}
 	}
 }

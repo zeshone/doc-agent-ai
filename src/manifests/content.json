@@ -16,9 +16,6 @@
     "doc-to-sdd",
     "doc-reader"
   ],
-  "conditionalSkills": [
-    "doc-reader"
-  ],
   "roles": [
     {
       "id": "doc-arch",

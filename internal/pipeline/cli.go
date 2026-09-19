@@ -113,18 +113,35 @@ func RunTopics(args []string, out, errOut io.Writer) int {
 // blocked status is a correct answer, not a failed invocation. Only an
 // undetermined result raises the exit code, because then the program is telling
 // the caller it could not decide.
+//
+// --node is optional here, and only here: when it is omitted, the node is
+// resolved from the project marker instead. An explicit --node always wins
+// over whatever the marker says. This does not extend to any other node-taking
+// command — those still require --node explicitly.
 func RunStatus(args []string, env Environment, out, errOut io.Writer) int {
 	fs := flag.NewFlagSet("status", flag.ContinueOnError)
 	fs.SetOutput(errOut)
-	nodeArg := fs.String("node", "", "node identifier, e.g. acme-hr or acme-hr/payroll")
+	nodeArg := fs.String("node", "", "node identifier, e.g. acme-hr or acme-hr/payroll; "+
+		"falls back to the project marker's \"node\" when omitted")
 	if err := fs.Parse(args); err != nil {
 		return ExitUsage
 	}
-	if *nodeArg == "" {
-		return usageError(errOut, "status needs --node <system[/module[/submodule]]>")
+
+	nodeRaw := *nodeArg
+	if nodeRaw == "" {
+		markerNode, found, err := nodeFromMarker(env.ProjectRoot)
+		if err != nil {
+			return usageError(errOut, "%v", err)
+		}
+		if !found {
+			return usageError(errOut,
+				"status needs --node <system[/module[/submodule]]>, or a \"node\" recorded in %s",
+				markerFileName)
+		}
+		nodeRaw = markerNode
 	}
 
-	node, err := ParseNode(*nodeArg)
+	node, err := ParseNode(nodeRaw)
 	if err != nil {
 		return usageError(errOut, "%v", err)
 	}

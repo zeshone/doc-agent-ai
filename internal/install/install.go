@@ -7,8 +7,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-
-	configpkg "github.com/zeshone/doc-agent-ai/internal/config"
 )
 
 // ---------------------------------------------------------------------------
@@ -329,19 +327,8 @@ func InstallToPlatformWithReporter(manifest DistManifest, bundle Bundle, plat Pl
 	}
 
 	// --- Copy skills ---
-	// Build a set of conditional (in-project-only) skill IDs so the loop below
-	// can skip them when the resolved mode is not in-project.
-	conditionalSkillSet := make(map[string]bool, len(manifest.ConditionalSkills))
-	for _, id := range manifest.ConditionalSkills {
-		conditionalSkillSet[id] = true
-	}
-
 	skillsDir := plat.SkillsDir()
 	for _, skill := range manifest.Skills {
-		// Skip conditional (in-project-only) skills when the resolved mode is vault.
-		if conditionalSkillSet[skill] && resolvedGlobalMode != string(configpkg.ModeInProject) {
-			continue
-		}
 		dstDir := filepath.Join(skillsDir, skill)
 		if err := writeBundleDir(bundle, filepath.ToSlash(filepath.Join("skills", skill)), dstDir); err != nil {
 			return fmt.Errorf("copy skills/%s: %w", skill, err)

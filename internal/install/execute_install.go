@@ -2,8 +2,6 @@ package install
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 
 	configpkg "github.com/zeshone/doc-agent-ai/internal/config"
 )
@@ -24,8 +22,7 @@ import (
 //  3. Config persistence — writes AppConfig after a successful install so
 //     subsequent runs pre-fill mode/path/platforms.
 //  4. Mode-switch hook — when plan.PrevMode != plan.Mode, emits the
-//     non-migration notice and sweeps stale conditional skills (e.g. doc-reader
-//     when leaving in-project mode).
+//     non-migration notice.
 //
 // The engine never reads AppConfig directly — it receives resolved values via
 // InstallPlan. This keeps the engine pure and unit-testable without filesystem
@@ -87,7 +84,7 @@ func ExecuteInstall(bundle Bundle, plan configpkg.InstallPlan, allPlatforms []Pl
 
 	// --- Step 4: Mode-switch hook ---
 	if plan.PrevMode != "" && plan.PrevMode != plan.Mode {
-		runModeSwitchHookWithPlatforms(plan, targets, r)
+		runModeSwitchHook(plan, r)
 	}
 
 	return nil
@@ -119,46 +116,17 @@ func resolvePlatformTargets(requestedIDs []string, allPlatforms []Platform) []Pl
 	return result
 }
 
-// runModeSwitchHookWithPlatforms is the canonical mode-switch side-effect handler.
-// It always emits the non-migration notice (spec F1) and, when switching from
-// in-project → vault, sweeps the doc-reader skill from all provided platforms.
+// runModeSwitchHook is the canonical mode-switch side-effect handler. It emits
+// the non-migration notice (spec F1) whenever the resolved mode differs from
+// the previous one.
 //
-// platforms is the resolved install target list (from executeInstall). When nil
-// (legacy / test call path), the sweep is skipped.
-func runModeSwitchHookWithPlatforms(plan configpkg.InstallPlan, platforms []Platform, r Reporter) {
+// It once also swept the doc-reader skill, which was installed only in
+// in-project mode. That skill is now installed in every mode, so the sweep and
+// the platform list it needed are both gone. A platform-scoped side effect can
+// take the list back when one actually exists.
+func runModeSwitchHook(plan configpkg.InstallPlan, r Reporter) {
 	// Always emit the non-migration notice (spec F1, mode-switch cleanup notice).
 	r.Info("Mode changed from " + string(plan.PrevMode) + " to " + string(plan.Mode) + ".")
 	r.Warn("Existing documentation files are not automatically migrated.")
 	r.Info("See the path-resolution preamble in your installed prompts for the new layout.")
-
-	// When switching from in-project → vault, remove the doc-reader skill from
-	// all platforms that have a skillsDir. The sweep is idempotent: absent dirs
-	// are silently skipped (reusing the removeDirIfExists pattern from uninstall).
-	if plan.PrevMode == configpkg.ModeInProject && plan.Mode == configpkg.ModeVault && len(platforms) > 0 {
-		sweepDocReaderIfLeavingInProject(platforms, r)
-	}
-}
-
-// sweepDocReaderIfLeavingInProject removes the doc-reader skill directory from
-// every platform that has a non-empty SkillsDir. This is called during a
-// mode-switch from in-project → vault so that stale conditional-skill files
-// are cleaned up automatically. Idempotent: platforms where doc-reader was
-// never installed (or was already removed) are silently skipped.
-func sweepDocReaderIfLeavingInProject(platforms []Platform, r Reporter) {
-	for _, plat := range platforms {
-		skillsDir := plat.SkillsDir()
-		if skillsDir == "" {
-			continue
-		}
-		docReaderDir := filepath.Join(skillsDir, "doc-reader")
-		if _, err := os.Stat(docReaderDir); os.IsNotExist(err) {
-			// Already absent — idempotent skip.
-			continue
-		}
-		if err := os.RemoveAll(docReaderDir); err != nil {
-			r.Warn("could not remove doc-reader from " + plat.ID() + ": " + err.Error())
-			continue
-		}
-		r.Ok("removed conditional skill doc-reader from " + plat.ID())
-	}
 }
