@@ -566,3 +566,45 @@ func TestDocArchCommandMD_DddQuestionNeutralSpanish(t *testing.T) {
 		t.Errorf("command file still contains voseo form (\"querés\"/\"Querés\")")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// doc-to-sdd-unreachable-binary-guard — #90
+//
+// src/content/roles/doc-to-sdd.md is the one phase executor that submits to
+// the binary from its own protocol (`sdd-commit`, not `commit-phase`) and
+// carries no {{PIPELINE_PROTOCOL}} placeholder, so it never inherits the
+// shared template's stop for a wrong invocation (exit 1) or an unreachable
+// binary (no shell tool / not on PATH). Its "Step 5 — Submit" section
+// documents only exit 0 (written) and exit 2 (refused), leaving a model that
+// cannot reach the binary with a goal, an output path, and no rule telling
+// it to stop instead of hand-writing the two context files.
+// ---------------------------------------------------------------------------
+
+// TestDocToSddRoleMD_UnreachableBinaryGuard verifies
+// src/content/roles/doc-to-sdd.md's Step 5 — Submit section documents both
+// an exit 1 branch (wrong invocation/environment: report it, do not retry
+// blindly) and the unreachable-binary stop (no shell tool, or the binary is
+// not on PATH: stop and say so, never fall back to writing the two context
+// files by hand).
+func TestDocToSddRoleMD_UnreachableBinaryGuard(t *testing.T) {
+	data, err := embedded.ReadFile("src/content/roles/doc-to-sdd.md")
+	if err != nil {
+		t.Fatalf("cannot read role file: %v", err)
+	}
+	content := string(data)
+
+	required := []string{
+		"Exit `1`",
+		"the invocation or the environment is wrong",
+		"do not retry blindly",
+		"cannot run the command at all",
+		"the binary is not on `PATH`",
+		"stop and say exactly that",
+		"Do not fall back to writing the two context files by hand",
+	}
+	for _, r := range required {
+		if !strings.Contains(content, r) {
+			t.Errorf("role file missing unreachable-binary guard reference: %q", r)
+		}
+	}
+}
