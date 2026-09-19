@@ -97,9 +97,19 @@ Out of scope, deliberately:
   the SDD context: `grep -n "sdd\|SDD" internal/pipeline/doctor.go` returns
   nothing, and it never inspects `agent_sdd_context_project/`.
 
-  **What doctor CAN do**: detect legacy-named outputs with no manifest, rename
-  them to the canonical `<prefix>_` names, and record an adoption for the
-  context.
+  **Design corrected 2026-09-18 after mapping the existing machinery.** The
+  original plan said doctor would RENAME the legacy files. It must not.
+  `grep -rn "os.Rename" internal/pipeline/*.go` has exactly one hit, inside
+  `writeFileAtomic`'s temp-file swap. Doctor has never renamed anything: its
+  only precedent is recognise-and-read-past, and it records a discovered legacy
+  filename verbatim as `AdoptedPhase.Artifact` rather than rewriting the file
+  (`TestDoctorRecognisesTheLegacyIdeaFilename` asserts exactly that). Renaming
+  would also mutate the user's documentation, which is the opposite of doctor's
+  posture — it records state, it does not rewrite documents.
+
+  **What doctor CAN do**: recognise legacy-named outputs the way
+  `LegacyArtifactNames` already lets it recognise legacy phase artifacts, and
+  record an adoption for the context. The files are never touched.
 
   **What doctor MUST NOT do, and why**: it cannot write a manifest claiming
   sources and fingerprints. The manifest records which artifacts were read and
