@@ -71,7 +71,7 @@ Out of scope, deliberately:
   rather than guessing. Route: delegated writer (touches CLI + resolve + tests).
   Checks: `go test ./...`, `gofmt -l .`, `go vet ./...`.
 
-- [ ] **T2 — `doc-reader` routes through the program.**
+- [x] **T2 — `doc-reader` routes through the program.**
   Remove the hardcoded `docs/doc-agent/agent_sdd_context_project/` path. Instruct
   the agent to ask the program for the resolved paths and read exactly what it
   returns, honoring `sddContext.state`. Keep the strict rule unchanged: only the
@@ -161,6 +161,24 @@ program. The index renders a child-module table as markdown in its managed
 region; it is not in the JSON. For now the skill must ask the human rather than
 guess a node. Adding `children` to status was NOT authorized and is not in scope.
 
+**T2 done** — commit `e02b418`. The skill holds no filesystem path; it asks
+`status` for `sddContext.outputs` and reads exactly those. Node scoping is
+stated explicitly, with two stops: ask the human when the node is unknown, and
+report an unreachable binary rather than working around it. The strict rule is
+unchanged in meaning.
+
+Evidence: the writer's RED was behavioral, not a compile error — 4 tests failed
+naming the missing references, 5 passed. Parent read the final skill in full and
+re-ran everything: `go test ./...` 719 passed / 8 packages, `gofmt -l .` clean,
+`go vet ./...` clean. The pinned-path test became an absence test, which is the
+stronger invariant.
+
+Scope added to T3 by the parent: `registryTemplate` in
+`internal/install/platform.go` carries a SECOND copy of doc-reader's rules —
+line 786 ("in in-project mode" trigger row) and the Compact Rules block at 852
+("Installed ONLY in in-project docs mode", plus the hardcoded paths). It now
+contradicts the rewritten SKILL.md. Same class as issue #91.
+
 ## Next step
 
-T2 — rewrite the skill to route through the program.
+T3 — install unconditionally, and reconcile the registry copy.
