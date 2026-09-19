@@ -79,7 +79,7 @@ Out of scope, deliberately:
   `doc_reader_test.go` that pin the old path. Route: delegated writer.
   Checks: `go test ./...`, `gofmt -l .`, `go vet ./...`.
 
-- [ ] **T3 — Install `doc-reader` unconditionally.**
+- [x] **T3 — Install `doc-reader` unconditionally.**
   Drop `conditionalSkills` from `src/manifests/content.json`, the gate at
   `internal/install/install.go:341`, and `sweepDocReaderIfLeavingInProject` with
   its mode-switch hook. Update the tests that assert the conditional behavior:
@@ -179,6 +179,34 @@ line 786 ("in in-project mode" trigger row) and the Compact Rules block at 852
 ("Installed ONLY in in-project docs mode", plus the hardcoded paths). It now
 contradicts the rewritten SKILL.md. Same class as issue #91.
 
+**T3 done** — commit `8ccf2a1`. Gate, sweep and the whole `conditionalSkills`
+mechanism removed (doc-reader was its only consumer, ever). The registry's
+second copy of the rules now matches the skill, guarded by an absence test
+scoped to the doc-reader block. Net -253 lines.
+
+Evidence: RED was the two inverted vault-install tests plus the registry guard,
+failing for the right reasons while the in-project test correctly stayed green.
+`go test ./...` 713 passed / 8 packages (719 - 6 removed tests, exactly
+accounted for), `gofmt -l .` clean, `go vet ./...` clean.
+
+Parent correction applied on top: the writer removed `conditionalSkills` for
+having no users, then kept an unused `platforms` parameter on the mode-switch
+hook "for any future platform-scoped side effect", leaving the name
+`runModeSwitchHookWithPlatforms` describing something it no longer did. One
+call site, so it was renamed to `runModeSwitchHook` and the parameter dropped.
+Keeping dead weight for a hypothetical is the opposite of the judgment applied
+three files earlier in the same change.
+
+## Delivery
+
+Branch is at **1019 authored changed lines** against `main` (650 added, 369
+deleted), well past the ~400 budget. Strategy is `ask-on-risk`, so this is the
+point where the chain decision is due.
+
+T1-T3 form one coherent change — doc-reader works regardless of documentation
+origin — and T4 is a separate concern, repairing pre-v5 artifacts. Natural slice
+boundary is right here.
+
 ## Next step
 
-T3 — install unconditionally, and reconcile the registry copy.
+Chain decision, then T4.
