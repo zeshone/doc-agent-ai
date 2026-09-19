@@ -8,7 +8,7 @@
 
 **Hard triggers (launch without asking):**
 
-- User mentions explicit intent: "document database", " diseño de base de datos", "db design"
+- User mentions explicit intent: "document database", "diseño de base de datos", "db design" <!-- lang-gate-allow: Spanish input-trigger phrase the agent must recognize in user text -->
 - Project contains persistence layer artifacts: `.sql`, `migrations/`, `schema.prisma`, `models/`
 - User references an explicit DB technology: PostgreSQL, MySQL, SQLite, MSSQL, MongoDB, etc.
 

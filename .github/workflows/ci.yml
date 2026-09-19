@@ -76,12 +76,30 @@ jobs:
       - name: Scan embedded content for non-English fragments
         run: |
           set +e
-          # doc-arch.md intentionally bilingual: contains a Spanish example string
-          # that teaches the agent how to ask the user about documentation language.
-          ALLOWLIST='skills/doc-tech/references/template.md|skills/doc-rec/references/elicitation-techniques.md|src/content/roles/doc-arch.md'
+          # Line-scoped exemption: a matched line is allowed only when that
+          # SAME line also carries "lang-gate-allow" inside a
+          # "<!-- lang-gate-allow: <reason> -->" comment — e.g. a Spanish
+          # phrase the agent must recognize in a user's own input, or a
+          # worked example that teaches it to answer in the user's language.
+          # This mirrors TestEmbeddedContent_EnglishOnly in
+          # content_validation_test.go exactly (same PATTERNS, same marker
+          # literal) so the shell gate and the Go test cannot disagree.
+          # A file-wide ALLOWLIST used to sit here instead; it exempted an
+          # entire file to protect one legitimate line, and silently hid a
+          # real hardcoded-Spanish bug on another line of that same file.
           PATTERNS='[¿¡ñÑ]|\b(como|donde|porque|cuando|para|sobre|entonces|aunque|tambien|ademas|sino)\b|[\x{4E00}-\x{9FFF}\x{0600}-\x{06FF}\x{0400}-\x{04FF}]'
-          VIOLATIONS=$(grep -rPIn --include='*.md' --include='*.tmpl' --include='*.json' -E "$PATTERNS" src/ skills/ 2>/dev/null \
-            | grep -vP "$ALLOWLIST" || true)
+          MATCHES=$(grep -rPIn --include='*.md' --include='*.tmpl' --include='*.json' "$PATTERNS" src/ skills/)
+          GREP_STATUS=$?
+          # grep exits 1 when it simply finds no matches — that is success,
+          # not an error. Any other non-zero exit (2, for example, for a
+          # bad or conflicting pattern — exactly how this gate broke before:
+          # `-P` and `-E` together made grep abort, and the failure was
+          # swallowed) is a real failure and must not be treated as "clean".
+          if [ "$GREP_STATUS" -gt 1 ]; then
+            echo "::error::grep failed while scanning for non-English content (exit $GREP_STATUS) — the language gate could not run"
+            exit 1
+          fi
+          VIOLATIONS=$(printf '%s\n' "$MATCHES" | grep -v 'lang-gate-allow')
           if [ -n "$VIOLATIONS" ]; then
             echo "::error::Non-English content detected in embedded files:"
             echo "$VIOLATIONS"
