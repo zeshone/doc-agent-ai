@@ -88,6 +88,38 @@ Out of scope, deliberately:
   `TestConditionalSkillsSubsetOfSkills` in `doc_reader_test.go`.
   Route: delegated writer. Checks: `go test ./...`, `gofmt -l .`, `go vet ./...`.
 
+- [ ] **T4 — `doctor` repairs a pre-v5 compacted context.**
+  Added 2026-09-18 at the user's request, after probing the real vault found
+  three of four `Deze3.0` modules carrying bare-named context files
+  (`_sdd-context.md`) with no manifest, written by the pre-v5 skill. In vault
+  mode the program looks for `<prefix>_sdd-context.md`, so those report
+  `absent` while the files sit there. `doctor` currently has zero awareness of
+  the SDD context: `grep -n "sdd\|SDD" internal/pipeline/doctor.go` returns
+  nothing, and it never inspects `agent_sdd_context_project/`.
+
+  **What doctor CAN do**: detect legacy-named outputs with no manifest, rename
+  them to the canonical `<prefix>_` names, and record an adoption for the
+  context.
+
+  **What doctor MUST NOT do, and why**: it cannot write a manifest claiming
+  sources and fingerprints. The manifest records which artifacts were read and
+  their hashes *at compaction time*; hashing today's sources would claim the
+  compaction saw today's bytes. That is inventing provenance — the same failure
+  the `Doctor` doc comment already refuses for answer records ("generating them
+  from the artifacts would invent quotes attributed to them"). So it cannot
+  produce `fresh`; it produces the SDD-context equivalent of `adopted`:
+  present, provenance explicitly unverified.
+
+  It also cannot *regenerate*. Compaction means authoring prose, which only a
+  model can do through `/doc-to-sdd`. The adopted state is precisely the signal
+  that `/doc-to-sdd` should be run.
+
+  Route: delegated writer. Checks: `go test ./...`, `gofmt -l .`, `go vet ./...`.
+
+  **Delivery note**: T4 is a real feature with its own tests and will likely
+  push the branch past the ~400 authored-line budget. Strategy is `ask-on-risk`,
+  so ask before starting T4 whether to chain it as a second PR.
+
 ## Acceptance criteria
 
 1. In vault mode, an agent in a code repo carrying a marker with its node can
@@ -97,6 +129,9 @@ Out of scope, deliberately:
 4. `doc-reader` is installed on every platform regardless of mode.
 5. The strict compacted-only rule is preserved verbatim in meaning.
 6. `go test ./...`, `gofmt -l .` and `go vet ./...` all clean.
+7. A node whose compacted context was written before v5 is visible to the
+   program after `doctor --apply`, reported with its provenance unverified
+   rather than as `fresh`.
 
 ## Progress
 
@@ -115,6 +150,16 @@ Evidence, verified by the parent rather than taken from the writer's report:
   `/home/zesh-one/src/Obsidian/DevZeshOne/Deze3.0`, `docsRootExists: true`.
   With the marker removed it failed with the new message naming both fixes.
 - `go test ./...` 716 passed / 8 packages; `gofmt -l .` clean; `go vet ./...` clean.
+
+## Open question deferred by the user
+
+The compacted context is per node: a system and each of its modules have their
+own, and `status --node Deze3.0/personas` returns module-scoped outputs while
+`status --node Deze3.0` returns `absent`. But `docagent.status/v1` exposes no
+`children` key, so an agent cannot enumerate a system's features through the
+program. The index renders a child-module table as markdown in its managed
+region; it is not in the JSON. For now the skill must ask the human rather than
+guess a node. Adding `children` to status was NOT authorized and is not in scope.
 
 ## Next step
 
