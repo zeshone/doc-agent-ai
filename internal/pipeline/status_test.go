@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -625,5 +626,138 @@ func TestDistinctQuestionsProduceNoNoise(t *testing.T) {
 
 	if got := f.status().RepeatedPrompts; len(got) != 0 {
 		t.Errorf("repeatedPrompts = %v, want none when every question is distinct", got)
+	}
+}
+
+// writeChildIndex lays out a child node the way discoverChildNodes requires:
+// a subdirectory holding its own "<name>.md" index.
+func writeChildIndex(t *testing.T, container, name, body string) {
+	t.Helper()
+	dir := filepath.Join(container, name)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", dir, err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, name+".md"), []byte(body), 0o644); err != nil {
+		t.Fatalf("write %s: %v", name, err)
+	}
+}
+
+// TestStatusListsChildrenWithFullNodeIdentifiers is issue #98: the program
+// already discovers child nodes to render the parent's module table, but
+// never surfaced them in the JSON contract. This is the caller-facing half —
+// enough for an agent to pick a child without guessing its identifier.
+func TestStatusListsChildrenWithFullNodeIdentifiers(t *testing.T) {
+	f := newFixture(t, "acme-hr")
+
+	modulesDir := filepath.Join(f.res.DocsRoot, "modules")
+	writeChildIndex(t, modulesDir, "payroll", "# payroll\n")
+	writeChildIndex(t, modulesDir, "benefits", "# benefits\n")
+
+	status := f.status()
+
+	if len(status.Children) != 2 {
+		t.Fatalf("children = %#v, want exactly 2", status.Children)
+	}
+	want := map[string]string{
+		"acme-hr/benefits": "benefits",
+		"acme-hr/payroll":  "payroll",
+	}
+	for _, child := range status.Children {
+		shortName, ok := want[child.Node]
+		if !ok {
+			t.Errorf("unexpected child node %q", child.Node)
+			continue
+		}
+		if child.ShortName != shortName {
+			t.Errorf("child %q shortName = %q, want %q", child.Node, child.ShortName, shortName)
+		}
+		delete(want, child.Node)
+	}
+	if len(want) != 0 {
+		t.Errorf("missing children: %v", want)
+	}
+}
+
+// TestLeafNodeEmitsNoChildrenKey asserts the JSON itself, not just the Go
+// struct: `omitempty` must actually elide the key for a node with no modules,
+// so an older caller parsing status/v1 sees no shape change.
+func TestLeafNodeEmitsNoChildrenKey(t *testing.T) {
+	f := newFixture(t, "acme-hr/payroll")
+
+	status := f.status()
+	if len(status.Children) != 0 {
+		t.Fatalf("Children = %#v, want none for a leaf node", status.Children)
+	}
+
+	raw, err := json.Marshal(status)
+	if err != nil {
+		t.Fatalf("marshalling status: %v", err)
+	}
+	var decoded map[string]any
+	if err := json.Unmarshal(raw, &decoded); err != nil {
+		t.Fatalf("unmarshalling status: %v", err)
+	}
+	if _, ok := decoded["children"]; ok {
+		t.Errorf("leaf node's serialised status carries a %q key: %s", "children", raw)
+	}
+}
+
+// TestChildScrapedStatusNeverReachesJSON is the design decision from issue
+// #98: childStatus scrapes "**Node status:** " out of the child's markdown
+// for the rendered module table, and that scraped value must never leak into
+// the versioned status/v1 JSON contract.
+func TestChildScrapedStatusNeverReachesJSON(t *testing.T) {
+	f := newFixture(t, "acme-hr")
+
+	const scraped = "zzz-scraped-status-marker-should-never-leak"
+	modulesDir := filepath.Join(f.res.DocsRoot, "modules")
+	writeChildIndex(t, modulesDir, "payroll", "# payroll\n\n**Node status:** "+scraped+"\n")
+
+	status := f.status()
+	if len(status.Children) != 1 {
+		t.Fatalf("children = %#v, want exactly 1", status.Children)
+	}
+	if got := status.Children[0].Node; got != "acme-hr/payroll" {
+		t.Errorf("child node = %q, want %q", got, "acme-hr/payroll")
+	}
+
+	raw, err := json.Marshal(status)
+	if err != nil {
+		t.Fatalf("marshalling status: %v", err)
+	}
+	if strings.Contains(string(raw), scraped) {
+		t.Errorf("status JSON leaks the child's scraped status string: %s", raw)
+	}
+}
+
+// TestInProjectModeListsChildrenDirectlyUnderDocsRoot covers the other
+// resolution mode: in-project has no "modules/" indirection, so a child sits
+// directly under DocsRoot — see resolve.go's ModeInProject branch.
+func TestInProjectModeListsChildrenDirectlyUnderDocsRoot(t *testing.T) {
+	bank := mustLoadBank(t)
+	node, err := ParseNode("acme-hr")
+	if err != nil {
+		t.Fatalf("ParseNode: %v", err)
+	}
+	env := Environment{ProjectRoot: t.TempDir(), GlobalMode: ModeInProject}
+	res, err := Resolve(node, env)
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if err := os.MkdirAll(res.DocsRoot, 0o755); err != nil {
+		t.Fatalf("mkdir docs root: %v", err)
+	}
+	writeChildIndex(t, res.DocsRoot, "billing", "# billing\n")
+
+	status := ComputeStatus(node, env, bank)
+
+	if len(status.Children) != 1 {
+		t.Fatalf("children = %#v, want exactly 1", status.Children)
+	}
+	if got := status.Children[0].Node; got != "acme-hr/billing" {
+		t.Errorf("child node = %q, want %q", got, "acme-hr/billing")
+	}
+	if got := status.Children[0].ShortName; got != "billing" {
+		t.Errorf("child shortName = %q, want %q", got, "billing")
 	}
 }

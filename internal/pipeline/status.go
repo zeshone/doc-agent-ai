@@ -100,6 +100,28 @@ type BlockedReason struct {
 	Detail  string  `json:"detail"`
 }
 
+// StatusChild is one child node discovered directly beneath this one — a
+// subdirectory holding its own index, per discoverChildNodes. It carries
+// filesystem facts only: enough for a caller to name the child in a follow-up
+// `status --node <child>` call, and nothing more.
+//
+// It deliberately excludes the child's node status. discoverChildNodes also
+// computes one, but by opening the child's index and scanning its rendered
+// prose for the literal string "**Node status:** " — fine for drawing a
+// convenience table into that same document, but not for a versioned JSON
+// contract: putting a scraped-from-markdown value into docagent.status/v1
+// would make the contract depend on a markdown format, which is the very
+// inversion #53 removed — reintroduced through the back door and stamped as a
+// contract. A caller that wants a child's real status asks for it the honest
+// way: `status --node <child>`, which computes it from records the same way
+// this node's own status was computed.
+type StatusChild struct {
+	// Node is the child's full node identifier, e.g. "acme-hr/payroll".
+	Node string `json:"node"`
+	// ShortName is the child's own last segment.
+	ShortName string `json:"shortName"`
+}
+
 // NextAction names the single next step, or explicitly declines to.
 type NextAction struct {
 	Kind  string  `json:"kind"`
@@ -136,7 +158,12 @@ type Status struct {
 	// documents it was derived from. A stale one is worse than none: it looks
 	// current and is not.
 	SDDContext *SDDStatus `json:"sddContext,omitempty"`
-	NextAction NextAction `json:"nextAction"`
+	// Children lists the nodes discovered directly beneath this one, enough
+	// for a caller to pick one instead of guessing — see StatusChild for why
+	// their status is not here too. omitempty: a leaf node's JSON is
+	// unchanged by this field's existence.
+	Children   []StatusChild `json:"children,omitempty"`
+	NextAction NextAction    `json:"nextAction"`
 }
 
 // ComputeStatus derives a node's position from records on disk.
@@ -168,6 +195,7 @@ func ComputeStatus(node Node, env Environment, bank QuestionBank) Status {
 	status.Target.ModeResolvedBy = res.ModeResolvedBy
 	status.Target.DocsRoot = res.DocsRoot
 	status.Target.DocsRootExists = dirExists(res.DocsRoot)
+	status.Children = statusChildren(res)
 
 	adoption, _, adoptionErr := LoadAdoption(res.AdoptionPath(), bank)
 	if adoptionErr != nil {
@@ -308,6 +336,23 @@ func ComputeStatus(node Node, env Environment, bank QuestionBank) Status {
 	status.NextRecommended = firstBlockedBy
 	status.NextAction = nextAction(status, bank, decisions, node)
 	return status
+}
+
+// statusChildren exposes each child discoverChildNodes finds, as identity
+// only — see StatusChild for why its scraped status string stays out.
+func statusChildren(res Resolution) []StatusChild {
+	discovered := discoverChildNodes(res)
+	if len(discovered) == 0 {
+		return nil
+	}
+	children := make([]StatusChild, 0, len(discovered))
+	for _, child := range discovered {
+		children = append(children, StatusChild{
+			Node:      res.Node.Raw + "/" + child.name,
+			ShortName: child.name,
+		})
+	}
+	return children
 }
 
 // adoptedPhases indexes which phases carry inherited documentation.
