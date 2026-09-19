@@ -65,7 +65,7 @@ Out of scope, deliberately:
 
 ## Tasks
 
-- [ ] **T1 — The marker carries the node; `--node` becomes optional.**
+- [x] **T1 — The marker carries the node; `--node` becomes optional.**
   Add `Node string` to the `marker` struct. When `--node` is omitted, resolve it
   from `.doc-agent.json`. When neither exists, fail with a message naming the fix
   rather than guessing. Route: delegated writer (touches CLI + resolve + tests).
@@ -100,8 +100,22 @@ Out of scope, deliberately:
 
 ## Progress
 
-Not started. Branch `feat/doc-reader-origin-agnostic` cut from `main`.
+**T1 done** — commit `93f1767`. The marker gained a `node` key; `status` resolves
+it when `--node` is omitted; explicit `--node` wins; neither present fails naming
+both fixes. `readMarker` was extracted so mode and node parse the file once, and a
+malformed marker stays an error rather than collapsing into a silent "no node".
+
+Evidence, verified by the parent rather than taken from the writer's report:
+- Behavioral RED isolated by reverting only the `RunStatus` wiring while keeping
+  the new helper: 3 targeted tests failed for the right reasons, 3 pre-existing
+  explicit-`--node` tests kept passing. The writer's own RED was a compile error,
+  which proves a function is missing, not that behavior is.
+- Acceptance criterion 1 proved against the real vault: a scratch repo carrying
+  `{"mode":"vault","node":"Deze3.0"}` and no `--node` resolved `docsRoot` to
+  `/home/zesh-one/src/Obsidian/DevZeshOne/Deze3.0`, `docsRootExists: true`.
+  With the marker removed it failed with the new message naming both fixes.
+- `go test ./...` 716 passed / 8 packages; `gofmt -l .` clean; `go vet ./...` clean.
 
 ## Next step
 
-T1.
+T2 — rewrite the skill to route through the program.
