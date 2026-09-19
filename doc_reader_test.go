@@ -134,9 +134,8 @@ func TestDocReaderSkillMD_UnreachableBinaryStop(t *testing.T) {
 // TestDocReaderSkillMD_NodeScopedContext verifies the skill makes explicit
 // that compacted context is scoped per node — a system and each of its
 // modules/submodules carry independent context — and that the agent must ask
-// a human rather than guess a node it does not already know. The program
-// cannot enumerate a node's children, so a guessed node is the only
-// alternative and it silently returns the wrong documentation.
+// a human rather than guess a node it does not already know, even now that
+// `status` can list real children to choose from instead of guessing.
 func TestDocReaderSkillMD_NodeScopedContext(t *testing.T) {
 	data, err := embedded.ReadFile("skills/doc-reader/SKILL.md")
 	if err != nil {
@@ -154,6 +153,35 @@ func TestDocReaderSkillMD_NodeScopedContext(t *testing.T) {
 	for _, r := range required {
 		if !strings.Contains(content, r) {
 			t.Errorf("doc-reader SKILL.md missing node-scoping guidance: %q", r)
+		}
+	}
+}
+
+// TestDocReaderSkillMD_ChildrenAreEnumerable verifies the skill no longer
+// claims the program cannot enumerate a node's children. Issue #98 gave
+// status/v1 a `children` field precisely so that claim would stop being
+// true; a skill asserting a false capability limit is exactly the drift
+// #91 cleaned out of six other skills, and this closes the same gap here.
+// The agent must still never guess: it asks the human, now armed with the
+// real list instead of asking blind.
+func TestDocReaderSkillMD_ChildrenAreEnumerable(t *testing.T) {
+	data, err := embedded.ReadFile("skills/doc-reader/SKILL.md")
+	if err != nil {
+		t.Fatalf("cannot read skills/doc-reader/SKILL.md: %v", err)
+	}
+	content := string(data)
+
+	if strings.Contains(content, "cannot enumerate") {
+		t.Error("doc-reader SKILL.md still claims the program cannot enumerate a node's children — false since issue #98")
+	}
+
+	required := []string{
+		"children",
+		"ask the human",
+	}
+	for _, r := range required {
+		if !strings.Contains(content, r) {
+			t.Errorf("doc-reader SKILL.md missing children-enumeration guidance: %q", r)
 		}
 	}
 }

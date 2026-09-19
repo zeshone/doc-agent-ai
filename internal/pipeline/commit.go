@@ -466,6 +466,11 @@ type childNode struct {
 // A child is a subdirectory holding its own `<name>.md` index. That requirement
 // is what keeps sibling directories which are not nodes — the SDD context folder
 // and the features tree in in-project mode — out of the modules table.
+//
+// It stays here rather than moving to status.go even though ComputeStatus now
+// calls it too (see statusChildren): it is unexported and this file is where
+// discovery meets the index it originally existed to render, so moving it
+// would relocate code without changing what depends on what.
 func discoverChildNodes(res Resolution) []childNode {
 	container := res.DocsRoot
 	if res.Mode == ModeVault {

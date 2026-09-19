@@ -19,7 +19,7 @@ The compacted context is scoped per node. A system and each of its modules and s
 - **Read ONLY the paths named in `sddContext.outputs`** for the node you are working on — the business-layer file (requirements, PRD, decisions) and the technical-layer file (architecture, tech spec, DB design). These are the ONLY authoritative documentation context.
 - **Never read anything else.** The full docs tree — including `_prd.md`, `_tech-spec.md`, or any other document under `target.docsRoot` — is EXCLUDED from agent context, no matter how thin `sddContext.outputs` looks.
 - **The node selects which document you get; it is not optional context.** A project's `.doc-agent.json` marker names a default node for the repository as a whole. An explicit `--node <system>`, `--node <system>/<module>`, or `--node <system>/<module>/<submodule>` always overrides that default, and is required whenever you are working on a specific module, feature, or submodule rather than the project as a whole.
-- **Never guess a node.** The program cannot enumerate a node's children — there is no way to ask it "what modules does this system have" — so if you do not already know the node for the feature or module you are on, ask the human. A guessed node silently returns somebody else's documentation, or none, and you cannot tell which.
+- **Never guess a node.** If you do not already know the node for the feature or module you are on, run `status` on a node you do know (or with no `--node` at all, to use the marker's default) and read `children`: it lists each discovered child's full node identifier and short name. Present that real list and ask the human which one applies, instead of asking blind for a node identifier they have to recall the syntax of. An empty `children` list — a leaf node, or a system with none — still means asking the human directly. A guessed node silently returns somebody else's documentation, or none, and you cannot tell which.
 - **If you cannot run `doc-agent-ai` at all** — no shell tool available, or the binary is not on `PATH` — stop and say exactly that. Do not fall back to reading the docs tree or guessing a path: a guessed path reads somebody else's documentation, or nothing, and you cannot tell which.
 - Never invent context from a partial or stale read — if context is missing, absent, or reported stale, stop and surface the gap rather than filling it in.
 
@@ -28,7 +28,7 @@ The compacted context is scoped per node. A system and each of its modules and s
 | Situation | Action |
 |---|---|
 | You cannot run a shell command, or `doc-agent-ai` is not on `PATH` | Stop; say exactly that. Never read the docs tree or guess a path instead. |
-| You don't know which node covers the feature/module you're on | Ask the human for the node (`<system>`, `<system>/<module>`, or `<system>/<module>/<submodule>`). Never guess. |
+| You don't know which node covers the feature/module you're on | Run `status` on a node you do know (or with none) and read `children`. Any listed → present them and ask the human to pick one. None listed → ask the human for the node directly. Never guess either way. |
 | `status` refuses, needing `--node`, and you already know the node | Re-run with `--node <the node>` |
 | `status` refuses, needing `--node`, and you do NOT know the node | Stop; ask the human — do not guess and do not fall back to the docs tree |
 | `sddContext` is missing from the response (node/docsRoot unresolved) | Relay `nextAction.reason` (and `blockedReasons`) verbatim; do not guess a path |
@@ -40,7 +40,7 @@ The compacted context is scoped per node. A system and each of its modules and s
 
 ## Execution Steps
 
-1. **Decide the node.** Working on the project/repository as a whole: omit `--node` and let the marker's default resolve. Working on a specific feature, module, or submodule: pass its node explicitly, e.g. `--node <system>/<module>` — an explicit `--node` always wins over the marker's default. If you don't know which node the feature/module you're on maps to, ask the human before doing anything else — never guess.
+1. **Decide the node.** Working on the project/repository as a whole: omit `--node` and let the marker's default resolve. Working on a specific feature, module, or submodule: pass its node explicitly, e.g. `--node <system>/<module>` — an explicit `--node` always wins over the marker's default. If you don't know which node the feature/module you're on maps to, run `status` on a node you do know and read `children`: present the real list — each entry's node identifier and short name — and ask the human to pick one. If `children` is empty or absent, ask the human for the node directly. Never guess either way.
 2. **Confirm you can run the program.** If you have no shell tool, or `doc-agent-ai` is not on `PATH`, stop now and say so. Do not proceed to the steps below.
 3. **Ask for status:**
    ```
