@@ -302,7 +302,7 @@ func ComputeStatus(node Node, env Environment, bank QuestionBank) Status {
 		}
 	}
 
-	status.SDDContext = computeSDDStatus(res, bank, adoptedPhases(adoption))
+	status.SDDContext = computeSDDStatus(res, bank, adoptedPhases(adoption), adoption.SDDContext)
 	status.RepeatedVerbatims = repeatedSpans(seenVerbatim)
 	status.RepeatedPrompts = repeatedSpans(seenPrompt)
 	status.NextRecommended = firstBlockedBy

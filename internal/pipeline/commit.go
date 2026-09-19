@@ -422,13 +422,19 @@ func renderIndexRegion(res Resolution, env Environment, bank QuestionBank, statu
 		for _, output := range sdd.Outputs {
 			b.WriteString(fmt.Sprintf("| `%s` | %s |\n", filepath.Base(output), sdd.State))
 		}
-		if sdd.State == SDDStale {
+		switch sdd.State {
+		case SDDStale:
 			b.WriteString(fmt.Sprintf(
 				"\n> The compacted agent context no longer matches its sources (%s changed). "+
 					"Re-run `/doc-to-sdd` before an agent relies on it.\n",
 				strings.Join(sdd.Drifted, ", ")))
+		case SDDAdopted:
+			b.WriteString(
+				"\n> This compacted context predates the manifest that would record its provenance. " +
+					"It is present and usable, and its coverage is **unverified**. " +
+					"Run `/doc-to-sdd` to give it real provenance.\n")
 		}
-		if !sdd.CoverageVerified {
+		if sdd.State != SDDAdopted && !sdd.CoverageVerified {
 			b.WriteString("\n> The compacted context draws on adopted documentation, " +
 				"so its coverage is **unverified**.\n")
 		}

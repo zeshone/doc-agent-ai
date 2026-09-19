@@ -319,6 +319,133 @@ func TestSDDCommitRefusesWhenThereIsNothingToCompact(t *testing.T) {
 	}
 }
 
+func TestSDDLegacyOutputNameOnlyAppliesWhenOutputsArePrefixed(t *testing.T) {
+	// Vault mode prefixes the current convention with the node short name
+	// (SDDOutputName), so the bare, unprefixed name a pre-v5 skill wrote is
+	// legacy there.
+	f := newFixture(t, "acme-hr")
+	wantLegacy := map[string]string{LayerBusiness: "_sdd-context.md", LayerTechnical: "_sdd-tech-context.md"}
+	for _, layer := range []string{LayerBusiness, LayerTechnical} {
+		got, ok := f.res.SDDLegacyOutputName(layer)
+		if !ok {
+			t.Fatalf("layer %q: legacy name not recognised in vault mode", layer)
+		}
+		if got != wantLegacy[layer] {
+			t.Errorf("layer %q: legacy name = %q, want %q", layer, got, wantLegacy[layer])
+		}
+	}
+
+	// In-project mode: ArtifactPrefix is already empty, so the bare name IS the
+	// current convention. Recognising it as legacy there would flag today's own
+	// output as pre-v5.
+	node, err := ParseNode("acme-hr")
+	if err != nil {
+		t.Fatalf("ParseNode: %v", err)
+	}
+	res, err := Resolve(node, Environment{ProjectRoot: t.TempDir(), GlobalMode: ModeInProject})
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	for _, layer := range []string{LayerBusiness, LayerTechnical} {
+		if _, ok := res.SDDLegacyOutputName(layer); ok {
+			t.Errorf("layer %q: the bare name was treated as legacy in in-project mode", layer)
+		}
+		if res.SDDOutputName(layer) != wantLegacy[layer] {
+			t.Errorf("layer %q: current in-project name = %q, want the bare form %q",
+				layer, res.SDDOutputName(layer), wantLegacy[layer])
+		}
+	}
+}
+
+func TestStraySDDContextFilesWithNoAdoptionRecordStayAbsent(t *testing.T) {
+	// Adoption is a recorded act, not an inference from files that happen to sit
+	// on disk. A doctor run never happened here, so there is no adoption record.
+	node, env, res, bank := legacyVault(t, "deze", realWorldIndex)
+	if err := os.MkdirAll(res.SDDContextDir(), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(res.SDDContextDir(), "_sdd-context.md"),
+		[]byte("# pre-v5 compacted context\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	status := ComputeStatus(node, env, bank)
+	if status.SDDContext == nil || status.SDDContext.State != SDDAbsent {
+		t.Errorf("state = %+v, want %q — a stray file with no adoption record is not adopted",
+			status.SDDContext, SDDAbsent)
+	}
+}
+
+func TestARealManifestStillWinsOverALingeringAdoptionRecord(t *testing.T) {
+	node, env, res, bank := legacyVault(t, "deze", realWorldIndex)
+	if err := os.MkdirAll(res.SDDContextDir(), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(res.SDDContextDir(), "_sdd-context.md"),
+		[]byte("# pre-v5 compacted context\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if r := Doctor(node, env, bank, DoctorOptions{Apply: true, Now: sddNow}); r.HasBlockers() {
+		t.Fatalf("doctor blocked: %v", r.Blocked)
+	}
+	if status := ComputeStatus(node, env, bank); status.SDDContext == nil || status.SDDContext.State != SDDAdopted {
+		t.Fatalf("precondition failed: state = %+v, want %q", status.SDDContext, SDDAdopted)
+	}
+
+	manifest := SDDManifest{
+		SchemaName:       SDDManifestSchema,
+		Node:             node.Raw,
+		GeneratedAt:      sddNow,
+		Outputs:          []string{filepath.Join(res.SDDContextDir(), res.SDDOutputName(LayerBusiness))},
+		CoverageVerified: true,
+	}
+	if err := writeJSONAtomic(res.SDDManifestPath(), manifest); err != nil {
+		t.Fatalf("writing manifest: %v", err)
+	}
+
+	status := ComputeStatus(node, env, bank)
+	if status.SDDContext.State != SDDFresh {
+		t.Errorf("state = %q, want %q — a real manifest must win over a lingering adoption record",
+			status.SDDContext.State, SDDFresh)
+	}
+}
+
+func TestIndexRendersAnAdoptedCompactedContext(t *testing.T) {
+	node, env, res, bank := legacyVault(t, "deze", realWorldIndex, PhaseIdea, PhaseRec, PhasePRD)
+	if err := os.MkdirAll(res.SDDContextDir(), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(res.SDDContextDir(), "_sdd-context.md"),
+		[]byte("# pre-v5 compacted context\n"), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	if r := Doctor(node, env, bank, DoctorOptions{Apply: true, Now: sddNow}); r.HasBlockers() {
+		t.Fatalf("doctor blocked: %v", r.Blocked)
+	}
+
+	raw, err := os.ReadFile(res.IndexPath)
+	if err != nil {
+		t.Fatalf("reading index: %v", err)
+	}
+	text := string(raw)
+	if !strings.Contains(text, "| Agent context | State |") {
+		t.Fatal("the index does not render the agent-context table for an adopted compacted context")
+	}
+	if !strings.Contains(text, "_sdd-context.md") {
+		t.Error("the index does not name the adopted output")
+	}
+	if !strings.Contains(text, SDDAdopted) {
+		t.Error("the index does not report the adopted state")
+	}
+	if !strings.Contains(text, "predates the manifest") {
+		t.Error("the index does not say the adopted context predates the manifest")
+	}
+	if !strings.Contains(text, "/doc-to-sdd") {
+		t.Error("the index does not point to /doc-to-sdd for real provenance")
+	}
+}
+
 func TestLegacyArtifactNamesAreReadAsSources(t *testing.T) {
 	// An inherited vault holds <node>_idea.md while the current convention writes
 	// <node>_idea-brief.md. Reading past it drops the idea context from an adopted

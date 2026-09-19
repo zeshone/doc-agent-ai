@@ -22,6 +22,8 @@ const (
 	FindingArchetype = "archetype"
 	// FindingAlreadyManaged marks a phase the pipeline already counts.
 	FindingAlreadyManaged = "already-managed"
+	// FindingAdoptSDDContext marks a compacted context found with no manifest.
+	FindingAdoptSDDContext = "adopt-sdd-context"
 )
 
 // DoctorFinding is one thing doctor found, and would do or did.
@@ -131,6 +133,7 @@ func inspectNode(node Node, env Environment, bank QuestionBank, opts DoctorOptio
 		AdoptedAt:  opts.Now,
 		Archetype:  existing.Archetype,
 		Phases:     map[PhaseID]AdoptedPhase{},
+		SDDContext: existing.SDDContext,
 	}
 	for phase, adopted := range existing.Phases {
 		adoption.Phases[phase] = adopted
@@ -175,6 +178,26 @@ func inspectNode(node Node, env Environment, bank QuestionBank, opts DoctorOptio
 		})
 	}
 
+	// --- sdd context ---
+	//
+	// A manifest, when it parses, is already a real record — leave it alone
+	// either way, fresh or stale, computeSDDStatus already handles both. Only
+	// its true absence (no error, nothing found) makes a compacted context on
+	// disk adoptable, and only reading past it: the files are never touched.
+	if _, hasManifest, manifestErr := LoadSDDManifest(res.SDDManifestPath()); manifestErr == nil && !hasManifest {
+		if outputs := discoverSDDContextOutputs(res); len(outputs) > 0 {
+			adoption.SDDContext = &AdoptedSDDContext{
+				Outputs:  outputs,
+				Evidence: "compacted context present with no manifest; coverage unverified",
+			}
+			report.Findings = append(report.Findings, DoctorFinding{
+				Kind: FindingAdoptSDDContext, Node: node.Raw,
+				Detail: fmt.Sprintf("%s present with no manifest: adopt as unverified",
+					strings.Join(outputs, ", ")),
+			})
+		}
+	}
+
 	// --- archetype (system nodes only; deeper nodes inherit it) ---
 	if node.Type == NodeSystem {
 		value, source := resolveArchetype(res, bank, opts, adoption)
@@ -215,7 +238,7 @@ func inspectNode(node Node, env Environment, bank QuestionBank, opts DoctorOptio
 		return
 	}
 
-	if len(adoption.Phases) > 0 || adoption.Archetype != "" {
+	if len(adoption.Phases) > 0 || adoption.Archetype != "" || adoption.SDDContext != nil {
 		if err := writeJSONAtomic(res.AdoptionPath(), adoption); err != nil {
 			report.Blocked = append(report.Blocked, fmt.Sprintf("%s: %v", node.Raw, err))
 			return

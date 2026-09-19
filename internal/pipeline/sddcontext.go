@@ -34,6 +34,12 @@ const (
 	SDDStale = "stale"
 	// SDDAbsent means no compaction has been recorded.
 	SDDAbsent = "absent"
+	// SDDAdopted means a compacted context exists on disk, current or legacy
+	// named, but no manifest was ever written for it. It is the SDD-context
+	// counterpart of an adopted phase: present and usable, coverage explicitly
+	// unverified rather than fresh, because there is no recorded fingerprint of
+	// what fed it or when.
+	SDDAdopted = "adopted"
 )
 
 // sddSourcePhases names the artifacts each layer compacts, in reading order.
@@ -235,6 +241,64 @@ func (r Resolution) SDDOutputName(layer string) string {
 		suffix = "_sdd-tech-context.md"
 	}
 	return r.ArtifactPrefix + suffix
+}
+
+// sddLegacyOutputSuffix is the bare filename the pre-v5 doc-to-sdd skill wrote,
+// with no node prefix at all.
+//
+// Phase artifacts declare their legacy names as data in questionbank.yaml
+// (LegacyArtifacts) because each phase's legacy name is genuinely different.
+// The SDD outputs have exactly one fixed legacy convention shared by both
+// layers — the same bare suffix SDDOutputName already builds on — so it lives
+// beside that method as a documented Go constant rather than as bank data
+// with no per-phase variation to justify externalising it.
+func sddLegacyOutputSuffix(layer string) string {
+	if layer == LayerTechnical {
+		return "_sdd-tech-context.md"
+	}
+	return "_sdd-context.md"
+}
+
+// SDDLegacyOutputName resolves the pre-v5 bare filename for a layer, when one
+// exists for this resolution's mode.
+//
+// It is legacy only when the current convention prefixes its outputs: in
+// vault mode SDDOutputName prepends the node short name, so the unprefixed
+// name a pre-v5 skill wrote is recognisably older. In in-project mode
+// ArtifactPrefix is already empty, so the bare name IS the current
+// convention — recognising it as legacy there would flag today's own output
+// as pre-v5, which is why the second return value is false there.
+//
+// Recognition never feeds a write path: SDDOutputName remains the only name
+// this program ever produces, exactly as questionbank.go's ArtifactName /
+// LegacyArtifactNames split keeps writes on the current name only.
+func (r Resolution) SDDLegacyOutputName(layer string) (string, bool) {
+	if r.ArtifactPrefix == "" {
+		return "", false
+	}
+	return sddLegacyOutputSuffix(layer), true
+}
+
+// discoverSDDContextOutputs finds compacted-context filenames present on
+// disk, current or legacy, without touching the manifest or the files
+// themselves. It is read-only recognition, the same posture as
+// adoptableArtifact for phases: it never renames, moves, or creates anything
+// under SDDContextDir.
+func discoverSDDContextOutputs(res Resolution) []string {
+	var out []string
+	for _, layer := range []string{LayerBusiness, LayerTechnical} {
+		name := res.SDDOutputName(layer)
+		if fileExists(filepath.Join(res.SDDContextDir(), name)) {
+			out = append(out, name)
+			continue
+		}
+		if legacy, ok := res.SDDLegacyOutputName(layer); ok {
+			if fileExists(filepath.Join(res.SDDContextDir(), legacy)) {
+				out = append(out, legacy)
+			}
+		}
+	}
+	return out
 }
 
 // fileRevision fingerprints a file, returning "" when it does not exist.
@@ -549,13 +613,26 @@ type SDDStatus struct {
 }
 
 // computeSDDStatus compares the recorded manifest against the sources today.
-func computeSDDStatus(res Resolution, bank QuestionBank, adopted map[PhaseID]bool) *SDDStatus {
+//
+// sddAdoption is the recorded adoption of a pre-v5 compacted context, if any.
+// A manifest, when present, always wins: it is the program's own record of a
+// real compaction, while adoption only recognises files doctor found sitting
+// on disk. Adoption is a recorded act, not an inference — a node with stray
+// context files and no adoption record still reports absent.
+func computeSDDStatus(res Resolution, bank QuestionBank, adopted map[PhaseID]bool, sddAdoption *AdoptedSDDContext) *SDDStatus {
 	manifest, found, err := LoadSDDManifest(res.SDDManifestPath())
 	if err != nil {
 		return &SDDStatus{State: SDDStale, Drifted: []string{err.Error()}}
 	}
 	if !found {
-		return &SDDStatus{State: SDDAbsent}
+		if sddAdoption == nil {
+			return &SDDStatus{State: SDDAbsent}
+		}
+		outputs := make([]string, 0, len(sddAdoption.Outputs))
+		for _, name := range sddAdoption.Outputs {
+			outputs = append(outputs, filepath.Join(res.SDDContextDir(), name))
+		}
+		return &SDDStatus{State: SDDAdopted, CoverageVerified: false, Outputs: outputs}
 	}
 
 	recorded := map[string]SDDSource{}
