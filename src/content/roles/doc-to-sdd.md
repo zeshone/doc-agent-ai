@@ -87,7 +87,9 @@ Never resolve an open question while compacting. If a source says a decision is 
 doc-agent-ai sdd-commit --node <system[/module]> --input <input.json>
 ```
 
-Exit `0` means written: both layers, plus a manifest recording which artifacts were read and their fingerprints. Exit `2` means refused and nothing was written — read `checks`, fix exactly what it names, and submit again.
+Exit `0` means written: both layers, plus a manifest recording which artifacts were read and their fingerprints. Exit `2` means refused and nothing was written — read `checks`, fix exactly what it names, and submit again. Exit `1` means the invocation or the environment is wrong — report it; do not retry blindly.
+
+**If you cannot run the command at all** — no shell tool, or the binary is not on `PATH` — stop and say exactly that. Do not fall back to writing the two context files by hand. A hand-written file has no manifest, no source fingerprints, and no freshness record: nothing downstream can tell it apart from a real one or know it has gone stale, so a document written this way reports incomplete forever and nothing anywhere explains why. A blocked run that names the reason costs the operator one minute; a silent fallback costs them the trail.
 
 **Do not touch the project index.** The program records the compacted context in its managed region, including whether it has since gone stale against its sources.
 
