@@ -241,6 +241,66 @@ func TestResolveFailsRatherThanGuess(t *testing.T) {
 	})
 }
 
+func TestNodeFromMarker(t *testing.T) {
+	t.Run("node recorded in the marker is returned", func(t *testing.T) {
+		projectRoot := t.TempDir()
+		markerPath := filepath.Join(projectRoot, markerFileName)
+		if err := os.WriteFile(markerPath, []byte(`{"mode":"vault","node":"acme-hr/payroll"}`), 0o644); err != nil {
+			t.Fatalf("writing marker: %v", err)
+		}
+
+		node, found, err := nodeFromMarker(projectRoot)
+		if err != nil {
+			t.Fatalf("nodeFromMarker: %v", err)
+		}
+		if !found {
+			t.Fatal("found = false, want true")
+		}
+		if node != "acme-hr/payroll" {
+			t.Errorf("node = %q, want %q", node, "acme-hr/payroll")
+		}
+	})
+
+	t.Run("no marker file reports not found", func(t *testing.T) {
+		node, found, err := nodeFromMarker(t.TempDir())
+		if err != nil {
+			t.Fatalf("nodeFromMarker: %v", err)
+		}
+		if found {
+			t.Errorf("found = true with node %q, want false", node)
+		}
+	})
+
+	t.Run("marker without a node key reports not found", func(t *testing.T) {
+		// Other keys are ignored so the file stays additive.
+		projectRoot := t.TempDir()
+		markerPath := filepath.Join(projectRoot, markerFileName)
+		if err := os.WriteFile(markerPath, []byte(`{"mode":"in-project"}`), 0o644); err != nil {
+			t.Fatalf("writing marker: %v", err)
+		}
+
+		node, found, err := nodeFromMarker(projectRoot)
+		if err != nil {
+			t.Fatalf("nodeFromMarker: %v", err)
+		}
+		if found {
+			t.Errorf("found = true with node %q, want false", node)
+		}
+	})
+
+	t.Run("malformed marker is an error, never a silent not-found", func(t *testing.T) {
+		projectRoot := t.TempDir()
+		markerPath := filepath.Join(projectRoot, markerFileName)
+		if err := os.WriteFile(markerPath, []byte(`{ not json`), 0o644); err != nil {
+			t.Fatalf("writing marker: %v", err)
+		}
+
+		if _, found, err := nodeFromMarker(projectRoot); err == nil {
+			t.Fatalf("nodeFromMarker succeeded (found=%v) with a corrupt marker, want error", found)
+		}
+	})
+}
+
 func TestStateDirLivesBesideTheArtifacts(t *testing.T) {
 	node, err := ParseNode("acme-hr/payroll")
 	if err != nil {
